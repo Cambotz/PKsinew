@@ -1,0 +1,14 @@
+ACKNOWLEDGMENTS
+
+This project was developed with the assistance of AI-based tools.
+
+ChatGPT (by OpenAI) and Claude (by Anthropic) were used during development
+as programming assistants to help with idea exploration, example code,
+debugging, and implementation discussion.
+
+These tools did not author this software and claim no ownership or rights.
+All code integration, architectural decisions, and responsibility for the
+final software rest solely with the project author.
+
+This acknowledgment is informational only and does not affect the licensing
+terms of this project or any third-party dependencies used herein.

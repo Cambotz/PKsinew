@@ -1,0 +1,59 @@
+{
+  "sections": [
+    {
+      "title": "Code",
+      "entries": [
+        {
+          "name": "Sinew Code",
+          "lines": [
+            "Original Sinew code (UI, achievements, rewards, emulator integration)",
+            "is licensed under the MIT License.",
+            "See PKSinew-License.txt for the full license text."
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Fan-made Assets",
+      "entries": [
+        {
+          "name": "Gym Badges, Eye icon, Trophy icon",
+          "lines": [
+            "Included fan-made assets are non-commercial.",
+            "Attribution is required (see ATTRIBUTIONS.txt).",
+            "Do not redistribute these assets separately or commercially."
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Pokémon Intellectual Property",
+      "entries": [
+        {
+          "name": "Pokémon IP",
+          "lines": [
+            "Pokémon names, sprites, and related assets are owned by Nintendo, GAME FREAK, and The Pokémon Company.",
+            "Sinew is a fan-made, non-commercial project.",
+            "No official Pokémon assets are included for commercial use."
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Dependencies",
+      "entries": [
+        {
+          "name": "Third-Party Software",
+          "lines": [
+            "mGBA — MPL 2.0",
+            "Pygame — LGPL 2.1",
+            "PokéAPI — MIT",
+            "Python — PSF License (if bundled)",
+            "",
+            "Full license texts are included in the `licenses/` folder."
+          ]
+        }
+      ]
+    }
+  ]
+}

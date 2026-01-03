@@ -1,0 +1,88 @@
+ATTRIBUTIONS & CREDITS
+======================
+
+This project makes use of the following software, APIs, and fan-made assets.
+All third-party components are included with proper attribution and respect
+their respective licenses and usage requirements.
+
+
+SOFTWARE
+--------
+
+mGBA
+Game Boy Advance emulator
+Copyright © mGBA developers
+Licensed under the Mozilla Public License 2.0 (MPL 2.0)
+
+mGBA is used to run Game Boy Advance titles within this project.
+
+
+Pygame
+Python game development library
+Copyright © Pygame contributors
+Licensed under the GNU Lesser General Public License (LGPL)
+
+Pygame is used for rendering, input handling, and user interface functionality.
+
+
+Python 
+Copyright © Python Software Foundation
+Licensed under the Python Software Foundation License (PSF License)
+
+Python is used as the primary runtime for this project.
+
+
+APIs
+----
+
+PokéAPI
+Pokémon data provided via PokéAPI
+https://pokeapi.co
+Licensed under the MIT License
+
+PokéAPI is used for structured Pokémon-related data.
+
+
+ARTWORK & ICONS
+---------------
+
+Eye Icon
+Source: freeiconspng.com
+"Eye Icon PNG"
+https://www.freeiconspng.com/img/1462
+
+Used as a user interface icon.
+
+
+Hoenn Gym Badges — Ultimate Pack
+Fan-made artwork by RamiroMaldini
+
+Original artwork:
+Ultimate Pokémon Badges Pack HD
+https://www.deviantart.com/ramiromaldini/art/Ultimate-Pokemon-Badges-Pack-HD-336140451
+
+These assets are fan-made and are not official Nintendo / Game Freak artwork.
+They are included with attribution.
+
+
+Kanto Gym Badge Icons
+Fan-made artwork by Falke2009
+
+Original artwork:
+https://www.deviantart.com/falke2009/art/Kanto-Gym-Badge-Icons-483144261
+
+Used with proper credit per the artist’s request.
+Please do not redistribute without crediting the artist.
+
+
+LEGAL NOTICE
+------------
+
+Pokémon and related names are trademarks of Nintendo, GAME FREAK,
+and The Pokémon Company.
+
+This project is a fan-made, non-commercial work and is not affiliated with
+or endorsed by Nintendo, GAME FREAK, or The Pokémon Company.
+
+Full license texts for applicable software are provided in the project files
+where required.

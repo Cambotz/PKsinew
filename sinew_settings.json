@@ -1,0 +1,67 @@
+{
+    "theme": "Lavender Dream",
+    "pause_combo": {
+        "type": "combo",
+        "buttons": [
+            "START",
+            "SELECT"
+        ],
+        "name": "START + SELECT"
+    },
+    "controller_mapping": {
+        "A": [
+            1
+        ],
+        "B": [
+            2
+        ],
+        "L": [
+            4
+        ],
+        "R": [
+            5
+        ],
+        "SELECT": [
+            8
+        ],
+        "START": [
+            9
+        ],
+        "DPAD_UP": [
+            "hat_up",
+            "axis_y_neg"
+        ],
+        "DPAD_DOWN": [
+            "hat_down",
+            "axis_y_pos"
+        ],
+        "DPAD_LEFT": [
+            "hat_left",
+            "axis_x_neg"
+        ],
+        "DPAD_RIGHT": [
+            "hat_right",
+            "axis_x_pos"
+        ]
+    },
+    "fullscreen": true,
+    "mute_menu_music": false,
+    "unlocked_themes": [
+        "Mewtwo.json",
+        "Mew.json",
+        "Prototype Debug.json",
+        "GB classic.json",
+        "Glitchcore.json",
+        "Pikachu.json",
+        "Brock.json",
+        "Midnight Terminal.json",
+        "Retro CRT.json",
+        "Team Rocket.json",
+        "Ash Ketchum.json",
+        "Safari Zone.json",
+        "Gengar.json",
+        "Champion Gold.json"
+    ],
+    "swap_ab": false,
+    "dev_mode": true
+}

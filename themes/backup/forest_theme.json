@@ -1,0 +1,16 @@
+{
+    "COLOR_BG": [15, 30, 20],
+    "COLOR_HEADER": [25, 50, 35],
+    "COLOR_BUTTON": [35, 65, 45],
+    "COLOR_BUTTON_HOVER": [60, 100, 70],
+    "COLOR_TEXT": [180, 230, 190],
+    "COLOR_HOVER_TEXT": [255, 255, 255],
+    "COLOR_BORDER": [100, 180, 120],
+    "COLOR_HIGHLIGHT": [120, 255, 150],
+    "COLOR_SUCCESS": [100, 255, 150],
+    "COLOR_ERROR": [255, 120, 100],
+    "HP_COLOR_GOOD": [80, 220, 80],
+    "HP_COLOR_WARN": [220, 200, 80],
+    "HP_COLOR_BAD": [220, 80, 80],
+    "FONT_PATH": "fonts/Pokemon_GB.ttf"
+}

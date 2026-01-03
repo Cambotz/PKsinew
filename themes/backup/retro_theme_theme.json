@@ -1,0 +1,47 @@
+{
+    "COLOR_BG": [
+        0,
+        0,
+        0
+    ],
+    "COLOR_BUTTON": [
+        85,
+        85,
+        85
+    ],
+    "COLOR_BUTTON_HOVER": [
+        170,
+        170,
+        170
+    ],
+    "COLOR_TEXT": [
+        255,
+        255,
+        0
+    ],
+    "COLOR_HOVER_TEXT": [
+        255,
+        255,
+        255
+    ],
+    "COLOR_HEADER": [
+        51,
+        51,
+        51
+    ],
+    "COLOR_BORDER": [
+        255,
+        255,
+        0
+    ],
+    "COLOR_SUCCESS": [
+        0,
+        255,
+        0
+    ],
+    "COLOR_ERROR": [
+        255,
+        0,
+        0
+    ]
+}

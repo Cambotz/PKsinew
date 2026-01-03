@@ -1,0 +1,8 @@
+{
+  "app_name": "Sinew",
+  "description": "A tool for managing and interacting with game save data across supported systems.",
+  "version": "0.9.3",
+  "author": "Cameron Penna",
+  "source_url": "https://github.com/yourname/sinew",
+  "disclaimer": "Sinew is an independent project and is not affiliated with, endorsed by, or sponsored by Nintendo, Game Freak, The Pokémon Company, or any other rights holders. All trademarks and registered trademarks are the property of their respective owners."
+}

@@ -1,0 +1,12 @@
+{
+  "acknowledgments": [
+    {
+      "title": "AI Assistance",
+      "text": "This software was developed with assistance from AI tools, including ChatGPT (OpenAI) and Claude (Anthropic), used as programming assistants during development.\n\nAll authorship and responsibility remain with the project author."
+    },
+    {
+      "title": "Community",
+      "text": "Thanks to the open-source community for libraries, documentation, and shared knowledge."
+    }
+  ]
+}

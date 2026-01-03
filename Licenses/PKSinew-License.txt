@@ -1,0 +1,80 @@
+SINEW LICENSE & ATTRIBUTIONS
+============================
+
+This document outlines the licensing for Sinew, its code, assets, and dependencies.
+
+1. CODE
+-------
+All original code written for Sinew, including:
+- Achievement system
+- UI and menus
+- Emulator integration
+- Rewards system
+- Any other code authored by Cameron Penna
+
+is licensed under the **MIT License**.
+
+See LICENSE-CODE.txt for the full MIT license text.
+
+You may:
+- Use, copy, modify, merge, publish, and distribute the code
+- Use it for personal, educational, or non-commercial purposes
+
+You must:
+- Include the copyright notice and MIT license text in any copies or derivatives
+
+---
+
+2. FAN-MADE ASSETS
+------------------
+Fan-made assets included in this project, such as:
+- Hoenn Gym Badges (RamiroMaldini)
+- Kanto Gym Badges (Falke2009)
+- Eye icon (freeiconspng.com)
+- Trophy icon (pngtree.com)
+
+These assets are **non-commercial**. You may:
+- Use them personally or educationally
+- Reference them in Sinew or derivative projects
+
+You must:
+- Retain all attributions as listed in ATTRIBUTIONS.txt
+- Not redistribute the assets separately or commercially without explicit permission from the original creator
+
+---
+
+3. POKÉMON INTELLECTUAL PROPERTY
+--------------------------------
+All Pokémon characters, names, sprites, and related assets are **owned by Nintendo, GAME FREAK, and The Pokémon Company**.
+
+Sinew is a **fan-made, non-commercial project** and is not affiliated with or endorsed by Nintendo, GAME FREAK, or The Pokémon Company.
+
+You may **not**:
+- Redistribute Pokémon ROMs
+- Use official Pokémon assets for commercial purposes
+- Claim ownership of any official Pokémon intellectual property
+
+---
+
+4. THIRD-PARTY DEPENDENCIES
+---------------------------
+Sinew uses third-party software and APIs. Full license texts are included in the `licenses/` folder:
+
+- **mGBA** — MPL 2.0  
+- **Pygame** — LGPL 2.1  
+- **PokéAPI** — MIT  
+- **Python** — PSF License (only if bundled)  
+
+Please see `licenses/` for the complete license files.
+
+---
+
+5. SUMMARY
+----------
+- Code → MIT  
+- Fan assets → Non-commercial + attribution required  
+- Pokémon IP → All rights reserved  
+- Dependencies → Refer to licenses folder
+
+Using Sinew implies acceptance of these terms.
+

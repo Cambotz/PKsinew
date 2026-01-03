@@ -1,0 +1,53 @@
+########################################
+# SINEW – Git Ignore
+########################################
+# Override parent ignore
+!*
+# --- ROMs (never commit) ---
+roms/
+roms/**
+
+# --- Runtime / generated data ---
+cache/
+temp/
+tmp/
+logs/
+saves/
+
+generated/
+backups/
+lib/
+data/sprites/gen3
+data/sprites/gen8
+data/sprites/items/master-ball.png
+data/sprites/items/poke-ball.png
+data/achievements/rewards/backup
+data/achievements_progress.json
+data/pokemon_db.json
+exports/
+include/
+scripts/
+sinew_settings.json/
+
+# --- Build / packaged output ---
+build/
+dist/
+out/
+
+# --- Python ---
+__pycache__/
+*.pyc
+*.pyo
+
+# --- Node / tooling (if used) ---
+node_modules/
+
+# --- OS junk ---
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- Editors ---
+.vscode/
+.idea/
+*.swp
