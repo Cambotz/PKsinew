@@ -28,7 +28,8 @@ exports/
 include/
 scripts/
 sinew_settings.json/
-
+sinew/sinew_storage.json
+sinew/sinew_storage_backup.json
 # --- Build / packaged output ---
 build/
 dist/
