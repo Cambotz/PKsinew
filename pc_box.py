@@ -12,6 +12,13 @@ import os
 from save_data_manager import get_manager
 from gif_sprite_handler import get_sprite_cache
 
+# Import config for paths
+try:
+    import config
+    CONFIG_AVAILABLE = True
+except ImportError:
+    CONFIG_AVAILABLE = False
+
 # Try to import achievements
 try:
     from achievements import get_achievement_manager, get_achievement_notification
@@ -4382,11 +4389,17 @@ class PCBox:
                     species_str = str(species_id).zfill(3)
                     
                     sprite = None
-                    sprite_paths = [
-                        f"data/sprites/gen3/normal/{species_str}.png",
-                        f"data/sprites/gen3/{species_str}.png",
-                        f"sprites/gen3/normal/{species_str}.png",
-                    ]
+                    # Build sprite paths - use config if available
+                    if CONFIG_AVAILABLE and hasattr(config, 'get_sprite_path'):
+                        sprite_paths = [config.get_sprite_path(species_id, sprite_type="gen3")]
+                    elif CONFIG_AVAILABLE and hasattr(config, 'GEN3_NORMAL_DIR'):
+                        sprite_paths = [os.path.join(config.GEN3_NORMAL_DIR, f"{species_str}.png")]
+                    else:
+                        sprite_paths = [
+                            f"data/sprites/gen3/normal/{species_str}.png",
+                            f"data/sprites/gen3/{species_str}.png",
+                            f"sprites/gen3/normal/{species_str}.png",
+                        ]
                     
                     for sprite_path in sprite_paths:
                         if os.path.exists(sprite_path):
@@ -4517,7 +4530,8 @@ class PCBox:
         pygame.draw.rect(warning_surf, (er, eg, eb, alpha), (0, 0, warning_width, warning_height), 3)
         
         try:
-            font = pygame.font.Font("fonts/Pokemon_GB.ttf", 12)
+            font_path = config.FONT_PATH if CONFIG_AVAILABLE else "fonts/Pokemon_GB.ttf"
+            font = pygame.font.Font(font_path, 12)
             
             # Draw warning text
             for i, line in enumerate(lines):

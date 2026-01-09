@@ -7,6 +7,13 @@ import pygame
 import os
 import json
 
+# Import config for paths
+try:
+    import config
+    CONFIG_AVAILABLE = True
+except ImportError:
+    CONFIG_AVAILABLE = False
+
 try:
     import ui_colors
 except ImportError:
@@ -173,7 +180,14 @@ def _load_base_stats():
     if _base_stats_cache:
         return
     
-    db_path = "data/pokemon_db.json"
+    # Use config for path if available
+    if CONFIG_AVAILABLE and hasattr(config, 'POKEMON_DB_PATH'):
+        db_path = config.POKEMON_DB_PATH
+    elif CONFIG_AVAILABLE and hasattr(config, 'BASE_DIR'):
+        db_path = os.path.join(config.BASE_DIR, "data", "pokemon_db.json")
+    else:
+        db_path = "data/pokemon_db.json"
+    
     if os.path.exists(db_path):
         try:
             with open(db_path, 'r', encoding='utf-8') as f:
@@ -390,7 +404,11 @@ class PokemonSummary:
             self.title_font = ui_colors.get_font(self.title_font_size)
         else:
             try:
-                font_path = getattr(ui_colors, 'FONT_PATH', 'fonts/Pokemon_GB.ttf')
+                # Use config path if available, otherwise fall back to ui_colors or relative path
+                if CONFIG_AVAILABLE and hasattr(config, 'FONT_PATH'):
+                    font_path = config.FONT_PATH
+                else:
+                    font_path = getattr(ui_colors, 'FONT_PATH', 'fonts/Pokemon_GB.ttf')
                 self.small_font = pygame.font.Font(font_path, self.small_font_size)
                 self.title_font = pygame.font.Font(font_path, self.title_font_size)
             except:
@@ -423,14 +441,23 @@ class PokemonSummary:
         
         if species and species > 0:
             # Try common sprite paths with both padded and unpadded filenames
-            sprite_paths = [
-                f"data/sprites/gen3/normal/{species:03d}.png",
-                f"data/sprites/gen3/normal/{species}.png",
-                f"data/sprites/gen3/{species:03d}.png",
-                f"data/sprites/gen3/{species}.png",
-                f"data/sprites/pokemon/{species:03d}.png",
-                f"data/sprites/pokemon/{species}.png",
-            ]
+            # Use config if available
+            if CONFIG_AVAILABLE and hasattr(config, 'get_sprite_path'):
+                sprite_paths = [config.get_sprite_path(species, sprite_type="gen3")]
+            elif CONFIG_AVAILABLE and hasattr(config, 'GEN3_NORMAL_DIR'):
+                sprite_paths = [
+                    os.path.join(config.GEN3_NORMAL_DIR, f"{species:03d}.png"),
+                    os.path.join(config.GEN3_NORMAL_DIR, f"{species}.png"),
+                ]
+            else:
+                sprite_paths = [
+                    f"data/sprites/gen3/normal/{species:03d}.png",
+                    f"data/sprites/gen3/normal/{species}.png",
+                    f"data/sprites/gen3/{species:03d}.png",
+                    f"data/sprites/gen3/{species}.png",
+                    f"data/sprites/pokemon/{species:03d}.png",
+                    f"data/sprites/pokemon/{species}.png",
+                ]
             for path in sprite_paths:
                 if os.path.exists(path):
                     try:
@@ -455,11 +482,17 @@ class PokemonSummary:
         if raw:
             species = raw.get('species', 0)
             if species and species > 0:
-                sprite_paths = [
-                    f"data/sprites/gen3/normal/{species:03d}.png",
-                    f"data/sprites/gen3/normal/{species}.png",
-                    f"data/sprites/gen3/{species}.png",
-                ]
+                # Use config if available
+                if CONFIG_AVAILABLE and hasattr(config, 'get_sprite_path'):
+                    sprite_paths = [config.get_sprite_path(species, sprite_type="gen3")]
+                elif CONFIG_AVAILABLE and hasattr(config, 'GEN3_NORMAL_DIR'):
+                    sprite_paths = [os.path.join(config.GEN3_NORMAL_DIR, f"{species:03d}.png")]
+                else:
+                    sprite_paths = [
+                        f"data/sprites/gen3/normal/{species:03d}.png",
+                        f"data/sprites/gen3/normal/{species}.png",
+                        f"data/sprites/gen3/{species}.png",
+                    ]
                 for path in sprite_paths:
                     if os.path.exists(path):
                         try:

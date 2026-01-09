@@ -78,7 +78,7 @@ except ImportError:
     print("Warning: mgba_emulator not available, will use external mGBA")
 
 
-SETTINGS_FILE = "sinew_settings.json"
+SETTINGS_FILE = config.SETTINGS_FILE if hasattr(config, 'SETTINGS_FILE') else os.path.join(config.BASE_DIR, "sinew_settings.json")
 
 # Menu items for individual games (Export instead of Settings)
 GAME_MENU_ITEMS = ["Launch Game", "Pokedex", "Trainer Info", "PC Box", "Achievements", "Settings", "Export"]
@@ -91,27 +91,27 @@ SINEW_MENU_ITEMS = ["Pokedex", "PC Box", "Achievements", "Settings"]
 # More specific keywords should come first to avoid false matches
 GAME_DEFINITIONS = {
     "Ruby": {
-        "title_gif": "data/sprites/title/ruby.gif",
+        "title_gif": config.get_title_gif_path("Ruby") if hasattr(config, 'get_title_gif_path') else os.path.join(config.BASE_DIR, "data/sprites/title/ruby.gif"),
         "keywords": ["ruby"],
         "exclude": ["omega"],  # Exclude Omega Ruby (3DS)
     },
     "Sapphire": {
-        "title_gif": "data/sprites/title/sapphire.gif",
+        "title_gif": config.get_title_gif_path("Sapphire") if hasattr(config, 'get_title_gif_path') else os.path.join(config.BASE_DIR, "data/sprites/title/sapphire.gif"),
         "keywords": ["sapphire"],
         "exclude": ["alpha"],  # Exclude Alpha Sapphire (3DS)
     },
     "Emerald": {
-        "title_gif": "data/sprites/title/emerald.gif",
+        "title_gif": config.get_title_gif_path("Emerald") if hasattr(config, 'get_title_gif_path') else os.path.join(config.BASE_DIR, "data/sprites/title/emerald.gif"),
         "keywords": ["emerald"],
         "exclude": [],
     },
     "FireRed": {
-        "title_gif": "data/sprites/title/firered.gif",
+        "title_gif": config.get_title_gif_path("FireRed") if hasattr(config, 'get_title_gif_path') else os.path.join(config.BASE_DIR, "data/sprites/title/firered.gif"),
         "keywords": ["firered", "fire red", "fire_red"],
         "exclude": [],
     },
     "LeafGreen": {
-        "title_gif": "data/sprites/title/leafgreen.gif",
+        "title_gif": config.get_title_gif_path("LeafGreen") if hasattr(config, 'get_title_gif_path') else os.path.join(config.BASE_DIR, "data/sprites/title/leafgreen.gif"),
         "keywords": ["leafgreen", "leaf green", "leaf_green"],
         "exclude": [],
     },
@@ -293,9 +293,9 @@ class DBWarningPopup:
         
         # Fonts
         try:
-            self.font_title = pygame.font.Font("fonts/Pokemon_GB.ttf", 14)
-            self.font_text = pygame.font.Font("fonts/Pokemon_GB.ttf", 10)
-            self.font_button = pygame.font.Font("fonts/Pokemon_GB.ttf", 11)
+            self.font_title = pygame.font.Font(config.FONT_PATH, 14)
+            self.font_text = pygame.font.Font(config.FONT_PATH, 10)
+            self.font_button = pygame.font.Font(config.FONT_PATH, 11)
         except:
             self.font_title = pygame.font.SysFont(None, 20)
             self.font_text = pygame.font.SysFont(None, 16)
@@ -3098,7 +3098,7 @@ if __name__ == "__main__":
     screen = scaler.get_surface()
     
     clock = pygame.time.Clock()
-    font = pygame.font.Font("fonts/Pokemon_GB.ttf", 18)
+    font = pygame.font.Font(config.FONT_PATH, 18)
     controller = get_controller()
     
     # Start with GameScreen using virtual resolution

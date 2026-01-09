@@ -8,6 +8,14 @@ Updated to use modular parser package.
 import os
 import json
 
+# Import config for paths
+try:
+    import config
+    CONFIG_AVAILABLE = True
+except ImportError:
+    CONFIG_AVAILABLE = False
+    print("[SaveDataManager] config.py not available - using relative paths")
+
 # Import from modular parser package
 try:
     from parser import Gen3SaveParser, get_item_name, convert_species_to_national
@@ -49,7 +57,14 @@ def _load_species_names():
     if _species_names:
         return  # Already loaded
     
-    db_path = "data/pokemon_db.json"
+    # Use config for path if available
+    if CONFIG_AVAILABLE and hasattr(config, 'POKEMON_DB_PATH'):
+        db_path = config.POKEMON_DB_PATH
+    elif CONFIG_AVAILABLE and hasattr(config, 'BASE_DIR'):
+        db_path = os.path.join(config.BASE_DIR, "data", "pokemon_db.json")
+    else:
+        db_path = "data/pokemon_db.json"
+    
     if os.path.exists(db_path):
         try:
             with open(db_path, 'r', encoding='utf-8') as f:
@@ -567,9 +582,19 @@ class SaveDataManager:
         # Handle eggs with special egg sprite
         if pokemon.get('egg'):
             if use_showdown:
-                egg_path = "data/sprites/showdown/normal/egg.gif"
+                if CONFIG_AVAILABLE and hasattr(config, 'get_egg_sprite_path'):
+                    egg_path = config.get_egg_sprite_path("showdown")
+                elif CONFIG_AVAILABLE and hasattr(config, 'SHOWDOWN_NORMAL_DIR'):
+                    egg_path = os.path.join(config.SHOWDOWN_NORMAL_DIR, "egg.gif")
+                else:
+                    egg_path = "data/sprites/showdown/normal/egg.gif"
             else:
-                egg_path = "data/sprites/gen3/normal/egg.png"
+                if CONFIG_AVAILABLE and hasattr(config, 'get_egg_sprite_path'):
+                    egg_path = config.get_egg_sprite_path("gen3")
+                elif CONFIG_AVAILABLE and hasattr(config, 'GEN3_NORMAL_DIR'):
+                    egg_path = os.path.join(config.GEN3_NORMAL_DIR, "egg.png")
+                else:
+                    egg_path = "data/sprites/gen3/normal/egg.png"
             
             if os.path.exists(egg_path):
                 return egg_path
@@ -588,13 +613,25 @@ class SaveDataManager:
         # Format species number as 3-digit string (001, 002, etc.)
         species_str = str(species).zfill(3)
         
-        # Construct sprite path based on type
+        # Construct sprite path based on type - use config if available
         if use_showdown:
-            sprite_folder = "data/sprites/showdown/shiny" if shiny else "data/sprites/showdown/normal"
-            sprite_path = f"{sprite_folder}/{species_str}.gif"
+            if CONFIG_AVAILABLE and hasattr(config, 'get_sprite_path'):
+                sprite_path = config.get_sprite_path(species, shiny=shiny, sprite_type="showdown")
+            elif CONFIG_AVAILABLE:
+                sprite_folder = config.SHOWDOWN_SHINY_DIR if shiny else config.SHOWDOWN_NORMAL_DIR
+                sprite_path = os.path.join(sprite_folder, f"{species_str}.gif")
+            else:
+                sprite_folder = "data/sprites/showdown/shiny" if shiny else "data/sprites/showdown/normal"
+                sprite_path = f"{sprite_folder}/{species_str}.gif"
         else:
-            sprite_folder = "data/sprites/gen3/shiny" if shiny else "data/sprites/gen3/normal"
-            sprite_path = f"{sprite_folder}/{species_str}.png"
+            if CONFIG_AVAILABLE and hasattr(config, 'get_sprite_path'):
+                sprite_path = config.get_sprite_path(species, shiny=shiny, sprite_type="gen3")
+            elif CONFIG_AVAILABLE:
+                sprite_folder = config.GEN3_SHINY_DIR if shiny else config.GEN3_NORMAL_DIR
+                sprite_path = os.path.join(sprite_folder, f"{species_str}.png")
+            else:
+                sprite_folder = "data/sprites/gen3/shiny" if shiny else "data/sprites/gen3/normal"
+                sprite_path = f"{sprite_folder}/{species_str}.png"
         
         # Debug output
         # print(f"[Sprite] {nickname} -> species={species} -> {sprite_path} (exists={os.path.exists(sprite_path)})")
@@ -649,11 +686,21 @@ class SaveDataManager:
         
         # Handle eggs
         if pokemon.get('egg'):
-            egg_path = "data/sprites/gen8/icons/egg.png"
+            # Try gen8 egg first
+            if CONFIG_AVAILABLE and hasattr(config, 'GEN8_ICONS_DIR'):
+                egg_path = os.path.join(config.GEN8_ICONS_DIR, "egg.png")
+            else:
+                egg_path = "data/sprites/gen8/icons/egg.png"
+            
             if os.path.exists(egg_path):
                 return egg_path
+            
             # Fallback to gen3 egg
-            egg_path = "data/sprites/gen3/normal/egg.png"
+            if CONFIG_AVAILABLE and hasattr(config, 'GEN3_NORMAL_DIR'):
+                egg_path = os.path.join(config.GEN3_NORMAL_DIR, "egg.png")
+            else:
+                egg_path = "data/sprites/gen3/normal/egg.png"
+            
             if os.path.exists(egg_path):
                 return egg_path
             return None
@@ -665,8 +712,13 @@ class SaveDataManager:
         # Format species number as 3-digit string (001, 002, etc.)
         species_str = str(species).zfill(3)
         
-        # Gen8 icons path
-        icon_path = f"data/sprites/gen8/icons/{species_str}.png"
+        # Gen8 icons path - use config if available
+        if CONFIG_AVAILABLE and hasattr(config, 'get_sprite_path'):
+            icon_path = config.get_sprite_path(species, sprite_type="gen8")
+        elif CONFIG_AVAILABLE and hasattr(config, 'GEN8_ICONS_DIR'):
+            icon_path = os.path.join(config.GEN8_ICONS_DIR, f"{species_str}.png")
+        else:
+            icon_path = f"data/sprites/gen8/icons/{species_str}.png"
         
         if os.path.exists(icon_path):
             return icon_path

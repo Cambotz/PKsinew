@@ -11,6 +11,13 @@ import pygame
 import ui_colors
 from controller import get_controller, NavigableList
 
+# Import config for paths
+try:
+    import config
+    CONFIG_AVAILABLE = True
+except ImportError:
+    CONFIG_AVAILABLE = False
+
 
 class DBBuilderScreen:
     """Screen for building/rebuilding the Pokemon database with live output"""
@@ -24,9 +31,10 @@ class DBBuilderScreen:
         
         # Fonts
         try:
-            self.font_header = pygame.font.Font("fonts/Pokemon_GB.ttf", 16)
-            self.font_terminal = pygame.font.Font("fonts/Pokemon_GB.ttf", 10)
-            self.font_button = pygame.font.Font("fonts/Pokemon_GB.ttf", 10)
+            font_path = config.FONT_PATH if CONFIG_AVAILABLE else "fonts/Pokemon_GB.ttf"
+            self.font_header = pygame.font.Font(font_path, 16)
+            self.font_terminal = pygame.font.Font(font_path, 10)
+            self.font_button = pygame.font.Font(font_path, 10)
         except:
             self.font_header = pygame.font.SysFont("Consolas", 20)
             self.font_terminal = pygame.font.SysFont("Consolas", 12)
@@ -110,8 +118,11 @@ class DBBuilderScreen:
     def _run_build(self):
         """Run the build process and capture output"""
         try:
-            # Use current working directory - game should already be running from project root
-            project_root = os.getcwd()
+            # Use config.BASE_DIR if available, otherwise fall back to cwd
+            if CONFIG_AVAILABLE and hasattr(config, 'BASE_DIR'):
+                project_root = config.BASE_DIR
+            else:
+                project_root = os.getcwd()
             script_path = os.path.join(project_root, "DBbuilder.py")
             
             self._add_line(f"CWD: {project_root}")
@@ -189,8 +200,11 @@ class DBBuilderScreen:
     def _run_wallpaper_build(self):
         """Run wallgen.py and capture output"""
         try:
-            # Use current working directory - game should already be running from project root
-            project_root = os.getcwd()
+            # Use config.BASE_DIR if available, otherwise fall back to cwd
+            if CONFIG_AVAILABLE and hasattr(config, 'BASE_DIR'):
+                project_root = config.BASE_DIR
+            else:
+                project_root = os.getcwd()
             script_path = os.path.join(project_root, "wallgen.py")
             
             self._add_line(f"CWD: {project_root}")
@@ -201,7 +215,10 @@ class DBBuilderScreen:
                 return
             
             # Check if font exists
-            font_path = os.path.join(project_root, "fonts", "Pokemon Solid.ttf")
+            if CONFIG_AVAILABLE and hasattr(config, 'FONT_SOLID_PATH'):
+                font_path = config.FONT_SOLID_PATH
+            else:
+                font_path = os.path.join(project_root, "fonts", "Pokemon Solid.ttf")
             if not os.path.exists(font_path):
                 self._add_line(f"WARNING: Font not found:")
                 self._add_line(f"  {font_path}")
