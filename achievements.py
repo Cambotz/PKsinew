@@ -754,6 +754,7 @@ class AchievementManager:
     def claim_reward(self, achievement_id):
         """
         Claim the reward for an achievement.
+        UPDATED: Now uses dynamic Pokemon generation instead of .pks files.
         Returns: (success: bool, message: str)
         """
         if not self.is_unlocked(achievement_id):
@@ -780,9 +781,10 @@ class AchievementManager:
                     return False, f"Failed to unlock theme"
                     
             elif reward_type == "pokemon":
-                pks_file = reward.get("value", "")
-                pokemon_name = reward.get("name", pks_file)
-                success, msg = self._deliver_pokemon(pks_file)
+                # UPDATED: Use achievement ID for dynamic generation
+                pokemon_achievement = reward.get("pokemon_achievement", achievement_id)
+                pokemon_name = reward.get("name", "Pokemon")
+                success, msg = self._deliver_pokemon(pokemon_achievement)
                 if success:
                     messages.append(f"{pokemon_name} added to Sinew Storage!")
                 else:
@@ -792,16 +794,17 @@ class AchievementManager:
                 # Deliver both theme and pokemon
                 theme_file = reward.get("theme", "")
                 theme_name = reward.get("theme_name", theme_file)
-                pks_file = reward.get("pokemon", "")
-                pokemon_name = reward.get("pokemon_name", pks_file)
+                # UPDATED: Use achievement ID for dynamic generation
+                pokemon_achievement = reward.get("pokemon_achievement", achievement_id)
+                pokemon_name = reward.get("pokemon_name", "Pokemon")
                 
                 # Theme first
                 theme_success = self._unlock_theme(theme_file)
                 if theme_success:
                     messages.append(f"Theme '{theme_name}' unlocked!")
                 
-                # Then pokemon
-                poke_success, poke_msg = self._deliver_pokemon(pks_file)
+                # Then pokemon - UPDATED to use dynamic generation
+                poke_success, poke_msg = self._deliver_pokemon(pokemon_achievement)
                 if poke_success:
                     messages.append(f"{pokemon_name} added to Sinew Storage!")
                 
@@ -850,61 +853,25 @@ class AchievementManager:
             print(f"[Achievements] Error unlocking theme: {e}")
             return False
     
-    def _deliver_pokemon(self, pks_filename):
+    def _deliver_pokemon(self, achievement_id):
         """
-        Deliver a Pokemon reward by copying .pks file to Sinew Storage.
-        Supports both raw 80-byte .pks files and legacy JSON format.
+        Deliver a Pokemon reward by generating it dynamically.
+        UPDATED: Uses pokemon_generator instead of .pks files.
         Returns: (success: bool, message: str)
         """
         try:
-            import os
+            # Import the generator
+            from pokemon_generator import generate_achievement_pokemon
             
-            # Find the .pks file in rewards directory
-            script_dir = os.path.dirname(__file__)
-            rewards_dir = os.path.join(script_dir, "data", "achievements", "rewards")
-            pks_path = os.path.join(rewards_dir, pks_filename)
+            # Generate the Pokemon
+            result = generate_achievement_pokemon(achievement_id)
+            if result is None:
+                print(f"[Achievements] No recipe found for achievement: {achievement_id}")
+                return False, f"No recipe found for achievement: {achievement_id}"
             
-            if not os.path.exists(pks_path):
-                # Try alternate locations
-                alt_paths = [
-                    os.path.join(script_dir, "rewards", pks_filename),
-                    os.path.join(script_dir, pks_filename),
-                ]
-                for alt in alt_paths:
-                    if os.path.exists(alt):
-                        pks_path = alt
-                        break
-                else:
-                    return False, f"Reward file not found: {pks_filename}"
-            
-            # Read the file
-            with open(pks_path, 'rb') as f:
-                file_data = f.read()
-            
-            # Detect format: JSON starts with '{', raw bytes don't
-            pokemon_bytes = None
-            
-            if len(file_data) >= 1 and file_data[0:1] == b'{':
-                # JSON format (legacy) - extract raw_bytes_b64
-                try:
-                    import json
-                    import base64
-                    json_data = json.loads(file_data.decode('utf-8'))
-                    raw_b64 = json_data.get('raw_bytes_b64')
-                    if raw_b64:
-                        pokemon_bytes = base64.b64decode(raw_b64)
-                        print(f"[Achievements] Loaded legacy JSON format, extracted {len(pokemon_bytes)} bytes")
-                    else:
-                        return False, "Legacy JSON file missing raw_bytes_b64"
-                except Exception as e:
-                    return False, f"Failed to parse legacy JSON: {e}"
-            else:
-                # Raw bytes format (preferred)
-                pokemon_bytes = file_data
-                print(f"[Achievements] Loaded raw .pks format, {len(pokemon_bytes)} bytes")
-            
-            if len(pokemon_bytes) < 80:
-                return False, f"Invalid Pokemon file: only {len(pokemon_bytes)} bytes"
+            pokemon_bytes, pokemon_dict = result
+            species_name = pokemon_dict.get('species_name', 'Pokemon')
+            print(f"[Achievements] Generated {species_name}: {len(pokemon_bytes)} bytes")
             
             # Import Sinew storage
             try:
@@ -925,23 +892,23 @@ class AchievementManager:
                                        slot.get('species', 0) == 0)
                             
                             if is_empty:
-                                # Found empty slot - store the Pokemon
-                                # Parse the .pks data (use first 80 bytes)
-                                pks_80 = bytes(pokemon_bytes[:80])
-                                pokemon_data = self._parse_pks_file(pks_80)
-                                if pokemon_data:
-                                    pokemon_data['raw_bytes'] = pks_80
-                                    pokemon_data['empty'] = False  # Mark as not empty
-                                    success = sinew.set_pokemon_at(box_num, slot_idx, pokemon_data)
-                                    if success:
-                                        print(f"[Achievements] Pokemon delivered to Box {box_num}, Slot {slot_idx + 1}")
-                                        return True, f"Stored in Box {box_num}"
+                                # Store the Pokemon
+                                pokemon_dict['raw_bytes'] = pokemon_bytes
+                                pokemon_dict['empty'] = False
+                                pokemon_dict['is_reward'] = True
+                                success = sinew.set_pokemon_at(box_num, slot_idx, pokemon_dict)
+                                if success:
+                                    print(f"[Achievements] {species_name} delivered to Box {box_num}, Slot {slot_idx + 1}")
+                                    return True, f"Stored in Box {box_num}"
                 
                 return False, "No empty slot in Sinew Storage"
                 
             except ImportError:
                 return False, "Sinew Storage module not available"
                 
+        except ImportError as e:
+            print(f"[Achievements] Pokemon generator not available: {e}")
+            return False, "Pokemon generator module not available"
         except Exception as e:
             print(f"[Achievements] Error delivering Pokemon: {e}")
             import traceback

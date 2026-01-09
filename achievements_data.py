@@ -50,13 +50,13 @@ ALTERING_CAVE_LOCATIONS = (183, 210)  # RSE and Emerald Altering Cave location I
 ALTERING_CAVE_ZUBAT_SPECIES = 41
 
 ALTERING_CAVE_POKEMON = [
-    {"species": 179, "name": "Mareep", "file": "Mareep.pks"},
-    {"species": 190, "name": "Aipom", "file": "Aipom.pks"},
-    {"species": 204, "name": "Pineco", "file": "Pineco.pks"},
-    {"species": 213, "name": "Shuckle", "file": "Shuckle.pks"},
-    {"species": 234, "name": "Stantler", "file": "Stantler.pks"},
-    {"species": 228, "name": "Houndour", "file": "Houndour.pks"},
-    {"species": 235, "name": "Smeargle", "file": "Smeargle.pks"},
+    {"species": 179, "name": "Mareep"},
+    {"species": 190, "name": "Aipom"},
+    {"species": 204, "name": "Pineco"},
+    {"species": 213, "name": "Shuckle"},
+    {"species": 234, "name": "Stantler"},
+    {"species": 228, "name": "Houndour"},
+    {"species": 235, "name": "Smeargle"},
 ]
 
 # =============================================================================
@@ -67,18 +67,18 @@ ALTERING_CAVE_POKEMON = [
 
 ACHIEVEMENT_REWARDS = {
     # Mythical Pokemon + Theme rewards (major milestones - UNCHANGED, before legendaries)
-    "SINEW_033": {"type": "both", "theme": "GB classic.json", "pokemon": "Celebi.pks", 
+    "SINEW_033": {"type": "both", "theme": "GB classic.json", "pokemon_achievement": "SINEW_033", 
                   "theme_name": "GB Classic", "pokemon_name": "Celebi"},  # Complete 1 Regional Dex
-    "SINEW_030": {"type": "both", "theme": "Champion Gold.json", "pokemon": "Jirachi.pks",
+    "SINEW_030": {"type": "both", "theme": "Champion Gold.json", "pokemon_achievement": "SINEW_030",
                   "theme_name": "Champion Gold", "pokemon_name": "Jirachi"},  # Champion in All 5 Games
-    "SINEW_008": {"type": "both", "theme": "Mew.json", "pokemon": "Mew.pks",
+    "SINEW_008": {"type": "both", "theme": "Mew.json", "pokemon_achievement": "SINEW_008",
                   "theme_name": "Mew", "pokemon_name": "Mew"},  # Sinew Dex: 300 Pokemon
-    "SINEW_035": {"type": "pokemon", "value": "MewShiny.pks", "name": "Shiny Mew"},  # Complete All 5 Regional Dexes
+    "SINEW_035": {"type": "pokemon", "pokemon_achievement": "SINEW_035", "name": "Shiny Mew"},  # Complete All 5 Regional Dexes
     
     # NEW Legendary Pokemon rewards
-    "SINEW_049": {"type": "pokemon", "value": "HoOh.pks", "name": "Ho-Oh"},  # Own Legendary Birds (NEW)
-    "SINEW_051": {"type": "pokemon", "value": "Lugia.pks", "name": "Lugia"},  # Own Weather Trio
-    "SINEW_104": {"type": "pokemon", "value": "Deoxys.pks", "name": "Deoxys"},  # Dirty Dex: Catch 'Em All! (386 Pokemon)
+    "SINEW_049": {"type": "pokemon", "pokemon_achievement": "SINEW_049", "name": "Ho-Oh"},  # Own Legendary Birds (NEW)
+    "SINEW_051": {"type": "pokemon", "pokemon_achievement": "SINEW_051", "name": "Lugia"},  # Own Weather Trio
+    "SINEW_104": {"type": "pokemon", "pokemon_achievement": "SINEW_104", "name": "Deoxys"},  # Dirty Dex: Catch 'Em All! (386 Pokemon)
     
     # Theme-only rewards - UNCHANGED (before legendaries section)
     "SINEW_027": {"type": "theme", "value": "Ash Ketchum.json", "name": "Ash Ketchum"},  # Become Champion Once

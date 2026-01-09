@@ -1,4 +1,6 @@
 {
+  "version": "2.0",
+  "description": "Pokemon reward recipes for dynamic generation. Replaces static .pks files.",
   "rewards": [
     {
       "achievement": "SINEW_030",
@@ -9,6 +11,11 @@
       "ivs": {"min": 0, "max": 31},
       "ot": "Sinew",
       "met_location": "Fateful Encounter",
+      "ball": "Poke Ball",
+      "gender": "GENDERLESS",
+      "ability": 0,
+      "friendship": 100,
+      "language": "ENG",
       "delivery": "achievement"
     },
     {
@@ -20,6 +27,11 @@
       "ivs": {"min": 0, "max": 31},
       "ot": "Sinew",
       "met_location": "Faraway Island",
+      "ball": "Poke Ball",
+      "gender": "GENDERLESS",
+      "ability": 0,
+      "friendship": 100,
+      "language": "ENG",
       "delivery": "achievement"
     },
     {
@@ -31,7 +43,12 @@
       "ivs": {"min": 0, "max": 31},
       "ot": "Sinew",
       "met_location": "Faraway Island",
+      "ball": "Poke Ball",
+      "gender": "GENDERLESS",
+      "ability": 0,
+      "friendship": 100,
       "shiny": true,
+      "language": "ENG",
       "delivery": "achievement"
     },
     {
@@ -43,6 +60,11 @@
       "ivs": {"min": 0, "max": 31},
       "ot": "Sinew",
       "met_location": "Fateful Encounter",
+      "ball": "Poke Ball",
+      "gender": "GENDERLESS",
+      "ability": 0,
+      "friendship": 100,
+      "language": "ENG",
       "delivery": "achievement"
     },
     {
@@ -54,17 +76,27 @@
       "ivs": {"min": 0, "max": 31},
       "ot": "Sinew",
       "met_location": "Navel Rock",
+      "ball": "Poke Ball",
+      "gender": "GENDERLESS",
+      "ability": 0,
+      "friendship": 0,
+      "language": "ENG",
       "delivery": "achievement"
     },
     {
       "achievement": "SINEW_049",
-      "species": "Ho-oh",
+      "species": "Ho-Oh",
       "level": 70,
       "nature": "RANDOM",
       "moves": ["Recover", "Fire Blast", "Sunny Day", "Swift"],
       "ivs": {"min": 0, "max": 31},
       "ot": "Sinew",
       "met_location": "Navel Rock",
+      "ball": "Poke Ball",
+      "gender": "GENDERLESS",
+      "ability": 0,
+      "friendship": 0,
+      "language": "ENG",
       "delivery": "achievement"
     },
     {
@@ -76,7 +108,12 @@
       "moves": ["Psycho Boost", "Recover", "Cosmic Power", "Hyper Beam"],
       "ivs": {"min": 0, "max": 31},
       "ot": "Sinew",
-      "met_location": "Sinew Labs",
+      "met_location": "Fateful Encounter",
+      "ball": "Poke Ball",
+      "gender": "GENDERLESS",
+      "ability": 0,
+      "friendship": 0,
+      "language": "ENG",
       "delivery": "achievement"
     },
     {
@@ -87,6 +124,11 @@
       "ivs": {"min": 0, "max": 31},
       "ot": "Sinew",
       "met_location": "Altering Cave",
+      "ball": "Poke Ball",
+      "gender": "RANDOM",
+      "ability": 0,
+      "friendship": 70,
+      "language": "ENG",
       "delivery": "echo"
     },
     {
@@ -97,6 +139,11 @@
       "ivs": {"min": 0, "max": 31},
       "ot": "Sinew",
       "met_location": "Altering Cave",
+      "ball": "Poke Ball",
+      "gender": "RANDOM",
+      "ability": 0,
+      "friendship": 70,
+      "language": "ENG",
       "delivery": "echo"
     },
     {
@@ -107,6 +154,11 @@
       "ivs": {"min": 0, "max": 31},
       "ot": "Sinew",
       "met_location": "Altering Cave",
+      "ball": "Poke Ball",
+      "gender": "RANDOM",
+      "ability": 0,
+      "friendship": 35,
+      "language": "ENG",
       "delivery": "echo"
     },
     {
@@ -117,6 +169,11 @@
       "ivs": {"min": 0, "max": 31},
       "ot": "Sinew",
       "met_location": "Altering Cave",
+      "ball": "Poke Ball",
+      "gender": "RANDOM",
+      "ability": 0,
+      "friendship": 70,
+      "language": "ENG",
       "delivery": "echo"
     },
     {
@@ -127,7 +184,12 @@
       "ivs": {"min": 0, "max": 31},
       "ot": "Sinew",
       "met_location": "Altering Cave",
+      "ball": "Poke Ball",
+      "gender": "RANDOM",
+      "ability": 0,
       "held_item": "Oran Berry",
+      "friendship": 70,
+      "language": "ENG",
       "delivery": "echo"
     },
     {
@@ -138,6 +200,11 @@
       "ivs": {"min": 0, "max": 31},
       "ot": "Sinew",
       "met_location": "Altering Cave",
+      "ball": "Poke Ball",
+      "gender": "RANDOM",
+      "ability": 0,
+      "friendship": 70,
+      "language": "ENG",
       "delivery": "echo"
     },
     {
@@ -148,6 +215,11 @@
       "ivs": {"min": 0, "max": 31},
       "ot": "Sinew",
       "met_location": "Altering Cave",
+      "ball": "Poke Ball",
+      "gender": "RANDOM",
+      "ability": 0,
+      "friendship": 70,
+      "language": "ENG",
       "delivery": "echo"
     }
   ]

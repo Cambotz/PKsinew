@@ -3995,45 +3995,28 @@ class PCBox:
     def _complete_altering_cave_exchange(self):
         """
         Complete the Altering Cave exchange - replace Zubat with won Pokemon.
+        UPDATED: Uses pokemon_generator for dynamic generation instead of .pks files.
         """
         if not self.altering_cave_spinner_result or not self.altering_cave_location:
             return
         
         result_pokemon = self.altering_cave_spinner_result
         
-        # Load the .pks file for the won Pokemon
-        rewards_path = os.path.join("data", "achievements", "rewards")
-        pks_path = os.path.join(rewards_path, result_pokemon['file'])
-        
-        if not os.path.exists(pks_path):
-            print(f"[PCBox] ERROR: Reward file not found: {pks_path}")
-            self.warning_message = f"Error: {result_pokemon['name']} file not found!"
-            self.warning_message_timer = self.warning_message_duration
-            self._close_altering_cave_spinner()
-            return
-        
         try:
-            # Read the .pks file
-            with open(pks_path, 'rb') as f:
-                pks_data = f.read()
+            # Generate the Pokemon dynamically
+            from pokemon_generator import generate_echo_pokemon
             
-            print(f"[PCBox] Loaded {result_pokemon['name']} pks file: {len(pks_data)} bytes")
+            result = generate_echo_pokemon(result_pokemon['name'])
+            if result is None:
+                print(f"[PCBox] ERROR: Could not generate {result_pokemon['name']}")
+                self.warning_message = f"Error: Could not generate {result_pokemon['name']}!"
+                self.warning_message_timer = self.warning_message_duration
+                self._close_altering_cave_spinner()
+                return
             
-            # Parse the .pks data into a Pokemon dict
-            pokemon_dict = None
-            try:
-                from pokemon import parse_pc_pokemon
-                pokemon_dict = parse_pc_pokemon(pks_data)
-                pokemon_dict['raw_bytes'] = pks_data  # Keep raw bytes for storage
-                print(f"[PCBox] Parsed Pokemon: species={pokemon_dict.get('species')}, name={pokemon_dict.get('species_name')}")
-            except Exception as e:
-                print(f"[PCBox] Could not parse pks file: {e}")
-                pokemon_dict = {
-                    'species': result_pokemon['species'],
-                    'nickname': result_pokemon['name'].upper(),
-                    'species_name': result_pokemon['name'],
-                    'raw_bytes': pks_data
-                }
+            pks_data, pokemon_dict = result
+            pokemon_dict['raw_bytes'] = pks_data  # Ensure raw bytes are stored
+            print(f"[PCBox] Generated {result_pokemon['name']}: {len(pks_data)} bytes, species={pokemon_dict.get('species')}")
             
             # Determine location type
             location = self.altering_cave_location
@@ -4082,6 +4065,10 @@ class PCBox:
             # Refresh display
             self.refresh_data()
             
+        except ImportError as e:
+            print(f"[PCBox] Pokemon generator not available: {e}")
+            self.warning_message = "Error: Generator not available!"
+            self.warning_message_timer = self.warning_message_duration
         except Exception as e:
             print(f"[PCBox] Error completing Altering Cave exchange: {e}")
             import traceback
