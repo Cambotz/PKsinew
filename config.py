@@ -1,6 +1,6 @@
 """
 Sinew Configuration
-All paths, constants, and configuration settings
+All paths,constants, and configuration settings
 
 IMPORTANT: All paths are anchored to the script location, not the working directory.
 Use the resolve_path() function or pre-defined path constants to ensure paths work
@@ -250,4 +250,4 @@ def print_paths():
 
 
 if __name__ == "__main__":
-    print_paths()
+    print_paths() 
