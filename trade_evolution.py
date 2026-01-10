@@ -190,9 +190,20 @@ def apply_evolution(pokemon_data, evolution_info):
     if not evolution_info:
         return pokemon_data
     
+    # Store old species name for nickname comparison
+    old_species_name = evolution_info.get('from_name')
+    new_species_name = evolution_info.get('to_name')
+    
     # Update species
     pokemon_data['species'] = evolution_info['evolves_to']
-    pokemon_data['species_name'] = evolution_info['to_name']
+    pokemon_data['species_name'] = new_species_name
+    
+    # Update nickname if it was the default (matching old species name)
+    current_nickname = pokemon_data.get('nickname', '')
+    if current_nickname and old_species_name:
+        if current_nickname.upper() == old_species_name.upper():
+            pokemon_data['nickname'] = new_species_name.upper()
+            print(f"[TradeEvolution] Updated pokemon_data nickname: {current_nickname} -> {new_species_name.upper()}")
     
     # Remove held item if it was consumed
     if evolution_info.get('consumes_item'):
@@ -204,7 +215,9 @@ def apply_evolution(pokemon_data, evolution_info):
             pokemon_data['raw_bytes'] = evolve_raw_pokemon_bytes(
                 pokemon_data['raw_bytes'],
                 evolution_info['evolves_to'],
-                evolution_info.get('consumes_item', False)
+                evolution_info.get('consumes_item', False),
+                old_species_name,
+                new_species_name
             )
         except Exception as e:
             print(f"[TradeEvolution] Warning: Could not update raw_bytes: {e}")
@@ -269,7 +282,48 @@ def _calculate_pokemon_checksum(decrypted_data):
     return checksum
 
 
-def evolve_raw_pokemon_bytes(raw_bytes, new_species_id, consume_item=False):
+# Gen 3 character encoding table (Pokemon text -> ASCII)
+GEN3_CHAR_TABLE = {
+    0xBB: 'A', 0xBC: 'B', 0xBD: 'C', 0xBE: 'D', 0xBF: 'E', 0xC0: 'F', 0xC1: 'G', 0xC2: 'H',
+    0xC3: 'I', 0xC4: 'J', 0xC5: 'K', 0xC6: 'L', 0xC7: 'M', 0xC8: 'N', 0xC9: 'O', 0xCA: 'P',
+    0xCB: 'Q', 0xCC: 'R', 0xCD: 'S', 0xCE: 'T', 0xCF: 'U', 0xD0: 'V', 0xD1: 'W', 0xD2: 'X',
+    0xD3: 'Y', 0xD4: 'Z', 0xD5: 'a', 0xD6: 'b', 0xD7: 'c', 0xD8: 'd', 0xD9: 'e', 0xDA: 'f',
+    0xDB: 'g', 0xDC: 'h', 0xDD: 'i', 0xDE: 'j', 0xDF: 'k', 0xE0: 'l', 0xE1: 'm', 0xE2: 'n',
+    0xE3: 'o', 0xE4: 'p', 0xE5: 'q', 0xE6: 'r', 0xE7: 's', 0xE8: 't', 0xE9: 'u', 0xEA: 'v',
+    0xEB: 'w', 0xEC: 'x', 0xED: 'y', 0xEE: 'z', 0xA1: '0', 0xA2: '1', 0xA3: '2', 0xA4: '3',
+    0xA5: '4', 0xA6: '5', 0xA7: '6', 0xA8: '7', 0xA9: '8', 0xAA: '9', 0xAB: '!', 0xAC: '?',
+    0xAD: '.', 0xAE: '-', 0xB4: "'", 0x00: ' ', 0xFF: '',  # 0xFF is terminator
+}
+
+# Reverse table for encoding
+GEN3_CHAR_ENCODE = {v: k for k, v in GEN3_CHAR_TABLE.items() if v}
+GEN3_CHAR_ENCODE[' '] = 0x00
+
+
+def _decode_nickname(nickname_bytes):
+    """Decode Gen 3 nickname bytes to string."""
+    result = []
+    for byte in nickname_bytes:
+        if byte == 0xFF:  # Terminator
+            break
+        char = GEN3_CHAR_TABLE.get(byte, '?')
+        result.append(char)
+    return ''.join(result)
+
+
+def _encode_nickname(name):
+    """Encode string to Gen 3 nickname bytes (10 bytes, padded with 0xFF)."""
+    result = bytearray(10)
+    for i in range(10):
+        if i < len(name):
+            char = name[i]
+            result[i] = GEN3_CHAR_ENCODE.get(char, GEN3_CHAR_ENCODE.get(char.upper(), 0x00))
+        else:
+            result[i] = 0xFF  # Terminator/padding
+    return bytes(result)
+
+
+def evolve_raw_pokemon_bytes(raw_bytes, new_species_id, consume_item=False, old_species_name=None, new_species_name=None):
     """
     Modify raw Pokemon bytes to change species (evolution).
     
@@ -290,6 +344,8 @@ def evolve_raw_pokemon_bytes(raw_bytes, new_species_id, consume_item=False):
         raw_bytes: Original 80-byte Pokemon data
         new_species_id: Target species ID
         consume_item: Whether to clear the held item
+        old_species_name: Original species name (to check if nickname should update)
+        new_species_name: New species name (to set as nickname if it was default)
         
     Returns:
         Modified raw_bytes
@@ -302,6 +358,16 @@ def evolve_raw_pokemon_bytes(raw_bytes, new_species_id, consume_item=False):
     # Read personality and OT ID
     personality = struct.unpack('<I', data[0:4])[0]
     ot_id = struct.unpack('<I', data[4:8])[0]
+    
+    # Check if nickname should be updated (if it matches the old species name)
+    if old_species_name and new_species_name:
+        current_nickname = _decode_nickname(data[8:18])
+        # Compare case-insensitively, Pokemon names in-game are usually uppercase
+        if current_nickname.upper() == old_species_name.upper():
+            # Update nickname to new species name (uppercase as in-game)
+            new_nickname_bytes = _encode_nickname(new_species_name.upper())
+            data[8:18] = new_nickname_bytes
+            print(f"[TradeEvolution] Updated nickname: {current_nickname} -> {new_species_name.upper()}")
     
     # Get substructure order
     order = _get_substructure_order(personality)

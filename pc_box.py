@@ -1650,12 +1650,15 @@ class PCBox:
             evolved_bytes = evolve_raw_pokemon_bytes(
                 raw_bytes,
                 evolution_info['evolves_to'],
-                evolution_info.get('consumes_item', False)
+                evolution_info.get('consumes_item', False),
+                old_species_name,
+                new_species_name
             )
         else:
             raise ValueError("evolve_raw_pokemon_bytes not available")
         
-        # Update nickname in evolved bytes if it was default
+        # Note: evolve_raw_pokemon_bytes now handles nickname update internally
+        # but we keep the backup update in case of older versions
         if nickname_is_default and new_species_name:
             evolved_bytes = self._update_nickname_in_bytes(evolved_bytes, new_species_name)
             print(f"[PCBox] Updated nickname to {new_species_name}", file=sys.stderr, flush=True)
@@ -2723,6 +2726,10 @@ class PCBox:
     def refresh_data(self):
         """Refresh Pokemon data from save file or Sinew storage"""
         import sys
+        
+        # Clear sprite cache to force reload of sprites (important after evolution)
+        if self.sprite_cache:
+            self.sprite_cache.clear()
         
         # Update Sinew mode status
         self._update_sinew_mode()
