@@ -234,8 +234,9 @@ def _get_substructure_order(personality):
     Get the order of substructures based on personality value.
     Gen 3 Pokemon data has 4 substructures that are ordered based on personality % 24.
     
-    Returns list of substructure indices: [Growth, Attacks, EVs/Condition, Misc]
-    The value returned indicates which position each type is in.
+    Returns list where: order[block_type] = position
+    Block types: 0=Growth, 1=Attacks, 2=EVs, 3=Misc
+    So order[0] tells you which position (0-3) the Growth block is at.
     """
     orders = [
         [0, 1, 2, 3], [0, 1, 3, 2], [0, 2, 1, 3], [0, 3, 1, 2], [0, 2, 3, 1], [0, 3, 2, 1],
@@ -377,7 +378,8 @@ def evolve_raw_pokemon_bytes(raw_bytes, new_species_id, consume_item=False, old_
     decrypted = bytearray(_decrypt_pokemon_data(encrypted_data, personality, ot_id))
     
     # Find Growth substructure (type 0)
-    growth_position = order.index(0)
+    # order[0] gives the POSITION of the Growth block
+    growth_position = order[0]
     growth_offset = growth_position * 12
     
     # Modify species (first 2 bytes of Growth)
