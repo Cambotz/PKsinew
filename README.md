@@ -1,31 +1,29 @@
-# PKsinew 
+# PKsinew
 
-**PKsinew** is a companion app/frontend launcher for **Gen 3 Pokémon games** that lets you **track your progress across all 5 GBA games**.  
+**PKsinew** is a companion app/frontend launcher for **Gen 3 Pokémon games** that lets you **track your progress across all 5 GBA games**.
 
-It allows you to:  
-- Gain **achievements and rewards**  
-- Handle **mass storage & transferring Pokémon between games**  
-- Access **mythical rewards**  
-- Explore **re-imagined abandoned features** from the original games  
+It allows you to:
+- Gain **achievements and rewards**
+- Handle **mass storage & transferring Pokémon between games**
+- Access **mythical rewards**
+- Explore **re-imagined abandoned features** from the original games
 
 PKsinew supports **Windows, macOS, and Linux**, and works best with a **controller** for seamless gameplay tracking.
 
-💡 **Devlog / Updates:** [Sinew Devlog](https://pksinew.hashnode.dev/pksinew-devlog-index-start-here)  
-
-
+💡 **Devlog / Updates:** [Sinew Devlog](https://pksinew.hashnode.dev/pksinew-devlog-index-start-here)
 
 ---
 
 ## Table of Contents
 
-1. [Quick Setup](#quick-setup)  
-2. [Install Python 3](#install-python-3)  
-3. [Install Dependencies](#install-dependencies)  
-4. [Prepare the Launcher](#prepare-the-launcher)  
-5. [Add ROMs](#add-roms)  
-6. [Run the App](#run-the-app)  
-7. [First-time In-App Setup](#first-time-in-app-setup)  
-8. [Tips & Notes](#tips--notes)  
+1. [Quick Setup](#quick-setup)
+2. [Install Python 3](#install-python-3)
+3. [Install Dependencies](#install-dependencies)
+4. [Prepare the Launcher](#prepare-the-launcher)
+5. [Add ROMs](#add-roms)
+6. [Run the App](#run-the-app)
+7. [First-time In-App Setup](#first-time-in-app-setup)
+8. [Tips & Notes](#tips--notes)
 
 ---
 
@@ -36,78 +34,136 @@ Clone the repo:
 ```bash
 git clone https://github.com/Cambotz/PKsinew.git
 cd PKsinew
+```
 
-    ⚠️ On older macOS/Linux, HTTPS may fail. Use SSH or bypass SSL when cloning.
+> ⚠️ On older macOS/Linux, HTTPS may fail. Use SSH or bypass SSL when cloning.
 
-Install Python 3
+---
 
-    Windows: Download Python 3
+## Install Python 3
 
-    macOS: Download Python 3
+| Platform | Instructions |
+|----------|--------------|
+| **Windows** | [Download Python 3](https://www.python.org/downloads/windows/) |
+| **macOS** | [Download Python 3](https://www.python.org/downloads/macos/) |
+| **Linux** | See below |
 
-    Linux:
+**Linux installation:**
 
+```bash
 sudo apt install python3 python3-pip
+```
 
-Check installation:
+**Verify installation:**
 
+```bash
 python3 --version
+```
 
-Install Dependencies
+---
 
-pip3 install pillow numpy
+## Install Dependencies
 
-    Pillow replaces PIL. Numpy is required for internal calculations in Sinew.
+```bash
+pip3 install pillow numpy pygame
+```
 
-Prepare the Launcher
-<details> <summary>Windows</summary>
+> **Note:** Pillow replaces PIL. NumPy and Pygame are required for Sinew.
 
-    Double-click sinew.bat to launch.
+---
 
-</details> <details> <summary>macOS/Linux</summary>
+## Prepare the Launcher
 
-    Make the launcher executable:
+<details>
+<summary><b>Windows</b></summary>
 
-chmod +x sinew.bat
-
-    macOS: Right-click sinew.bat → “Always Launch in Terminal”
-
-    Linux: Ensure it’s executable and run from a terminal or create a shortcut
+Double-click `Sinew.bat` to launch.
 
 </details>
-Add ROMs
 
-    Place your ethically sourced ROMs in the rom folder.
+<details>
+<summary><b>macOS</b></summary>
 
-    Ensure the files are in the correct format required by the app.
+1. Make the launcher executable:
+   ```bash
+   chmod +x Sinew.bat
+   ```
 
-Run the App
+2. Right-click `Sinew.bat` → **Get Info** → **Open with:** Terminal → **Change All...**
 
+3. Double-click `Sinew.bat` to run
+
+</details>
+
+<details>
+<summary><b>Linux</b></summary>
+
+1. Make the launcher executable:
+   ```bash
+   chmod +x Sinew.bat
+   ```
+
+2. Run from terminal:
+   ```bash
+   ./Sinew.bat
+   ```
+
+   Or create a desktop shortcut pointing to the script.
+
+</details>
+
+---
+
+## Add ROMs
+
+1. Place your legally obtained ROMs in the `roms` folder
+2. Supported formats: `.gba`, `.zip`, `.7z`
+3. Supported games:
+   - Pokémon Ruby
+   - Pokémon Sapphire
+   - Pokémon Emerald
+   - Pokémon FireRed
+   - Pokémon LeafGreen
+
+---
+
+## Run the App
+
+```bash
 python3 main.py
+```
 
-    Tip: Using a controller is strongly recommended for the best experience.
+> 💡 **Tip:** Using a controller is strongly recommended for the best experience.
 
-First-time In-App Setup
+---
 
-    Map your controller buttons
+## First-time In-App Setup
 
-    Build the database and wallpapers
+1. **Map your controller buttons** in Settings
+2. **Build the database and wallpapers** via the DB Builder
 
-After this, Sinew is ready to play.
-Tips & Notes
+After this, Sinew is ready to play!
 
-    Always run the app from the project folder for proper file paths.
+---
 
-    Keep Python packages updated:
+## Tips & Notes
 
-pip3 install --upgrade pillow numpy
+- Always run the app from the project folder for proper file paths
 
-    For older systems, SSH is recommended to avoid GitHub SSL issues.
+- Keep Python packages updated:
+  ```bash
+  pip3 install --upgrade pillow numpy pygame
+  ```
 
-    On macOS/Linux, consider using ed25519 keys for SSH.
+- For older systems, SSH is recommended to avoid GitHub SSL issues
 
-    This README assumes you are running the latest supported version of Python 3 for your system.
+- On macOS/Linux, consider using ed25519 keys for SSH:
+  ```bash
+  ssh-keygen -t ed25519 -C "your_email@example.com"
+  ```
 
+---
 
+## License
 
-
+MIT License - See [LICENSE](LICENSE) for details.
