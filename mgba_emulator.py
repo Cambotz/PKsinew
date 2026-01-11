@@ -416,7 +416,7 @@ class MgbaEmulator:
         self._frame_ready = False
         
         # Audio
-        self.audio_queue = deque(maxlen=8)
+        self.audio_queue = deque(maxlen=32)
         self._audio_lock = threading.Lock()
         self._audio_channel = None
         self._audio_thread = None
