@@ -4,6 +4,130 @@ Sinew Game Screen - Integrated Version
 
 import os
 import sys
+import logging
+from logging.handlers import RotatingFileHandler
+from datetime import datetime
+
+# =============================================================================
+# LOGGING SETUP - Initialize before other imports to capture all output
+# =============================================================================
+
+def setup_logging():
+    """
+    Set up logging to file only.
+    Creates sinew.log in the base directory with rotation.
+    Console output is handled separately by the print redirector.
+    """
+    # Determine base directory for log file
+    try:
+        import config
+        log_dir = config.BASE_DIR
+    except ImportError:
+        log_dir = os.path.dirname(os.path.abspath(__file__))
+    
+    log_file = os.path.join(log_dir, "sinew.log")
+    
+    # Create formatter
+    formatter = logging.Formatter(
+        '%(asctime)s [%(levelname)s] %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
+    
+    # Set up root logger
+    root_logger = logging.getLogger()
+    root_logger.setLevel(logging.DEBUG)
+    
+    # File handler with rotation (5MB max, keep 3 backups)
+    try:
+        file_handler = RotatingFileHandler(
+            log_file, 
+            maxBytes=5*1024*1024,  # 5MB
+            backupCount=3,
+            encoding='utf-8'
+        )
+        file_handler.setLevel(logging.DEBUG)
+        file_handler.setFormatter(formatter)
+        root_logger.addHandler(file_handler)
+    except Exception as e:
+        print(f"Warning: Could not create log file: {e}")
+    
+    # Note: No console handler - the LoggingPrintRedirector handles console output
+    # Adding a console handler here would cause duplicate output
+    
+    return log_file
+
+
+class LoggingPrintRedirector:
+    """
+    Redirects print() output to both console and log file.
+    Intercepts sys.stdout to capture all print statements.
+    """
+    # Patterns to suppress from both console and log (verbose debug spam)
+    SUPPRESS_PATTERNS = [
+        "[PC] Species conversion:",
+        "[SaveData] Species conversion:",
+        "Species conversion:",
+    ]
+    
+    def __init__(self, original_stdout, logger):
+        self.original_stdout = original_stdout
+        self.logger = logger
+        self.buffer = ""
+    
+    def _should_suppress(self, line):
+        """Check if a line should be suppressed from output."""
+        for pattern in self.SUPPRESS_PATTERNS:
+            if pattern in line:
+                return True
+        return False
+    
+    def write(self, text):
+        # Buffer text and process complete lines
+        self.buffer += text
+        while '\n' in self.buffer:
+            line, self.buffer = self.buffer.split('\n', 1)
+            if line.strip():  # Only process non-empty lines
+                # Skip verbose debug messages entirely
+                if self._should_suppress(line):
+                    continue
+                # Write to original stdout (console)
+                if self.original_stdout:
+                    self.original_stdout.write(line + '\n')
+                # Log to file
+                self.logger.info(line.rstrip())
+    
+    def flush(self):
+        if self.original_stdout:
+            self.original_stdout.flush()
+        # Flush any remaining buffer
+        if self.buffer.strip():
+            if not self._should_suppress(self.buffer):
+                if self.original_stdout:
+                    self.original_stdout.write(self.buffer)
+                self.logger.info(self.buffer.rstrip())
+            self.buffer = ""
+
+
+# Initialize logging
+_log_file_path = setup_logging()
+_sinew_logger = logging.getLogger('sinew')
+
+# Redirect stdout to capture print statements
+_original_stdout = sys.stdout
+sys.stdout = LoggingPrintRedirector(_original_stdout, _sinew_logger)
+
+# Also capture stderr for error messages
+_original_stderr = sys.stderr
+_stderr_logger = logging.getLogger('sinew.error')
+sys.stderr = LoggingPrintRedirector(_original_stderr, _stderr_logger)
+
+# Log startup
+_sinew_logger.info("=" * 60)
+_sinew_logger.info(f"Sinew starting - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+_sinew_logger.info(f"Log file: {_log_file_path}")
+_sinew_logger.info(f"Python: {sys.version}")
+_sinew_logger.info(f"Platform: {sys.platform}")
+_sinew_logger.info("=" * 60)
 
 # SDL hints for audio stability in fullscreen mode
 # Set these before importing pygame

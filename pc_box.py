@@ -818,6 +818,12 @@ class PCBox:
                     print(f"[PCBox] AC Zubat location (Sinew): box_index={self.box_index}, actual_slot={actual_slot}")
                 else:
                     # Game save: (save_path, box, slot)
+                    # Check if the current game is running - can't modify save while game is active
+                    if self._is_current_game_running():
+                        self._show_warning("Game is running!\nStop game first\nto use Echo")
+                        print(f"[PCBox] Blocked Altering Cave exchange - game is running")
+                        return
+                    
                     save_path = self._get_current_save_path()
                     location = (save_path, self.box_index, grid_index)
                     print(f"[PCBox] AC Zubat location (Game): box_index={self.box_index}, grid_index={grid_index}")
