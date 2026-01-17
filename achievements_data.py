@@ -108,27 +108,41 @@ GAME_SPECIFIC_REWARDS = {
     "LG_009": {"type": "theme", "value": "Misty.json", "name": "Misty"},  # Kanto Dex Complete (LeafGreen)
     "FR_076": {"type": "theme", "value": "Mewtwo.json", "name": "Mewtwo"},  # Caught Mewtwo! (FireRed)
     "LG_076": {"type": "theme", "value": "Mewtwo.json", "name": "Mewtwo"},  # Caught Mewtwo! (LeafGreen)
+    # FRLG: Events are unlocked by Sevii Pokemon Ranger (_057), NOT Champion (_028)
+    "FR_028": {"type": "none"},  # Override - Champion does NOT unlock events in FRLG
+    "LG_028": {"type": "none"},  # Override - Champion does NOT unlock events in FRLG
+    "FR_057": {"type": "unlock", "value": "events", "name": "Events Access"},  # Sevii Pokemon Ranger unlocks Events in FireRed
+    "LG_057": {"type": "unlock", "value": "events", "name": "Events Access"},  # Sevii Pokemon Ranger unlocks Events in LeafGreen
 }
 
 def get_reward_for_achievement(achievement_id: str) -> dict:
-    """Get the reward for an achievement, if any"""
+    """Get the reward for an achievement, if any.
+    Returns None for achievements with no reward or type: 'none'"""
+    reward = None
+    
     # Check direct mapping first
     if achievement_id in ACHIEVEMENT_REWARDS:
-        return ACHIEVEMENT_REWARDS[achievement_id]
+        reward = ACHIEVEMENT_REWARDS[achievement_id]
     
-    # Check game-specific rewards
-    if achievement_id in GAME_SPECIFIC_REWARDS:
-        return GAME_SPECIFIC_REWARDS[achievement_id]
+    # Check game-specific rewards (takes precedence over per-game patterns)
+    elif achievement_id in GAME_SPECIFIC_REWARDS:
+        reward = GAME_SPECIFIC_REWARDS[achievement_id]
     
     # Check per-game pattern rewards (only for actual game prefixes, NOT Sinew)
     # Valid prefixes: RUBY_, SAPP_, EMER_, FR_, LG_
-    game_prefixes = ('RUBY_', 'SAPP_', 'EMER_', 'FR_', 'LG_')
-    if achievement_id.startswith(game_prefixes):
-        for suffix, reward in PERGAME_ACHIEVEMENT_REWARDS.items():
-            if achievement_id.endswith(suffix):
-                return reward
+    else:
+        game_prefixes = ('RUBY_', 'SAPP_', 'EMER_', 'FR_', 'LG_')
+        if achievement_id.startswith(game_prefixes):
+            for suffix, r in PERGAME_ACHIEVEMENT_REWARDS.items():
+                if achievement_id.endswith(suffix):
+                    reward = r
+                    break
     
-    return None
+    # Return None for "none" type rewards (they're just overrides to disable a reward)
+    if reward and reward.get("type") == "none":
+        return None
+    
+    return reward
 
 def get_theme_unlock_requirements() -> dict:
     """
@@ -404,23 +418,44 @@ def _generate_game_achievements(game: str, start_idx: int = 1) -> List[Dict]:
         idx += 1
 
     # ========== 15 Party & PC ==========
-    party_pc_achs = [
-        ("First Pokemon", "party_size >= 1", 5, "Have at least 1 Pokemon in your party."),
-        ("Party of 3", "party_size >= 3", 10, "Have 3 Pokemon in your party."),
-        ("Full Party!", "party_size >= 6", 20, "Fill your party with 6 Pokemon!"),
-        ("PC Storage: 10", "pc_pokemon >= 10", 10, "Store 10 Pokemon in your PC."),
-        ("PC Storage: 30", "pc_pokemon >= 30", 20, "Store 30 Pokemon in your PC."),
-        ("PC Storage: 60", "pc_pokemon >= 60", 30, "Store 60 Pokemon in your PC."),
-        ("PC Storage: 100", "pc_pokemon >= 100", 50, "Store 100 Pokemon in your PC."),
-        ("PC Storage: 200", "pc_pokemon >= 200", 75, "Store 200 Pokemon in your PC."),
-        ("PC Storage: 300", "pc_pokemon >= 300", 100, "Store 300 Pokemon in your PC."),
-        ("PC Storage: 400", "pc_pokemon >= 400", 150, "Store 400 Pokemon in your PC!"),
-        ("Total Pokemon: 50", "total_pokemon >= 50", 25, "Own 50 total Pokemon (party + PC)."),
-        ("Total Pokemon: 100", "total_pokemon >= 100", 40, "Own 100 total Pokemon (party + PC)."),
-        ("Total Pokemon: 200", "total_pokemon >= 200", 75, "Own 200 total Pokemon (party + PC)."),
-        ("Total Pokemon: 300", "total_pokemon >= 300", 100, "Own 300 total Pokemon (party + PC)."),
-        ("Total Pokemon: 400", "total_pokemon >= 400", 150, "Own 400 total Pokemon (party + PC)!"),
-    ]
+    # Note: For FRLG, "Party of 3" is replaced with "Sevii Pokemon Ranger"
+    # which requires National Dex + Rainbow Pass (prerequisites for event tickets)
+    if is_frlg:
+        party_pc_achs = [
+            ("First Pokemon", "party_size >= 1", 5, "Have at least 1 Pokemon in your party."),
+            ("Sevii Pokemon Ranger", "has_national_dex AND has_rainbow_pass", 100, "Unlock the National Dex and obtain the Rainbow Pass to explore all Sevii Islands!"),
+            ("Full Party!", "party_size >= 6", 20, "Fill your party with 6 Pokemon!"),
+            ("PC Storage: 10", "pc_pokemon >= 10", 10, "Store 10 Pokemon in your PC."),
+            ("PC Storage: 30", "pc_pokemon >= 30", 20, "Store 30 Pokemon in your PC."),
+            ("PC Storage: 60", "pc_pokemon >= 60", 30, "Store 60 Pokemon in your PC."),
+            ("PC Storage: 100", "pc_pokemon >= 100", 50, "Store 100 Pokemon in your PC."),
+            ("PC Storage: 200", "pc_pokemon >= 200", 75, "Store 200 Pokemon in your PC."),
+            ("PC Storage: 300", "pc_pokemon >= 300", 100, "Store 300 Pokemon in your PC."),
+            ("PC Storage: 400", "pc_pokemon >= 400", 150, "Store 400 Pokemon in your PC!"),
+            ("Total Pokemon: 50", "total_pokemon >= 50", 25, "Own 50 total Pokemon (party + PC)."),
+            ("Total Pokemon: 100", "total_pokemon >= 100", 40, "Own 100 total Pokemon (party + PC)."),
+            ("Total Pokemon: 200", "total_pokemon >= 200", 75, "Own 200 total Pokemon (party + PC)."),
+            ("Total Pokemon: 300", "total_pokemon >= 300", 100, "Own 300 total Pokemon (party + PC)."),
+            ("Total Pokemon: 400", "total_pokemon >= 400", 150, "Own 400 total Pokemon (party + PC)!"),
+        ]
+    else:
+        party_pc_achs = [
+            ("First Pokemon", "party_size >= 1", 5, "Have at least 1 Pokemon in your party."),
+            ("Party of 3", "party_size >= 3", 10, "Have 3 Pokemon in your party."),
+            ("Full Party!", "party_size >= 6", 20, "Fill your party with 6 Pokemon!"),
+            ("PC Storage: 10", "pc_pokemon >= 10", 10, "Store 10 Pokemon in your PC."),
+            ("PC Storage: 30", "pc_pokemon >= 30", 20, "Store 30 Pokemon in your PC."),
+            ("PC Storage: 60", "pc_pokemon >= 60", 30, "Store 60 Pokemon in your PC."),
+            ("PC Storage: 100", "pc_pokemon >= 100", 50, "Store 100 Pokemon in your PC."),
+            ("PC Storage: 200", "pc_pokemon >= 200", 75, "Store 200 Pokemon in your PC."),
+            ("PC Storage: 300", "pc_pokemon >= 300", 100, "Store 300 Pokemon in your PC."),
+            ("PC Storage: 400", "pc_pokemon >= 400", 150, "Store 400 Pokemon in your PC!"),
+            ("Total Pokemon: 50", "total_pokemon >= 50", 25, "Own 50 total Pokemon (party + PC)."),
+            ("Total Pokemon: 100", "total_pokemon >= 100", 40, "Own 100 total Pokemon (party + PC)."),
+            ("Total Pokemon: 200", "total_pokemon >= 200", 75, "Own 200 total Pokemon (party + PC)."),
+            ("Total Pokemon: 300", "total_pokemon >= 300", 100, "Own 300 total Pokemon (party + PC)."),
+            ("Total Pokemon: 400", "total_pokemon >= 400", 150, "Own 400 total Pokemon (party + PC)!"),
+        ]
     for name, hint, pts, desc in party_pc_achs:
         achs.append({
             "id": f"{prefix}_{idx:03d}", "name": name,
@@ -997,6 +1032,37 @@ def check_achievement_unlocked(ach: Dict, save_data: Dict, all_saves: List[Dict]
             print(f"[Achievements] Error checking legendary: {e}")
             import traceback
             traceback.print_exc()
+    
+    # =========================================================================
+    # FRLG SEVII POKEMON RANGER ACHIEVEMENT
+    # =========================================================================
+    # Requires National Dex unlocked AND Rainbow Pass obtained
+    if hint == "has_national_dex AND has_rainbow_pass":
+        # First check if already parsed in save_data
+        has_national_dex = save_data.get('has_national_dex', None)
+        has_rainbow_pass = save_data.get('has_rainbow_pass', None)
+        
+        # If not pre-parsed, try to check using save_writer functions
+        if has_national_dex is None or has_rainbow_pass is None:
+            try:
+                from save_writer import has_national_dex as check_nat_dex, has_rainbow_pass as check_rainbow
+                raw_data = save_data.get('raw_data')
+                if raw_data:
+                    has_national_dex = check_nat_dex(raw_data, 'FRLG')
+                    has_rainbow_pass = check_rainbow(raw_data, 'FRLG')
+                else:
+                    # Can't check without raw data
+                    has_national_dex = False
+                    has_rainbow_pass = False
+            except Exception as e:
+                print(f"[Achievements] Error checking Sevii prereqs: {e}")
+                has_national_dex = save_data.get('has_national_dex', False)
+                has_rainbow_pass = save_data.get('has_rainbow_pass', False)
+        
+        # Debug output
+        print(f"[Achievements] Sevii check: national_dex={has_national_dex}, rainbow_pass={has_rainbow_pass}")
+        
+        return has_national_dex and has_rainbow_pass
     
     # =========================================================================
     # EVENT ACHIEVEMENTS (Mystery Event Items System)

@@ -152,6 +152,41 @@ class EventsScreen:
             return 'FRLG'
         return 'RSE'  # Ruby, Sapphire, Emerald all use RSE format
     
+    def _is_compatible_save(self, loaded_game):
+        """Check if the loaded save is compatible with the expected game.
+        
+        The parser returns paired names like 'Ruby/Sapphire' or 'FireRed/LeafGreen'
+        because it can't distinguish between paired games. This method handles that.
+        
+        Args:
+            loaded_game: The game name returned by parser.game_name
+            
+        Returns:
+            bool: True if the loaded save is compatible with self.game_name
+        """
+        if not loaded_game or not self.game_name:
+            return False
+        
+        # Exact match
+        if loaded_game == self.game_name:
+            return True
+        
+        # Handle paired game names from parser
+        paired_games = {
+            'Ruby/Sapphire': ['Ruby', 'Sapphire'],
+            'FireRed/LeafGreen': ['FireRed', 'LeafGreen'],
+        }
+        
+        for paired_name, games in paired_games.items():
+            if loaded_game == paired_name and self.game_name in games:
+                return True
+        
+        # Emerald is its own thing
+        if loaded_game == 'Emerald' and self.game_name == 'Emerald':
+            return True
+        
+        return False
+    
     def _get_available_events(self):
         """Get list of events available for current game"""
         if not self.game_name:
@@ -191,6 +226,13 @@ class EventsScreen:
             return False
         
         try:
+            # Verify the loaded save matches the expected game
+            # Parser returns "Ruby/Sapphire" or "FireRed/LeafGreen" for paired games
+            loaded_game = getattr(self.manager.parser, 'game_name', None)
+            if not self._is_compatible_save(loaded_game):
+                print(f"[Events] WARNING: Expected {self.game_name} but manager has {loaded_game} loaded - cannot check item ownership")
+                return False
+            
             from save_writer import has_event_item
             return has_event_item(self.manager.parser.data, self.game_type, event_key)
         except Exception as e:
@@ -198,20 +240,65 @@ class EventsScreen:
             return False
     
     def _check_event_complete(self, event_key):
-        """Actually check if event is complete (called once for caching)."""
+        """Check if event is truly complete using Sinew OT verification.
+        
+        Returns True only if:
+        1. The event encounter flag is set (Pokemon caught/defeated at location)
+        2. The player has the Pokemon with OT != "SINEW" (not just from achievement rewards)
+        
+        This prevents events from showing as "complete" just because the player
+        received the Pokemon as an achievement reward.
+        """
         if not self.manager or not self.manager.is_loaded():
             return False
         
         try:
-            from save_writer import is_event_encounter_complete
-            return is_event_encounter_complete(
+            from save_writer import is_event_truly_complete
+            
+            # CRITICAL: Verify the loaded save matches the expected game
+            # Parser returns "Ruby/Sapphire" or "FireRed/LeafGreen" for paired games
+            loaded_game = getattr(self.manager.parser, 'game_name', None)
+            if not self._is_compatible_save(loaded_game):
+                print(f"[Events] WARNING: Expected {self.game_name} but manager has {loaded_game} loaded - cannot check completion")
+                return False
+            
+            # Get party and PC data for OT checking
+            party = []
+            pc_pokemon = []
+            
+            try:
+                party = self.manager.get_party() or []
+            except Exception as e:
+                print(f"[Events] Could not get party: {e}")
+            
+            # Get PC Pokemon using get_box() method (same as main.py)
+            try:
+                if hasattr(self.manager, 'get_box'):
+                    for box_num in range(1, 15):
+                        box = self.manager.get_box(box_num)
+                        if box:
+                            for p in box:
+                                if p and not p.get('empty'):
+                                    pc_pokemon.append(p)
+            except Exception as e:
+                print(f"[Events] Could not get PC Pokemon: {e}")
+            
+            result = is_event_truly_complete(
                 self.manager.parser.data,
                 self.game_type,
                 self.game_name,
-                event_key
+                event_key,
+                party=party,
+                pc_pokemon=pc_pokemon
             )
+            
+            print(f"[Events] {event_key} completion: {result}")
+            return result.get('complete', False)
+            
         except Exception as e:
             print(f"[Events] Error checking event completion: {e}")
+            import traceback
+            traceback.print_exc()
             return False
     
     def _load_claimed_events(self):
@@ -268,6 +355,13 @@ class EventsScreen:
         
         try:
             from save_writer import add_event_item, write_save_file
+            
+            # Verify the loaded save matches the expected game
+            # Parser returns "Ruby/Sapphire" or "FireRed/LeafGreen" for paired games
+            loaded_game = getattr(self.manager.parser, 'game_name', None)
+            if not self._is_compatible_save(loaded_game):
+                self._show_message(f"Wrong save loaded! ({loaded_game})", (255, 100, 100))
+                return False
             
             event_info = EVENT_ITEMS[event_key]
             
@@ -555,6 +649,10 @@ def is_events_unlocked(manager=None):
     Check if the Events menu should be unlocked for current game.
     Requires: Player is Champion (8 badges) in the current save.
     
+    For FRLG games, also requires:
+    - National Dex unlocked
+    - Rainbow Pass obtained
+    
     Note: The full unlock also requires the Endgame Access achievement
     to be claimed, which is checked in main.py
     
@@ -562,7 +660,7 @@ def is_events_unlocked(manager=None):
         manager: SaveDataManager instance (uses get_manager() if None)
         
     Returns:
-        bool: True if current save has 8 badges
+        bool: True if current save meets requirements
     """
     if manager is None:
         manager = get_manager()
@@ -573,7 +671,133 @@ def is_events_unlocked(manager=None):
     try:
         badges = manager.get_badges()
         badge_count = sum(1 for b in badges if b)
-        return badge_count >= 8
+        
+        if badge_count < 8:
+            return False
+        
+        # For FRLG, check additional prerequisites
+        game_name = getattr(manager.parser, 'game_name', None)
+        if game_name in ('FireRed', 'LeafGreen'):
+            try:
+                from save_writer import check_frlg_event_prerequisites
+                prereqs_met, details = check_frlg_event_prerequisites(
+                    manager.parser.data,
+                    'FRLG',
+                    game_name
+                )
+                if not prereqs_met:
+                    print(f"[Events] FRLG prerequisites not met: {details}")
+                    return False
+            except Exception as e:
+                print(f"[Events] Error checking FRLG prerequisites: {e}")
+                # Default to NOT allowing access if we can't verify prerequisites
+                return False
+        
+        return True
+        
     except Exception as e:
         print(f"[Events] Error checking badge count: {e}")
         return False
+
+
+def get_events_unlock_status(manager=None):
+    """
+    Get detailed unlock status for Events menu.
+    
+    Args:
+        manager: SaveDataManager instance (uses get_manager() if None)
+        
+    Returns:
+        dict: {
+            'unlocked': bool,
+            'badge_count': int,
+            'is_champion': bool,
+            'game_name': str or None,
+            'frlg_prereqs': dict or None (for FRLG games)
+        }
+    """
+    if manager is None:
+        manager = get_manager()
+    
+    status = {
+        'unlocked': False,
+        'badge_count': 0,
+        'is_champion': False,
+        'game_name': None,
+        'frlg_prereqs': None
+    }
+    
+    if not manager or not manager.is_loaded():
+        return status
+    
+    try:
+        badges = manager.get_badges()
+        status['badge_count'] = sum(1 for b in badges if b)
+        status['is_champion'] = status['badge_count'] >= 8
+        status['game_name'] = getattr(manager.parser, 'game_name', None)
+        
+        if not status['is_champion']:
+            return status
+        
+        # For FRLG, check additional prerequisites
+        if status['game_name'] in ('FireRed', 'LeafGreen'):
+            try:
+                from save_writer import check_frlg_event_prerequisites
+                prereqs_met, details = check_frlg_event_prerequisites(
+                    manager.parser.data,
+                    'FRLG',
+                    status['game_name']
+                )
+                status['frlg_prereqs'] = details
+                status['unlocked'] = prereqs_met
+            except Exception as e:
+                print(f"[Events] Error checking FRLG prerequisites: {e}")
+                status['unlocked'] = True  # Default to allowing
+        else:
+            status['unlocked'] = True
+            
+    except Exception as e:
+        print(f"[Events] Error getting unlock status: {e}")
+    
+    return status
+
+def check_frlg_prerequisites(manager=None):
+    """
+    Check if FRLG-specific event prerequisites are met.
+    This is a helper function for main.py to call.
+    
+    For FireRed/LeafGreen, events require:
+    - National Dex unlocked
+    - Rainbow Pass obtained
+    
+    For RSE games, always returns True.
+    
+    Args:
+        manager: SaveDataManager instance (uses get_manager() if None)
+        
+    Returns:
+        tuple: (met: bool, details: dict or None)
+    """
+    if manager is None:
+        manager = get_manager()
+    
+    if not manager or not manager.is_loaded():
+        return (False, {'error': 'No save loaded'})
+    
+    try:
+        game_name = getattr(manager.parser, 'game_name', None)
+        
+        # RSE games don't have additional prerequisites
+        if game_name not in ('FireRed', 'LeafGreen'):
+            return (True, {'game': game_name, 'required': False})
+        
+        # Check FRLG prerequisites
+        from save_writer import check_frlg_event_prerequisites
+        return check_frlg_event_prerequisites(
+            manager.parser.data,
+            'FRLG',
+            game_name
+        )
+    except Exception as e:
+        print(f"[Events] Error checking FRLG prerequisites: {e}")
+        return (False, {'error': str(e)})

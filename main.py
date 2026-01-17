@@ -191,10 +191,11 @@ except ImportError:
     ExportModal = None
 
 try:
-    from events_screen import EventsModal, is_events_unlocked
+    from events_screen import EventsModal, is_events_unlocked, check_frlg_prerequisites
 except ImportError:
     EventsModal = None
     is_events_unlocked = None
+    check_frlg_prerequisites = None
 
 # Import integrated mGBA emulator
 try:
@@ -761,6 +762,21 @@ class GameScreen:
                         "playtime_hours": playtime_hours,
                     }
                     
+                    # Add raw_data and FRLG prerequisites for Sevii achievement
+                    if hasattr(manager, 'parser') and manager.parser and hasattr(manager.parser, 'data'):
+                        ach_save_data["raw_data"] = manager.parser.data
+                        
+                        if game_name in ('FireRed', 'LeafGreen'):
+                            try:
+                                from save_writer import has_national_dex as check_nat_dex, has_rainbow_pass as check_rainbow
+                                ach_save_data["has_national_dex"] = check_nat_dex(manager.parser.data, game_name)
+                                ach_save_data["has_rainbow_pass"] = check_rainbow(manager.parser.data, game_name)
+                                print(f"[Achievements] Startup {game_name} Sevii prereqs: nat_dex={ach_save_data['has_national_dex']}, rainbow_pass={ach_save_data['has_rainbow_pass']}")
+                            except Exception as e:
+                                print(f"[Achievements] Startup error checking FRLG Sevii prereqs: {e}")
+                                ach_save_data["has_national_dex"] = False
+                                ach_save_data["has_rainbow_pass"] = False
+                    
                     # Check achievements for this game (without notifications on startup)
                     from achievements_data import get_achievements_for, check_achievement_unlocked
                     game_achievements = get_achievements_for(game_name)
@@ -976,6 +992,23 @@ class GameScreen:
                 "pc_pokemon": pc_pokemon,
                 "owned_list": owned_list,
             }
+            
+            # Add raw_data for FRLG Sevii achievement checking
+            if hasattr(manager, 'parser') and manager.parser and hasattr(manager.parser, 'data'):
+                ach_save_data["raw_data"] = manager.parser.data
+                
+                # Pre-check FRLG prerequisites for Sevii Pokemon Ranger achievement
+                game_name = self.get_current_game_name()
+                if game_name in ('FireRed', 'LeafGreen'):
+                    try:
+                        from save_writer import has_national_dex as check_nat_dex, has_rainbow_pass as check_rainbow
+                        ach_save_data["has_national_dex"] = check_nat_dex(manager.parser.data, game_name)
+                        ach_save_data["has_rainbow_pass"] = check_rainbow(manager.parser.data, game_name)
+                        print(f"[Achievements] {game_name} Sevii prereqs: nat_dex={ach_save_data['has_national_dex']}, rainbow_pass={ach_save_data['has_rainbow_pass']}")
+                    except Exception as e:
+                        print(f"[Achievements] Error checking FRLG Sevii prereqs: {e}")
+                        ach_save_data["has_national_dex"] = False
+                        ach_save_data["has_rainbow_pass"] = False
             
             # Get playtime if available
             if hasattr(manager, 'get_play_time'):
@@ -1888,7 +1921,10 @@ class GameScreen:
         Check if Events menu should be shown for current game.
         Requires:
         1. Current game has 8 badges (is Champion)
-        2. That game's "Pokemon Champion!" achievement reward has been claimed
+        2. For FRLG: National Dex unlocked AND Rainbow Pass obtained
+        3. That game's unlock achievement reward has been claimed:
+           - RSE: "Pokemon Champion!" (_028)
+           - FRLG: "Sevii Pokemon Ranger" (_057)
         """
         # Check current game's badge count first
         manager = get_manager()
@@ -1903,20 +1939,35 @@ class GameScreen:
         except:
             return False
         
-        # Check if this game's "Pokemon Champion!" reward has been claimed
+        current_game = self.get_current_game_name()
+        is_frlg = current_game in ('FireRed', 'LeafGreen')
+        
+        # Check FRLG prerequisites (National Dex + Rainbow Pass)
+        if is_frlg and check_frlg_prerequisites:
+            try:
+                prereqs_met, details = check_frlg_prerequisites(manager)
+                if not prereqs_met:
+                    return False
+            except Exception as e:
+                print(f"[Events] Error checking FRLG prerequisites: {e}")
+                return False
+        
+        # Check if this game's unlock achievement reward has been claimed
         if self._achievement_manager:
-            # Get achievement ID for current game's champion achievement
-            current_game = self.get_current_game_name()
-            champion_ach_id = self._get_champion_achievement_id(current_game)
+            # FRLG uses Sevii Pokemon Ranger (_057), RSE uses Champion (_028)
+            unlock_ach_id = self._get_events_unlock_achievement_id(current_game)
             
-            if champion_ach_id and not self._achievement_manager.is_reward_claimed(champion_ach_id):
+            if unlock_ach_id and not self._achievement_manager.is_reward_claimed(unlock_ach_id):
                 return False
         
         return True
     
-    def _get_champion_achievement_id(self, game_name):
-        """Get the Pokemon Champion! achievement ID for a specific game."""
-        # Map game names to achievement prefixes
+    def _get_events_unlock_achievement_id(self, game_name):
+        """Get the achievement ID that unlocks Events for a specific game.
+        
+        RSE: Pokemon Champion! (_028)
+        FRLG: Sevii Pokemon Ranger (_057)
+        """
         prefix_map = {
             'Ruby': 'RUBY',
             'Sapphire': 'SAPP',
@@ -1925,9 +1976,14 @@ class GameScreen:
             'LeafGreen': 'LG',
         }
         prefix = prefix_map.get(game_name)
-        if prefix:
-            return f"{prefix}_028"  # Pokemon Champion! is always _028
-        return None
+        if not prefix:
+            return None
+        
+        # FRLG uses Sevii Pokemon Ranger (_057), RSE uses Champion (_028)
+        if game_name in ('FireRed', 'LeafGreen'):
+            return f"{prefix}_057"  # Sevii Pokemon Ranger
+        else:
+            return f"{prefix}_028"  # Pokemon Champion!
     
     def _get_running_game_name(self):
         """Get the name of the currently running game, or None if no game is running."""
@@ -2839,7 +2895,7 @@ class GameScreen:
                 sinew_achs = get_achievements_for("Sinew")
                 for ach in sinew_achs:
                     if ach["id"] == ach_id:
-                        self._achievement_manager.unlock_achievement(ach)
+                        self._achievement_manager.unlock(ach["id"], ach)
                         break
             except Exception as e:
                 print(f"[Sinew] Error unlocking event achievement: {e}")
@@ -2864,7 +2920,7 @@ class GameScreen:
                     sinew_achs = get_achievements_for("Sinew")
                     for ach in sinew_achs:
                         if ach.get("hint") == "all_events_claimed":
-                            self._achievement_manager.unlock_achievement(ach)
+                            self._achievement_manager.unlock(ach["id"], ach)
                             break
         except Exception as e:
             print(f"[Sinew] Error checking all events: {e}")
@@ -3004,7 +3060,8 @@ class GameScreen:
             )
         elif name == "Events" and EventsModal:
             # Events modal - for claiming mystery event items
-            # Pass the current game name from the game screen (determined by filename)
+            # IMPORTANT: Reload current save to ensure we have the right game's data
+            self._load_current_save()
             current_game_name = self.get_current_game_name()
             self.modal_instance = EventsModal(
                 modal_w, modal_h, self.font,

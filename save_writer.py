@@ -1224,6 +1224,8 @@ def add_item_to_pocket(save_data, game_type, pocket_name, item_id, quantity=1):
 def add_event_item(save_data, game_type, game_name, event_key):
     """
     Add an event item to the save file's key items pocket.
+    Also sets the enable flags so NPCs recognize the ticket.
+    
     Returns: tuple: (success: bool, message: str)
     """
     if event_key not in EVENT_ITEMS:
@@ -1247,9 +1249,19 @@ def add_event_item(save_data, game_type, game_name, event_key):
     if existing >= 0:
         return (False, f"You already have {item_name}!")
     
+    # Add the item to key items pocket
     success, msg = add_item_to_pocket(save_data, game_type, 'key_items', item_id, quantity=1)
     
     if success:
+        # Set the enable flags so NPCs recognize the ticket
+        flag_success, flags_set = set_event_enable_flags(save_data, game_type, game_name, event_key)
+        if flag_success and flags_set > 0:
+            print(f"[EventItem] Added {item_name} and set {flags_set} enable flag(s)")
+        elif flag_success:
+            print(f"[EventItem] Added {item_name} (no enable flags defined for this game)")
+        else:
+            print(f"[EventItem] Added {item_name} but WARNING: failed to set enable flags")
+        
         return (True, f"Received {item_name}!")
     else:
         return (False, msg)
@@ -1287,13 +1299,279 @@ def get_available_events_for_game(game_name):
 
 
 # =============================================================================
+# FRLG EVENT PREREQUISITE CHECKS
+# =============================================================================
+# FireRed/LeafGreen have additional requirements for event items:
+# - National Dex must be unlocked
+# - Rainbow Pass must be obtained (required for Sevii Islands 4-7)
+
+RAINBOW_PASS_ITEM_ID = 368  # Key item that unlocks Sevii Islands 4-7
+
+# Flag IDs for National Dex unlock
+NATIONAL_DEX_FLAGS = {
+    'FRLG': 0x840,  # FLAG_SYS_NATIONAL_DEX in pokefirered
+    'RSE': 0x860,   # FLAG_SYS_NATIONAL_DEX in pokeemerald (not used for gating, but available)
+}
+
+
+def has_national_dex(save_data, game_type, game_name=None):
+    """
+    Check if the National Dex has been unlocked.
+    
+    Args:
+        save_data: Save file data
+        game_type: 'RSE' or 'FRLG'
+        game_name: Optional game name for accurate flag reading
+        
+    Returns:
+        bool: True if National Dex is unlocked
+    """
+    block_offset = get_active_block(save_data)
+    section1_offset = find_section_by_id(save_data, block_offset, 1)
+    
+    if section1_offset is None:
+        return False
+    
+    flag_id = NATIONAL_DEX_FLAGS.get(game_type, NATIONAL_DEX_FLAGS['RSE'])
+    return get_flag_value(save_data, section1_offset, game_type, flag_id, game_name)
+
+
+def has_rainbow_pass(save_data, game_type):
+    """
+    Check if the Rainbow Pass has been obtained (FRLG only).
+    The Rainbow Pass allows access to Sevii Islands 4-7.
+    
+    Args:
+        save_data: Save file data
+        game_type: 'RSE' or 'FRLG'
+        
+    Returns:
+        bool: True if Rainbow Pass is in key items
+    """
+    if game_type != 'FRLG':
+        return True  # Not required for RSE games
+    
+    block_offset = get_active_block(save_data)
+    section1_offset = find_section_by_id(save_data, block_offset, 1)
+    
+    if section1_offset is None:
+        return False
+    
+    return find_item_in_pocket(save_data, section1_offset, game_type, 'key_items', RAINBOW_PASS_ITEM_ID) >= 0
+
+
+def check_frlg_event_prerequisites(save_data, game_type, game_name):
+    """
+    Check if FRLG event prerequisites are met.
+    For FireRed/LeafGreen, events require:
+    - National Dex unlocked
+    - Rainbow Pass obtained
+    
+    Args:
+        save_data: Save file data
+        game_type: 'RSE' or 'FRLG'
+        game_name: Full game name
+        
+    Returns:
+        tuple: (all_met: bool, details: dict)
+    """
+    # RSE games don't have additional prerequisites
+    if game_name not in ('FireRed', 'LeafGreen'):
+        return (True, {'game': game_name, 'required': False})
+    
+    has_nat_dex = has_national_dex(save_data, game_type, game_name)
+    has_pass = has_rainbow_pass(save_data, game_type)
+    
+    details = {
+        'game': game_name,
+        'required': True,
+        'national_dex': has_nat_dex,
+        'rainbow_pass': has_pass,
+    }
+    
+    all_met = has_nat_dex and has_pass
+    
+    if not all_met:
+        print(f"[EventPrereqs] FRLG prerequisites not met: National Dex={has_nat_dex}, Rainbow Pass={has_pass}")
+    
+    return (all_met, details)
+
+
+# =============================================================================
+# SINEW OT DETECTION FOR EVENT COMPLETION
+# =============================================================================
+# When checking if an event is "truly complete", we need to distinguish between:
+# - Pokemon received as Sinew achievement rewards (OT = "SINEW")
+# - Pokemon legitimately caught at the event location (OT = player's name)
+#
+# If the completion flag is set but the only Pokemon of that species has OT "SINEW",
+# the player hasn't actually done the event - they just got the reward Pokemon.
+
+SINEW_OT_NAME = "SINEW"
+
+# Species IDs for event Pokemon (to avoid circular import with events_screen)
+EVENT_POKEMON_IDS = {
+    'eon_ticket': [380, 381],      # Latias, Latios
+    'aurora_ticket': [386],         # Deoxys
+    'mystic_ticket': [249, 250],    # Lugia, Ho-Oh
+    'old_sea_map': [151],           # Mew
+}
+
+
+def find_pokemon_by_species(party, pc_pokemon, species_ids):
+    """
+    Find all Pokemon of specified species in party and PC.
+    
+    Args:
+        party: List of party Pokemon dicts
+        pc_pokemon: List of PC Pokemon dicts
+        species_ids: List of species IDs to search for
+        
+    Returns:
+        list: List of matching Pokemon dicts
+    """
+    matches = []
+    
+    # Search party
+    for poke in party:
+        if poke and not poke.get('empty', False):
+            if poke.get('species') in species_ids:
+                matches.append(poke)
+    
+    # Search PC
+    for poke in pc_pokemon:
+        if poke and not poke.get('empty', False):
+            if poke.get('species') in species_ids:
+                matches.append(poke)
+    
+    return matches
+
+
+def has_non_sinew_pokemon(party, pc_pokemon, species_ids):
+    """
+    Check if any Pokemon of the specified species has an OT other than "SINEW".
+    This indicates the player legitimately caught the Pokemon.
+    
+    Args:
+        party: List of party Pokemon dicts
+        pc_pokemon: List of PC Pokemon dicts
+        species_ids: List of species IDs to check
+        
+    Returns:
+        bool: True if at least one matching Pokemon has OT != "SINEW"
+    """
+    matches = find_pokemon_by_species(party, pc_pokemon, species_ids)
+    
+    for poke in matches:
+        ot_name = poke.get('ot_name', '').strip().upper()
+        if ot_name and ot_name != SINEW_OT_NAME:
+            print(f"[SinewOT] Found species {poke.get('species')} with OT '{ot_name}' (not SINEW)")
+            return True
+    
+    if matches:
+        print(f"[SinewOT] Found {len(matches)} Pokemon of species {species_ids}, but all have OT='SINEW'")
+    else:
+        print(f"[SinewOT] No Pokemon found with species {species_ids}")
+    
+    return False
+
+
+def is_event_truly_complete(save_data, game_type, game_name, event_key, party=None, pc_pokemon=None):
+    """
+    Check if an event is truly complete - meaning the player actually caught
+    the event Pokemon (not just received it as a Sinew reward).
+    
+    Logic:
+    1. If completion flag is NOT set → Event is incomplete
+    2. If completion flag IS set:
+       - For eon_ticket: Flag is enough (Latios/Latias are NOT Sinew rewards)
+       - For other events: Check if player has event Pokemon with OT != "SINEW"
+    
+    Args:
+        save_data: Save file data (bytearray)
+        game_type: 'RSE' or 'FRLG'
+        game_name: Full game name ('Ruby', 'Emerald', 'FireRed', etc.)
+        event_key: Event key ('eon_ticket', 'aurora_ticket', etc.)
+        party: Optional list of party Pokemon dicts with 'species' and 'ot_name' keys
+        pc_pokemon: Optional list of PC Pokemon dicts
+        
+    Returns:
+        dict: {
+            'complete': bool - True if event is truly complete
+            'flag_set': bool - Whether the completion flag is set
+            'has_legit_catch': bool - Whether player has non-SINEW Pokemon
+            'reason': str - Explanation of the status
+        }
+    """
+    result = {
+        'complete': False,
+        'flag_set': False,
+        'has_legit_catch': False,
+        'reason': 'Unknown'
+    }
+    
+    # First check if completion flag is set
+    flag_complete = is_event_encounter_complete(save_data, game_type, game_name, event_key)
+    result['flag_set'] = flag_complete
+    
+    if not flag_complete:
+        result['reason'] = 'Completion flag not set'
+        return result
+    
+    # For eon_ticket: Latios/Latias are NOT given as Sinew achievement rewards
+    # So if the flag is set, the player actually did the event
+    if event_key == 'eon_ticket':
+        result['complete'] = True
+        result['has_legit_catch'] = True
+        result['reason'] = 'Eon Ticket event completed (no Sinew reward exists for Latios/Latias)'
+        return result
+    
+    # For other events (aurora, mystic, old_sea_map), check for non-SINEW Pokemon
+    # since these ARE given as Sinew achievement rewards
+    species_ids = EVENT_POKEMON_IDS.get(event_key, [])
+    if not species_ids:
+        # No species to check, just use flag
+        result['complete'] = True
+        result['reason'] = 'No species check required'
+        return result
+    
+    # If no party/PC data provided, we can't verify OT
+    if party is None and pc_pokemon is None:
+        result['complete'] = False  # Be conservative - require verification
+        result['reason'] = 'Cannot verify OT (no Pokemon data provided)'
+        return result
+    
+    # Use empty lists if only one is None
+    if party is None:
+        party = []
+    if pc_pokemon is None:
+        pc_pokemon = []
+    
+    # Check if player has non-SINEW Pokemon of this species
+    has_legit = has_non_sinew_pokemon(party, pc_pokemon, species_ids)
+    result['has_legit_catch'] = has_legit
+    
+    if has_legit:
+        result['complete'] = True
+        result['reason'] = 'Player has legitimately caught Pokemon'
+    else:
+        result['complete'] = False
+        result['reason'] = 'Only SINEW reward Pokemon found (or none)'
+    
+    return result
+
+
+# =============================================================================
 # EVENT ENCOUNTER FLAGS - Track if legendary was caught/defeated at location
 # =============================================================================
 
-# Flag offsets within Section 1 for each game type
+# Flag offsets within saveBlock1 for each game
+# Ruby/Sapphire and Emerald have different internal structures
 EVENT_FLAG_OFFSETS = {
-    'RSE': 0x1270,   # Ruby/Sapphire/Emerald flags start here in Section 1
-    'FRLG': 0x0EE0,  # FireRed/LeafGreen flags start here in Section 1
+    'RS': 0x1220,    # Ruby/Sapphire flags offset in saveBlock1
+    'E': 0x1270,     # Emerald flags offset in saveBlock1
+    'RSE': 0x1270,   # Fallback (Emerald offset) - for backwards compatibility
+    'FRLG': 0x0EE0,  # FireRed/LeafGreen flags offset
 }
 
 # Event encounter flag IDs - these track if the Pokemon at the event location
@@ -1309,11 +1587,13 @@ EVENT_ENCOUNTER_FLAGS = {
         'old_sea_map': [0x86E],          # FLAG_DEFEATED_MEW (Faraway Island)
     },
     # Ruby/Sapphire only have Eon Ticket event
+    # NOTE: R/S use 0x85A for completion - 0x860 is set just by arriving at island!
+    # Verified by comparing Ruby (incomplete) vs Sapphire (complete) saves
     'Ruby': {
-        'eon_ticket': [0x862],           # FLAG_DEFEATED_LATIAS_OR_LATIOS
+        'eon_ticket': [0x85A],           # FLAG_DEFEATED_LATIAS_OR_LATIOS (R/S actual completion flag)
     },
     'Sapphire': {
-        'eon_ticket': [0x862],           # FLAG_DEFEATED_LATIAS_OR_LATIOS
+        'eon_ticket': [0x85A],           # FLAG_DEFEATED_LATIAS_OR_LATIOS (R/S actual completion flag)
     },
     # FireRed/LeafGreen have Aurora and Mystic Ticket events
     'FireRed': {
@@ -1326,37 +1606,233 @@ EVENT_ENCOUNTER_FLAGS = {
     },
 }
 
+# =============================================================================
+# EVENT ENABLE FLAGS - Must be set for NPCs to recognize tickets
+# =============================================================================
+# These flags tell the game that the player has received the event ticket
+# through official distribution. Without these, NPCs won't offer ferry rides.
+# Flag IDs from pokeemerald/pokefirered decompilation projects.
 
-def get_flag_value(save_data, section1_offset, game_type, flag_id):
+EVENT_ENABLE_FLAGS = {
+    # Emerald enable flags (from Project Pokemon research)
+    # Southern Island via Mixing Records: 2227 (0x8B3) - FLAG_SYS_HAS_EON_TICKET
+    # Birth Island: 0314 (0x13A) + 2261 (0x8D5)
+    # Navel Rock: 0315 (0x13B) + 2272 (0x8E0)
+    # Faraway Island: 0316 (0x13C) + 2262 (0x8D6)
+    'Emerald': {
+        'eon_ticket': [0x8B3],              # FLAG_SYS_HAS_EON_TICKET (2227) - Southern Island
+        'aurora_ticket': [0x13A, 0x8D5],    # Birth Island: 0314 + 2261
+        'mystic_ticket': [0x13B, 0x8E0],    # Navel Rock: 0315 + 2272
+        'old_sea_map': [0x13C, 0x8D6],      # Faraway Island: 0316 + 2262
+    },
+    # Ruby/Sapphire enable flags (from Project Pokemon research)
+    # Receiving Eon Ticket from e-card: 2100 (0x834), 2124 (0x84C)
+    # Southern Island from Norman: 2131 (0x853)
+    'Ruby': {
+        'eon_ticket': [0x853, 0x834, 0x84C],  # Southern Island (2131) + e-card flags (2100, 2124)
+    },
+    'Sapphire': {
+        'eon_ticket': [0x853, 0x834, 0x84C],  # Southern Island (2131) + e-card flags (2100, 2124)
+    },
+    # FireRed/LeafGreen enable flags (from Project Pokemon research)
+    # Mystic Ticket (Navel Rock): 2122 (0x84A) + 2123 (0x84B)
+    # Aurora Ticket (Birth Island): Same flags work for both tickets
+    'FireRed': {
+        'aurora_ticket': [0x84A, 0x84B],  # 2122 + 2123 - enables Birth Island
+        'mystic_ticket': [0x84A, 0x84B],  # 2122 + 2123 - enables Navel Rock
+    },
+    'LeafGreen': {
+        'aurora_ticket': [0x84A, 0x84B],  # 2122 + 2123 - enables Birth Island
+        'mystic_ticket': [0x84A, 0x84B],  # 2122 + 2123 - enables Navel Rock
+    },
+}
+
+
+def get_flag_value(save_data, section1_offset, game_type, flag_id, game_name=None):
     """
     Read a single flag value from the save data.
     
+    NOTE: Flags are stored in SaveBlock1 which spans multiple sections.
+    This function handles the multi-section layout properly.
+    
     Args:
         save_data: Save file data
-        section1_offset: Offset to Section 1
+        section1_offset: Offset to Section 1 (used to find the active block)
         game_type: 'RSE' or 'FRLG'
         flag_id: The flag ID to check
+        game_name: Optional specific game name ('Ruby', 'Sapphire', 'Emerald', etc.)
         
     Returns:
         bool: True if flag is set, False otherwise
     """
-    # Get flags base offset for this game type
-    flags_base = EVENT_FLAG_OFFSETS.get(game_type, EVENT_FLAG_OFFSETS['RSE'])
-    
-    # Calculate byte and bit position
-    # Flags are stored as a bit array
-    byte_offset = section1_offset + flags_base + (flag_id // 8)
-    bit_position = flag_id % 8
-    
-    # Check bounds
-    if byte_offset >= len(save_data):
+    try:
+        # Get flags base offset within SaveBlock1
+        if game_name in ('Ruby', 'Sapphire'):
+            flags_base = EVENT_FLAG_OFFSETS.get('RS', 0x1220)
+        elif game_name == 'Emerald':
+            flags_base = EVENT_FLAG_OFFSETS.get('E', 0x1270)
+        elif game_type == 'FRLG':
+            flags_base = EVENT_FLAG_OFFSETS.get('FRLG', 0x0EE0)
+        else:
+            flags_base = 0x1270  # Default to Emerald
+        
+        # Calculate offset within SaveBlock1
+        saveblock1_offset = flags_base + (flag_id // 8)
+        bit_position = flag_id % 8
+        
+        # SaveBlock1 spans sections 1-4, each section has 3968 bytes (0xF80) of data
+        # (except section 4 which has 2000 bytes)
+        SECTION_DATA_SIZE = 0xF80  # 3968 bytes per section
+        
+        # Determine which section this offset falls into
+        section_num = saveblock1_offset // SECTION_DATA_SIZE  # 0=sec1, 1=sec2, etc.
+        offset_in_section = saveblock1_offset % SECTION_DATA_SIZE
+        
+        # The actual section ID is section_num + 1 (since Section 0 is trainer data)
+        target_section_id = section_num + 1
+        
+        # Find the physical offset of the target section
+        block_offset = get_active_block(save_data)
+        target_section_offset = find_section_by_id(save_data, block_offset, target_section_id)
+        
+        if target_section_offset is None:
+            print(f"[FlagRead] Could not find Section {target_section_id}")
+            return False
+        
+        # Read the flag byte
+        byte_offset = target_section_offset + offset_in_section
+        if byte_offset >= len(save_data):
+            return False
+        
+        flag_byte = save_data[byte_offset]
+        is_set = (flag_byte >> bit_position) & 1
+        
+        return bool(is_set)
+        
+    except Exception as e:
+        print(f"[FlagRead] Error reading flag {flag_id}: {e}")
         return False
+
+
+def set_flag_value(save_data, section1_offset, game_type, flag_id, value=True, game_name=None):
+    """
+    Set a single flag value in the save data.
     
-    # Read the byte and check the bit
-    flag_byte = save_data[byte_offset]
-    is_set = (flag_byte >> bit_position) & 1
+    NOTE: Flags are stored in SaveBlock1 which spans multiple sections.
+    This function handles the multi-section layout and updates the correct checksum.
     
-    return bool(is_set)
+    Args:
+        save_data: Save file data (mutable bytearray)
+        section1_offset: Offset to Section 1 (used to find the active block)
+        game_type: 'RSE' or 'FRLG'
+        flag_id: The flag ID to set
+        value: True to set the flag, False to clear it
+        game_name: Optional specific game name ('Ruby', 'Sapphire', 'Emerald', etc.)
+        
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    try:
+        # Get flags base offset within SaveBlock1
+        if game_name in ('Ruby', 'Sapphire'):
+            flags_base = EVENT_FLAG_OFFSETS.get('RS', 0x1220)
+        elif game_name == 'Emerald':
+            flags_base = EVENT_FLAG_OFFSETS.get('E', 0x1270)
+        elif game_type == 'FRLG':
+            flags_base = EVENT_FLAG_OFFSETS.get('FRLG', 0x0EE0)
+        else:
+            flags_base = 0x1270  # Default to Emerald
+        
+        # Calculate offset within SaveBlock1
+        saveblock1_offset = flags_base + (flag_id // 8)
+        bit_position = flag_id % 8
+        
+        # SaveBlock1 spans sections 1-4, each section has 3968 bytes (0xF80) of data
+        SECTION_DATA_SIZE = 0xF80  # 3968 bytes per section
+        
+        # Determine which section this offset falls into
+        section_num = saveblock1_offset // SECTION_DATA_SIZE  # 0=sec1, 1=sec2, etc.
+        offset_in_section = saveblock1_offset % SECTION_DATA_SIZE
+        
+        # The actual section ID is section_num + 1 (since Section 0 is trainer data)
+        target_section_id = section_num + 1
+        
+        # Find the physical offset of the target section
+        block_offset = get_active_block(save_data)
+        target_section_offset = find_section_by_id(save_data, block_offset, target_section_id)
+        
+        if target_section_offset is None:
+            print(f"[FlagWrite] Could not find Section {target_section_id}")
+            return False
+        
+        # Calculate the actual byte offset in the save file
+        byte_offset = target_section_offset + offset_in_section
+        
+        if byte_offset >= len(save_data):
+            print(f"[FlagWrite] Byte offset 0x{byte_offset:X} out of bounds")
+            return False
+        
+        # Read current byte, modify the bit, write back
+        current_byte = save_data[byte_offset]
+        if value:
+            new_byte = current_byte | (1 << bit_position)
+        else:
+            new_byte = current_byte & ~(1 << bit_position)
+        
+        save_data[byte_offset] = new_byte
+        
+        # Update the checksum for the section we just modified
+        update_section_checksum(save_data, target_section_offset)
+        
+        print(f"[FlagWrite] Set flag 0x{flag_id:X} in Section {target_section_id} at offset 0x{offset_in_section:X}")
+        return True
+        
+    except Exception as e:
+        print(f"[FlagWrite] Error setting flag {flag_id}: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
+
+
+def set_event_enable_flags(save_data, game_type, game_name, event_key):
+    """
+    Set all enable flags for an event ticket.
+    These flags make NPCs recognize that the player has the event ticket.
+    
+    Args:
+        save_data: Save file data (mutable bytearray)
+        game_type: 'RSE' or 'FRLG'
+        game_name: Full game name ('Ruby', 'Emerald', 'FireRed', etc.)
+        event_key: Event key ('eon_ticket', 'aurora_ticket', etc.)
+        
+    Returns:
+        tuple: (success: bool, flags_set: int)
+    """
+    # Get enable flags for this game/event
+    game_flags = EVENT_ENABLE_FLAGS.get(game_name, {})
+    enable_flags = game_flags.get(event_key, [])
+    
+    if not enable_flags:
+        print(f"[FlagWriter] No enable flags defined for {event_key} in {game_name}")
+        return (True, 0)  # Not an error, just no flags to set
+    
+    # Get Section 1 offset
+    block_offset = get_active_block(save_data)
+    section1_offset = find_section_by_id(save_data, block_offset, 1)
+    
+    if section1_offset is None:
+        return (False, 0)
+    
+    # Set all enable flags
+    flags_set = 0
+    for flag_id in enable_flags:
+        if set_flag_value(save_data, section1_offset, game_type, flag_id, True, game_name):
+            flags_set += 1
+    
+    # Note: set_flag_value now handles checksum updates for each section it modifies
+    
+    print(f"[FlagWriter] Set {flags_set}/{len(enable_flags)} enable flags for {event_key}")
+    return (True, flags_set)
 
 
 def is_event_encounter_complete(save_data, game_type, game_name, event_key):
@@ -1393,7 +1869,7 @@ def is_event_encounter_complete(save_data, game_type, game_name, event_key):
     # Check all flags for this event - ALL must be set for completion
     all_set = True
     for flag_id in event_flags:
-        flag_set = get_flag_value(save_data, section1_offset, game_type, flag_id)
+        flag_set = get_flag_value(save_data, section1_offset, game_type, flag_id, game_name)
         if not flag_set:
             all_set = False
             break
@@ -1433,7 +1909,7 @@ def get_event_completion_status(save_data, game_type, game_name, event_key):
         return result
     
     for flag_id in event_flags:
-        flag_set = get_flag_value(save_data, section1_offset, game_type, flag_id)
+        flag_set = get_flag_value(save_data, section1_offset, game_type, flag_id, game_name)
         result['details'].append({
             'flag_id': flag_id,
             'set': flag_set
