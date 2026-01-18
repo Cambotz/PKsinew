@@ -10,7 +10,7 @@ It allows you to:
 
 PKsinew supports **Windows, macOS, and Linux**, and works best with a **controller** for seamless gameplay tracking.
 
-💡 **Devlog / Updates:** [Sinew Devlog](https://pksinew.hashnode.dev/pksinew-devlog-index-start-here)
+**Devlog / Updates:** [Sinew Devlog](https://pksinew.hashnode.dev/pksinew-devlog-index-start-here)
 
 **Discord:** [Sinew Discord](https://discord.gg/t28tmQsyuq)
 
