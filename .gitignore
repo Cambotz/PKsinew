@@ -42,6 +42,7 @@ data/sprites/title/firered.gif
 data/sprites/title/leafgreen.gif
 data/sprites/title/backup
 sinew.log
+sinew.log.1
 # --- Build / packaged output ---
 build/
 dist/
