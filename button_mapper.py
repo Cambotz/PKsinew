@@ -456,12 +456,16 @@ class ButtonMapper:
         
         This handles the case where a user remapped d-pad directions to fix
         a mixed-up hat (e.g. Xbox Series X with inverted Y).
+        
+        For any direction NOT explicitly rebound as a hat source, we keep
+        the default hat mapping so those directions continue to work.
         """
         if not self.controller:
             return
         
-        # Start fresh
-        new_hat_map = {}
+        # Remember which directions are explicitly mapped to hat sources
+        hat_bound_directions = set()
+        hat_entries = {}
         
         dpad_directions = {
             'DPAD_UP': 'up', 'DPAD_DOWN': 'down',
@@ -475,43 +479,53 @@ class ButtonMapper:
             if binding.get('source') != 'hat':
                 continue
             
+            hat_bound_directions.add(direction)
             axis = binding.get('axis', '')
             value = binding.get('value', 0)
             
-            # Build the hat tuple for this direction
             if axis == 'x':
-                hat_tuple = (value, 0)
+                hat_entries[(value, 0)] = direction
             else:  # y
-                hat_tuple = (0, value)
-            
-            new_hat_map[hat_tuple] = direction
+                hat_entries[(0, value)] = direction
         
-        if new_hat_map:
-            # Add diagonal entries based on cardinal directions
-            # Find what hat values map to up/down/left/right
-            up_y = down_y = left_x = right_x = None
-            for ht, d in new_hat_map.items():
-                if d == 'up':
-                    up_y = ht[1]
-                elif d == 'down':
-                    down_y = ht[1]
-                elif d == 'left':
-                    left_x = ht[0]
-                elif d == 'right':
-                    right_x = ht[0]
-            
-            # Add diagonals (priority to vertical for GBA-style navigation)
-            if right_x is not None and up_y is not None:
-                new_hat_map[(right_x, up_y)] = 'up'
-            if left_x is not None and up_y is not None:
-                new_hat_map[(left_x, up_y)] = 'up'
-            if right_x is not None and down_y is not None:
-                new_hat_map[(right_x, down_y)] = 'down'
-            if left_x is not None and down_y is not None:
-                new_hat_map[(left_x, down_y)] = 'down'
-            
-            self.controller.hat_map = new_hat_map
-            print(f"[ButtonMapper] Updated hat_map: {new_hat_map}")
+        if not hat_entries:
+            return  # No hat bindings, don't touch the hat_map
+        
+        # For unbound directions, use the default hat convention
+        DEFAULT_HAT_DIR = {
+            'up':    (0, 1),
+            'down':  (0, -1),
+            'left':  (-1, 0),
+            'right': (1, 0),
+        }
+        for direction, hat_tuple in DEFAULT_HAT_DIR.items():
+            if direction not in hat_bound_directions:
+                # Keep the default mapping for this direction
+                hat_entries[hat_tuple] = direction
+        
+        # Add diagonal entries (priority to vertical for GBA-style navigation)
+        up_y = down_y = left_x = right_x = None
+        for ht, d in hat_entries.items():
+            if d == 'up':
+                up_y = ht[1]
+            elif d == 'down':
+                down_y = ht[1]
+            elif d == 'left':
+                left_x = ht[0]
+            elif d == 'right':
+                right_x = ht[0]
+        
+        if right_x is not None and up_y is not None:
+            hat_entries[(right_x, up_y)] = 'up'
+        if left_x is not None and up_y is not None:
+            hat_entries[(left_x, up_y)] = 'up'
+        if right_x is not None and down_y is not None:
+            hat_entries[(right_x, down_y)] = 'down'
+        if left_x is not None and down_y is not None:
+            hat_entries[(left_x, down_y)] = 'down'
+        
+        self.controller.hat_map = hat_entries
+        print(f"[ButtonMapper] Updated hat_map: {hat_entries}")
     
     def _get_binding_display(self, button_name):
         """Get display string for a button's current binding"""

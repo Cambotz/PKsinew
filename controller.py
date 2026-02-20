@@ -582,7 +582,12 @@ class ControllerManager:
         return False
     
     def _get_dpad_from_hat(self):
-        """Get D-pad state from HAT input"""
+        """Get D-pad state from HAT input using the hat_map dict.
+        
+        The hat_map maps (hx, hy) tuples to direction strings.
+        This is rebuilt by ButtonMapper when the user remaps d-pad directions,
+        so it always reflects the current configuration.
+        """
         directions = {'up': False, 'down': False, 'left': False, 'right': False}
         
         if not self.active_controller:
@@ -592,19 +597,22 @@ class ControllerManager:
             if self.active_controller.get_numhats() > 0:
                 hat = self.active_controller.get_hat(0)
                 
-                # Horizontal
-                if hat[0] < 0:
-                    directions['left'] = True
-                elif hat[0] > 0:
-                    directions['right'] = True
-                
-                # Vertical (hat Y is inverted in pygame)
-                if hat[1] > 0:
-                    directions['up'] = True
-                elif hat[1] < 0:
-                    directions['down'] = True
+                if hat != (0, 0):
+                    # Check exact match first (for diagonals)
+                    direction = self.hat_map.get(hat)
+                    if direction:
+                        directions[direction] = True
+                    else:
+                        # Check cardinal components separately
+                        if hat[0] != 0:
+                            d = self.hat_map.get((hat[0], 0))
+                            if d:
+                                directions[d] = True
+                        if hat[1] != 0:
+                            d = self.hat_map.get((0, hat[1]))
+                            if d:
+                                directions[d] = True
         except pygame.error:
-            # Controller became invalid
             pass
         
         return directions
@@ -710,10 +718,22 @@ class ControllerManager:
                 self.connected = False
                 self._schedule_refresh()
         
-        # Update D-pad states (combine HAT, analog, buttons, and keyboard)
-        hat_dirs = self._get_dpad_from_hat() if self.active_controller else {'up': False, 'down': False, 'left': False, 'right': False}
-        axis_dirs = self._get_dpad_from_axes() if self.active_controller else {'up': False, 'down': False, 'left': False, 'right': False}
-        btn_dirs = self._get_dpad_from_buttons() if self.active_controller else {'up': False, 'down': False, 'left': False, 'right': False}
+        # Update D-pad states (combine HAT, analog, button-dpad, and keyboard)
+        # All three gamepad sources now respect configured mappings:
+        # - _get_dpad_from_hat() uses hat_map (rebuilt when user remaps)
+        # - _get_dpad_from_axes() uses dpad_axis_pairs
+        # - _get_dpad_from_buttons() uses dpad_button_map
+        no_dirs = {'up': False, 'down': False, 'left': False, 'right': False}
+        
+        if self.active_controller:
+            hat_dirs = self._get_dpad_from_hat()
+            axis_dirs = self._get_dpad_from_axes()
+            btn_dirs = self._get_dpad_from_buttons()
+        else:
+            hat_dirs = no_dirs
+            axis_dirs = no_dirs
+            btn_dirs = no_dirs
+        
         kb_dpad = getattr(self, '_kb_dpad_pressed', {})
         
         for direction in ['up', 'down', 'left', 'right']:
