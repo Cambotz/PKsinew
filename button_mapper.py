@@ -26,7 +26,9 @@ class ButtonMapper:
     - Per-controller profile saving via controller_profiles
     """
     
-    # Default button mappings (button name -> list of controller indices)
+    # Default button mappings (button name -> binding value)
+    # Face/shoulder buttons: list of controller button indices [int, ...]
+    # D-pad: dict with source type and values
     DEFAULT_MAPPING = {
         'A': [0],
         'B': [1],
@@ -34,14 +36,30 @@ class ButtonMapper:
         'R': [5],
         'SELECT': [6],
         'START': [7],
-        'DPAD_UP': ['hat_up', 'axis_y_neg'],
-        'DPAD_DOWN': ['hat_down', 'axis_y_pos'],
-        'DPAD_LEFT': ['hat_left', 'axis_x_neg'],
-        'DPAD_RIGHT': ['hat_right', 'axis_x_pos'],
+        'DPAD_UP': {'source': 'hat', 'hat': 0, 'axis': 'y', 'value': 1},
+        'DPAD_DOWN': {'source': 'hat', 'hat': 0, 'axis': 'y', 'value': -1},
+        'DPAD_LEFT': {'source': 'hat', 'hat': 0, 'axis': 'x', 'value': -1},
+        'DPAD_RIGHT': {'source': 'hat', 'hat': 0, 'axis': 'x', 'value': 1},
     }
     
     # Buttons available for rebinding (in Quick Setup order)
-    BINDABLE_BUTTONS = ['A', 'B', 'L', 'R', 'START', 'SELECT']
+    # D-pad directions are included so users can fix mixed-up dpads
+    BINDABLE_BUTTONS = ['DPAD_UP', 'DPAD_DOWN', 'DPAD_LEFT', 'DPAD_RIGHT',
+                        'A', 'B', 'L', 'R', 'START', 'SELECT']
+    
+    # Friendly names for Quick Setup prompts
+    BUTTON_DISPLAY_NAMES = {
+        'DPAD_UP': 'D-Pad Up',
+        'DPAD_DOWN': 'D-Pad Down',
+        'DPAD_LEFT': 'D-Pad Left',
+        'DPAD_RIGHT': 'D-Pad Right',
+        'A': 'A (Confirm)',
+        'B': 'B (Back)',
+        'L': 'L Shoulder',
+        'R': 'R Shoulder',
+        'START': 'Start',
+        'SELECT': 'Select',
+    }
     
     # Button positions on the GBA visual (relative to GBA rect)
     # Format: button_name -> (x_ratio, y_ratio) from top-left of GBA
@@ -115,6 +133,9 @@ class ButtonMapper:
             for btn in ['A', 'B', 'L', 'R', 'SELECT', 'START']:
                 if btn in self.controller.button_map:
                     self.mapping[btn] = self.controller.button_map[btn].copy()
+            
+            # Try to load saved dpad bindings from per-controller profile
+            self._sync_dpad_from_profile()
         
         # Navigation
         self.button_list = list(self.BUTTON_POSITIONS.keys())
@@ -197,6 +218,41 @@ class ButtonMapper:
         
         return dict(self.DEFAULT_MAPPING)
     
+    def _sync_dpad_from_profile(self):
+        """Load saved d-pad bindings from per-controller profile.
+        
+        The controller_profiles system stores d-pad bindings as
+        _dpad_bindings in the mapping dict. Load these back so
+        the ButtonMapper displays the correct current bindings.
+        """
+        try:
+            from controller_profiles import load_saved_profile
+            if self._controller_name:
+                saved = load_saved_profile(self._controller_name, self._controller_guid)
+                if saved and isinstance(saved, dict):
+                    mapping = saved.get("mapping", {})
+                    dpad_bindings = mapping.get("_dpad_bindings", {})
+                    if dpad_bindings:
+                        for dpad_key in ['DPAD_UP', 'DPAD_DOWN', 'DPAD_LEFT', 'DPAD_RIGHT']:
+                            if dpad_key in dpad_bindings:
+                                self.mapping[dpad_key] = dpad_bindings[dpad_key]
+                        print(f"[ButtonMapper] Loaded saved d-pad bindings")
+                        return
+        except Exception as e:
+            print(f"[ButtonMapper] Could not load dpad from profile: {e}")
+        
+        # Also check legacy flat mapping for dpad bindings
+        try:
+            if os.path.exists(self.CONFIG_FILE):
+                with open(self.CONFIG_FILE, 'r') as f:
+                    data = json.load(f)
+                    legacy = data.get(self.CONFIG_KEY, {})
+                    for dpad_key in ['DPAD_UP', 'DPAD_DOWN', 'DPAD_LEFT', 'DPAD_RIGHT']:
+                        if dpad_key in legacy and isinstance(legacy[dpad_key], dict):
+                            self.mapping[dpad_key] = legacy[dpad_key]
+        except Exception:
+            pass
+    
     def _calculate_button_rects(self):
         """Pre-calculate button rectangles on the GBA visual"""
         self.button_rects = {}
@@ -214,15 +270,23 @@ class ButtonMapper:
             self.button_rects[btn_name] = pygame.Rect(x, y, w, h)
     
     def _load_mapping(self):
-        """Load mapping from config file or use defaults"""
+        """Load mapping from config file or use defaults.
+        
+        Merges loaded mapping with DEFAULT_MAPPING to ensure all entries
+        (including new DPAD_ entries) exist even when loading from an
+        older config that doesn't have them.
+        """
+        mapping = dict(self.DEFAULT_MAPPING)
         try:
             if os.path.exists(self.CONFIG_FILE):
                 with open(self.CONFIG_FILE, 'r') as f:
                     data = json.load(f)
-                    return data.get(self.CONFIG_KEY, self.DEFAULT_MAPPING.copy())
+                    saved = data.get(self.CONFIG_KEY, {})
+                    if saved:
+                        mapping.update(saved)
         except Exception as e:
             print(f"[ButtonMapper] Error loading config: {e}")
-        return self.DEFAULT_MAPPING.copy()
+        return mapping
     
     def _save_mapping(self):
         """Save mapping to config file AND to per-controller profile"""
@@ -248,11 +312,48 @@ class ButtonMapper:
             if self._controller_name and self._controller_name != "No Controller":
                 try:
                     from controller_profiles import save_controller_profile
-                    # Extract just the button mappings (not DPAD_ entries)
+                    # Extract button mappings AND d-pad config
                     btn_mapping = {}
                     for btn in ['A', 'B', 'X', 'Y', 'L', 'R', 'SELECT', 'START']:
                         if btn in self.mapping:
                             btn_mapping[btn] = self.mapping[btn]
+                    
+                    # Include d-pad bindings as special keys
+                    dpad_buttons = {}
+                    dpad_axes = []
+                    has_dpad_config = False
+                    
+                    for dpad_key in ['DPAD_UP', 'DPAD_DOWN', 'DPAD_LEFT', 'DPAD_RIGHT']:
+                        binding = self.mapping.get(dpad_key)
+                        if isinstance(binding, dict):
+                            has_dpad_config = True
+                            direction = dpad_key.replace('DPAD_', '').lower()
+                            source = binding.get('source', '')
+                            
+                            if source == 'button':
+                                btn_idx = binding.get('button')
+                                if btn_idx is not None:
+                                    dpad_buttons[direction] = [btn_idx]
+                            elif source == 'axis':
+                                axis_idx = binding.get('axis_index', 0)
+                                # Add axis pair
+                                if direction in ('left', 'right'):
+                                    pair = (axis_idx, axis_idx + 1 if axis_idx % 2 == 0 else axis_idx)
+                                else:
+                                    pair = (axis_idx - 1 if axis_idx % 2 == 1 else axis_idx, axis_idx)
+                                if list(pair) not in dpad_axes:
+                                    dpad_axes.append(list(pair))
+                    
+                    if has_dpad_config:
+                        if dpad_buttons:
+                            btn_mapping['_dpad_buttons'] = dpad_buttons
+                        if dpad_axes:
+                            btn_mapping['_dpad_axes'] = dpad_axes
+                        # Also save the full dpad binding dicts for reload
+                        btn_mapping['_dpad_bindings'] = {}
+                        for dpad_key in ['DPAD_UP', 'DPAD_DOWN', 'DPAD_LEFT', 'DPAD_RIGHT']:
+                            if isinstance(self.mapping.get(dpad_key), dict):
+                                btn_mapping['_dpad_bindings'][dpad_key] = self.mapping[dpad_key]
                     
                     profile_id = "custom"
                     if self._profile_info:
@@ -274,34 +375,181 @@ class ButtonMapper:
     
     def _apply_mapping_to_controller(self):
         """Apply current mapping to the controller manager"""
-        if self.controller:
-            # Update the controller's button_map with our mapping
-            # Only for standard buttons (not D-pad which is handled separately)
-            for btn in ['A', 'B', 'L', 'R', 'SELECT', 'START']:
-                if btn in self.mapping:
-                    val = self.mapping[btn]
-                    # Ensure it's a list of integers
-                    if isinstance(val, list):
-                        self.controller.button_map[btn] = [v for v in val if isinstance(v, int)]
-                    elif isinstance(val, int):
-                        self.controller.button_map[btn] = [val]
-            print("[ButtonMapper] Applied mapping to controller")
+        if not self.controller:
+            return
+        
+        # Apply face/shoulder button mappings
+        for btn in ['A', 'B', 'L', 'R', 'SELECT', 'START']:
+            if btn in self.mapping:
+                val = self.mapping[btn]
+                if isinstance(val, list):
+                    self.controller.button_map[btn] = [v for v in val if isinstance(v, int)]
+                elif isinstance(val, int):
+                    self.controller.button_map[btn] = [val]
+        
+        # Apply d-pad bindings
+        # Reset dpad config first
+        self.controller.dpad_button_map = {
+            'up': None, 'down': None, 'left': None, 'right': None
+        }
+        # Keep axes 0,1 as the base analog stick pair
+        custom_axis_pairs = set()
+        custom_axis_pairs.add((0, 1))
+        
+        # Track which hat axes are used so we know if hat is still relevant
+        has_hat_binding = False
+        
+        dpad_directions = {
+            'DPAD_UP': 'up', 'DPAD_DOWN': 'down',
+            'DPAD_LEFT': 'left', 'DPAD_RIGHT': 'right'
+        }
+        
+        for dpad_key, direction in dpad_directions.items():
+            binding = self.mapping.get(dpad_key)
+            if not binding or not isinstance(binding, dict):
+                continue
+            
+            source = binding.get('source', '')
+            
+            if source == 'button':
+                btn_idx = binding.get('button')
+                if btn_idx is not None:
+                    self.controller.dpad_button_map[direction] = [btn_idx]
+            
+            elif source == 'axis':
+                axis_idx = binding.get('axis_index', 0)
+                d = binding.get('direction', 0)
+                # Figure out axis pair: even index is X, odd is Y
+                # Or just add this specific axis to the check list
+                if direction in ('left', 'right'):
+                    # This axis is an X axis; pair it with the next one
+                    pair_y = axis_idx + 1 if axis_idx % 2 == 0 else axis_idx
+                    pair_x = axis_idx
+                    custom_axis_pairs.add((pair_x, pair_y))
+                else:
+                    # This axis is a Y axis; pair it with the previous one
+                    pair_x = axis_idx - 1 if axis_idx % 2 == 1 else axis_idx
+                    pair_y = axis_idx
+                    custom_axis_pairs.add((pair_x, pair_y))
+            
+            elif source == 'hat':
+                has_hat_binding = True
+                # Hat bindings are handled natively by the hat_map in controller.py
+                # We may need to update hat_map if the user remapped directions
+                hat_idx = binding.get('hat', 0)
+                axis = binding.get('axis', '')
+                value = binding.get('value', 0)
+        
+        # Update axis pairs if custom axes were configured
+        self.controller.dpad_axis_pairs = list(custom_axis_pairs)
+        
+        # If user remapped hat directions, update the hat_map
+        if has_hat_binding:
+            self._update_hat_map()
+        
+        print(f"[ButtonMapper] Applied mapping to controller "
+              f"(dpad_buttons={self.controller.dpad_button_map}, "
+              f"axis_pairs={self.controller.dpad_axis_pairs})")
+    
+    def _update_hat_map(self):
+        """Rebuild the controller's hat_map based on current dpad bindings.
+        
+        This handles the case where a user remapped d-pad directions to fix
+        a mixed-up hat (e.g. Xbox Series X with inverted Y).
+        """
+        if not self.controller:
+            return
+        
+        # Start fresh
+        new_hat_map = {}
+        
+        dpad_directions = {
+            'DPAD_UP': 'up', 'DPAD_DOWN': 'down',
+            'DPAD_LEFT': 'left', 'DPAD_RIGHT': 'right'
+        }
+        
+        for dpad_key, direction in dpad_directions.items():
+            binding = self.mapping.get(dpad_key)
+            if not binding or not isinstance(binding, dict):
+                continue
+            if binding.get('source') != 'hat':
+                continue
+            
+            axis = binding.get('axis', '')
+            value = binding.get('value', 0)
+            
+            # Build the hat tuple for this direction
+            if axis == 'x':
+                hat_tuple = (value, 0)
+            else:  # y
+                hat_tuple = (0, value)
+            
+            new_hat_map[hat_tuple] = direction
+        
+        if new_hat_map:
+            # Add diagonal entries based on cardinal directions
+            # Find what hat values map to up/down/left/right
+            up_y = down_y = left_x = right_x = None
+            for ht, d in new_hat_map.items():
+                if d == 'up':
+                    up_y = ht[1]
+                elif d == 'down':
+                    down_y = ht[1]
+                elif d == 'left':
+                    left_x = ht[0]
+                elif d == 'right':
+                    right_x = ht[0]
+            
+            # Add diagonals (priority to vertical for GBA-style navigation)
+            if right_x is not None and up_y is not None:
+                new_hat_map[(right_x, up_y)] = 'up'
+            if left_x is not None and up_y is not None:
+                new_hat_map[(left_x, up_y)] = 'up'
+            if right_x is not None and down_y is not None:
+                new_hat_map[(right_x, down_y)] = 'down'
+            if left_x is not None and down_y is not None:
+                new_hat_map[(left_x, down_y)] = 'down'
+            
+            self.controller.hat_map = new_hat_map
+            print(f"[ButtonMapper] Updated hat_map: {new_hat_map}")
     
     def _get_binding_display(self, button_name):
         """Get display string for a button's current binding"""
         if button_name not in self.mapping:
             return "?"
         
-        bindings = self.mapping[button_name]
-        if not bindings:
+        binding = self.mapping[button_name]
+        if not binding:
             return "None"
         
-        # For standard button bindings (integers)
-        if isinstance(bindings[0], int):
-            return f"Btn {bindings[0]}"
+        # D-pad structured binding (dict)
+        if isinstance(binding, dict):
+            source = binding.get('source', '')
+            if source == 'hat':
+                axis = binding.get('axis', '?')
+                value = binding.get('value', 0)
+                if axis == 'x':
+                    return "Hat" + ("+" if value > 0 else "-")
+                else:
+                    return "Hat" + ("+" if value > 0 else "-")
+            elif source == 'axis':
+                idx = binding.get('axis_index', 0)
+                d = binding.get('direction', 0)
+                return f"Ax{idx}" + ("+" if d > 0 else "-")
+            elif source == 'button':
+                return f"Btn {binding.get('button', '?')}"
+            return "Custom"
         
-        # For D-pad (special strings)
-        return "D-pad"
+        # Standard button bindings (list of integers)
+        if isinstance(binding, list):
+            if not binding:
+                return "None"
+            if isinstance(binding[0], int):
+                return f"Btn {binding[0]}"
+            # Legacy string entries
+            return "D-pad"
+        
+        return "?"
     
     def _is_duplicate_binding(self, button_index, exclude_button=None):
         """Check if a button index is already bound to another action"""
@@ -315,15 +563,17 @@ class ButtonMapper:
         return None
     
     def _start_listening(self, button_name):
-        """Start listening for a new binding"""
-        if button_name.startswith('DPAD_'):
-            # D-pad buttons can't be rebound in this version
-            return
+        """Start listening for a new binding.
         
+        For face/shoulder buttons: listens for JOYBUTTONDOWN
+        For d-pad directions: listens for JOYBUTTONDOWN, JOYHATMOTION, or JOYAXISMOTION
+        """
         self.listening = True
         self.listening_button = button_name
+        self.listening_is_dpad = button_name.startswith('DPAD_')
         self.listen_start_time = pygame.time.get_ticks()
-        print(f"[ButtonMapper] Listening for new binding for {button_name}...")
+        display_name = self.BUTTON_DISPLAY_NAMES.get(button_name, button_name)
+        print(f"[ButtonMapper] Listening for new binding for {display_name}...")
     
     def _show_status(self, message, color=None):
         """Show a status message"""
@@ -332,25 +582,52 @@ class ButtonMapper:
         self.status_color = color if color else COLOR_TEXT
     
     def _stop_listening(self, new_binding=None):
-        """Stop listening and optionally apply new binding"""
+        """Stop listening and optionally apply new binding.
+        
+        Args:
+            new_binding: For face buttons: int (button index)
+                        For d-pad: dict with source info e.g.
+                          {'source': 'hat', 'hat': 0, 'axis': 'y', 'value': 1}
+                          {'source': 'axis', 'axis_index': 1, 'direction': -1}
+                          {'source': 'button', 'button': 11}
+                        None = cancelled/timeout
+        """
         if new_binding is not None and self.listening_button:
-            # Check for duplicates
-            dup = self._is_duplicate_binding(new_binding, self.listening_button)
-            if dup:
-                print(f"[ButtonMapper] Button {new_binding} already bound to {dup}!")
-                # Clear the duplicate binding
-                self.mapping[dup] = []
-                self._show_status(f"Cleared {dup} binding", (255, 180, 100))
+            is_dpad = self.listening_button.startswith('DPAD_')
             
-            self.mapping[self.listening_button] = [new_binding]
-            print(f"[ButtonMapper] Bound {self.listening_button} to button {new_binding}")
-            self._show_status(f"{self.listening_button} -> Btn {new_binding}", (100, 255, 150))
+            if is_dpad and isinstance(new_binding, dict):
+                # D-pad binding
+                self.mapping[self.listening_button] = new_binding
+                display = self._get_binding_display(self.listening_button)
+                direction_name = self.listening_button.replace('DPAD_', '')
+                self._show_status(f"{direction_name} -> {display}", (100, 255, 150))
+                print(f"[ButtonMapper] Bound {self.listening_button} to {new_binding}")
+            elif not is_dpad and isinstance(new_binding, int):
+                # Regular button binding
+                dup = self._is_duplicate_binding(new_binding, self.listening_button)
+                if dup:
+                    print(f"[ButtonMapper] Button {new_binding} already bound to {dup}!")
+                    self.mapping[dup] = []
+                    self._show_status(f"Cleared {dup} binding", (255, 180, 100))
+                
+                self.mapping[self.listening_button] = [new_binding]
+                print(f"[ButtonMapper] Bound {self.listening_button} to button {new_binding}")
+                self._show_status(f"{self.listening_button} -> Btn {new_binding}", (100, 255, 150))
+            elif is_dpad and isinstance(new_binding, int):
+                # User pressed a regular button while binding a d-pad direction
+                # Bind it as a button-based d-pad
+                self.mapping[self.listening_button] = {'source': 'button', 'button': new_binding}
+                self._show_status(f"{self.listening_button.replace('DPAD_', '')} -> Btn {new_binding}", (100, 255, 150))
+                print(f"[ButtonMapper] Bound {self.listening_button} to button {new_binding}")
+            else:
+                self._show_status("Cancelled", (150, 150, 150))
         elif self.listening_button:
             # Timeout or cancelled
             self._show_status("Cancelled", (150, 150, 150))
         
         self.listening = False
         self.listening_button = None
+        self.listening_is_dpad = False
         
         # If in quick setup, advance to next button
         if self.quick_setup_active:
@@ -432,9 +709,44 @@ class ButtonMapper:
                     elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
                         self._activate()
             
-            # Listen for controller button presses when rebinding
-            if self.listening and event.type == pygame.JOYBUTTONDOWN:
-                self._stop_listening(event.button)
+            # Listen for controller input when rebinding
+            if self.listening:
+                # Grace period: ignore input for first 200ms after starting to listen.
+                # This prevents the hat/axis that was used to navigate to the DPAD_
+                # button from immediately triggering a binding.
+                grace_ms = 200
+                elapsed_ms = pygame.time.get_ticks() - self.listen_start_time
+                if elapsed_ms < grace_ms:
+                    continue
+                
+                if event.type == pygame.JOYBUTTONDOWN:
+                    if getattr(self, 'listening_is_dpad', False):
+                        # Binding a d-pad direction — a button press means button-based dpad
+                        self._stop_listening(event.button)
+                    else:
+                        # Binding a face/shoulder button
+                        self._stop_listening(event.button)
+                
+                elif event.type == pygame.JOYHATMOTION and getattr(self, 'listening_is_dpad', False):
+                    # Hat motion while binding a d-pad direction
+                    hx, hy = event.value
+                    if hx != 0 or hy != 0:
+                        # Determine which axis and value
+                        if abs(hx) >= abs(hy) and hx != 0:
+                            binding = {'source': 'hat', 'hat': event.hat,
+                                      'axis': 'x', 'value': 1 if hx > 0 else -1}
+                        else:
+                            binding = {'source': 'hat', 'hat': event.hat,
+                                      'axis': 'y', 'value': 1 if hy > 0 else -1}
+                        self._stop_listening(binding)
+                
+                elif event.type == pygame.JOYAXISMOTION and getattr(self, 'listening_is_dpad', False):
+                    # Axis motion while binding a d-pad direction
+                    AXIS_THRESHOLD = 0.6
+                    if abs(event.value) > AXIS_THRESHOLD:
+                        binding = {'source': 'axis', 'axis_index': event.axis,
+                                  'direction': 1 if event.value > 0 else -1}
+                        self._stop_listening(binding)
     
     def handle_controller(self, ctrl):
         """Handle controller input"""
@@ -548,10 +860,9 @@ class ButtonMapper:
             elif item == 'Save & Close':
                 self.on_close()
         else:
-            # Activate button for rebinding
+            # Activate button for rebinding (all buttons including d-pad)
             btn = self.button_list[self.selected_index]
-            if not btn.startswith('DPAD_'):
-                self._start_listening(btn)
+            self._start_listening(btn)
     
     def update(self, events):
         """Update the mapper"""
@@ -589,9 +900,12 @@ class ButtonMapper:
         self._draw_menu(surf)
         
         # Draw controller hints
-        hints = "D-Pad: Navigate   A: Select   B: Back"
+        hints = "D-Pad: Navigate   A: Bind   B: Back"
         if self.listening:
-            hints = "Press a button to bind   B: Cancel"
+            if getattr(self, 'listening_is_dpad', False):
+                hints = "Move hat/stick or press btn   ESC: Cancel"
+            else:
+                hints = "Press a button to bind   ESC: Cancel"
         hint_surf = self.font_small.render(hints, True, (100, 100, 100))
         hint_rect = hint_surf.get_rect(centerx=self.width // 2, bottom=self.height - 8)
         surf.blit(hint_surf, hint_rect)
@@ -703,10 +1017,10 @@ class ButtonMapper:
                 text = f"{remaining:.1f}"
                 text_color = (255, 200, 50)
             else:
-                if is_dpad:
-                    text = ""  # No text for D-pad
+                binding = self._get_binding_display(btn_name)
+                if is_dpad and binding in ("Hat+", "Hat-"):
+                    text = ""  # Default hat binding, no need to show
                 else:
-                    binding = self._get_binding_display(btn_name)
                     text = binding
                 text_color = COLOR_HIGHLIGHT if is_selected else COLOR_TEXT
             
@@ -748,12 +1062,24 @@ class ButtonMapper:
             elapsed = (pygame.time.get_ticks() - self.listen_start_time) / 1000.0
             remaining = max(0, self.listen_timeout - elapsed)
             
-            # Button name
-            btn_text = f"Bind: {self.listening_button}"
+            # Button name (friendly)
+            display_name = self.BUTTON_DISPLAY_NAMES.get(
+                self.listening_button, self.listening_button)
+            btn_text = f"Bind: {display_name}"
             btn_surf = self.font_text.render(btn_text, True, (150, 200, 150))
             btn_rect = btn_surf.get_rect(centerx=self.screen_rect.centerx,
-                                         centery=self.screen_rect.centery - 20)
+                                         centery=self.screen_rect.centery - 25)
             surf.blit(btn_surf, btn_rect)
+            
+            # Hint for what inputs are accepted
+            if getattr(self, 'listening_is_dpad', False):
+                hint = "Hat/Stick/Btn"
+            else:
+                hint = "Press button"
+            hint_surf = self.font_tiny.render(hint, True, (130, 150, 130))
+            hint_rect = hint_surf.get_rect(centerx=self.screen_rect.centerx,
+                                           centery=self.screen_rect.centery - 10)
+            surf.blit(hint_surf, hint_rect)
             
             # Countdown
             count_text = f"{remaining:.1f}s"
@@ -800,7 +1126,7 @@ class ButtonMapper:
         
         else:
             # Instructions
-            lines = ["Select button", "to rebind", "", "A: Bind", "D-Pad: Navigate"]
+            lines = ["Select button", "to rebind", "", "A: Bind  B: Close", "All buttons", "rebindable"]
             y = self.screen_rect.y + 8
             for line in lines:
                 if line:
