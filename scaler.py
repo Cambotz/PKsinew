@@ -36,6 +36,10 @@ class Scaler:
         self.virtual_width = virtual_width
         self.virtual_height = virtual_height
         
+        # Store default virtual resolution for restoring after emulator
+        self._default_virtual_width = virtual_width
+        self._default_virtual_height = virtual_height
+        
         # Window size for software scaling fallback
         self.window_width = window_width
         self.window_height = window_height
@@ -216,6 +220,40 @@ class Scaler:
         """Enable/disable integer scaling"""
         self.integer_scaling = enabled
         self.update_scale()
+    
+    def set_virtual_resolution(self, width, height):
+        """
+        Change the virtual resolution and recreate the display.
+        Used to switch between menu resolution (480x320) and
+        emulator resolution (240x160) for direct GPU scaling.
+        """
+        if width == self.virtual_width and height == self.virtual_height:
+            return  # No change needed
+        
+        self.virtual_width = width
+        self.virtual_height = height
+        
+        # Recreate the display at the new virtual resolution
+        if self.use_hardware_scaling:
+            try:
+                pygame.display.quit()
+                pygame.display.init()
+                self._create_window_hardware()
+            except pygame.error as e:
+                print(f"[Scaler] Virtual resolution switch failed: {e}, falling back to software")
+                self.use_hardware_scaling = False
+                pygame.display.quit()
+                pygame.display.init()
+                self._create_window_software()
+        else:
+            self._create_window_software()
+        
+        self.update_scale()
+        print(f"[Scaler] Virtual resolution set to {width}x{height}")
+    
+    def restore_virtual_resolution(self):
+        """Restore the default virtual resolution (e.g., after emulator exits)."""
+        self.set_virtual_resolution(self._default_virtual_width, self._default_virtual_height)
     
     def scale_mouse(self, pos):
         """Convert window mouse coordinates to virtual surface coordinates"""

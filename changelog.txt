@@ -1,0 +1,41 @@
+Sinew 1.3.0 – Input & Stability Update
+New Features
+
+Added Japanese character support
+(Thanks to Randomdice101 on Discord for assistance and testing)
+
+Pokémon Nature now displays correctly in the summary screen
+(Thanks to Randomdice101)
+
+Added a footer hint on the main screen to clarify user actions
+
+Implemented keyboard binding configuration screens for:
+
+Sinew controls
+
+Emulator controls
+
+Added controller auto-detection for most mainstream controllers
+(Additional testing welcome, as not all controllers are available for verification)
+
+Added support for multiple D-Pad and thumbstick input protocols
+
+Fixes
+
+Fixed Pokémon OT/ID not displaying correctly in the summary screen
+
+Fixed Littleroot Town displaying as “Unknown”
+(With help from Randomdice101)
+
+Fixed an issue where spaces in Pokémon nicknames caused names to truncate
+
+Fixed audio stuttering during extended play sessions
+
+Fixed badge detection for Japanese Emerald
+(Thanks to Randomdice101)
+
+Performance Improvements
+
+Bypassed the mGBA scaler to improve performance
+
+Removed redundant development and testing code

@@ -1,6 +1,11 @@
 """
 Sinew Button Mapper
 Visual GBA-style button mapping screen with controller support
+
+Now integrates with the controller_profiles system:
+- Shows the detected profile name on the GBA screen
+- Saves mappings per-controller (keyed by controller name)
+- "Reset to Default" resets to the auto-detected profile, not just Xbox
 """
 
 import pygame
@@ -18,6 +23,7 @@ class ButtonMapper:
     - Individual button rebinding with 5-second timeout
     - Quick Setup mode for sequential rebinding
     - Duplicate binding prevention
+    - Per-controller profile saving via controller_profiles
     """
     
     # Default button mappings (button name -> list of controller indices)
@@ -88,7 +94,20 @@ class ButtonMapper:
             self.font_small = pygame.font.SysFont(None, 14)
             self.font_tiny = pygame.font.SysFont(None, 11)
         
-        # Load or create mapping
+        # Get profile info from controller manager (if available)
+        self._profile_info = None
+        self._controller_name = None
+        self._controller_guid = None
+        if self.controller:
+            self._profile_info = self.controller.get_profile_info()
+            self._controller_name = self.controller.get_controller_name()
+            self._controller_guid = self.controller.get_controller_guid()
+        
+        # Get the detected profile's base mapping for "Reset to Default"
+        self._detected_default_mapping = self._get_detected_default()
+        
+        # Load or create mapping - start from the controller's CURRENT mapping
+        # (which was set by auto-detection) rather than loading from file separately
         self.mapping = self._load_mapping()
         
         # Sync with controller's current mapping if available
@@ -150,6 +169,34 @@ class ButtonMapper:
             # Push menu up
             self.menu_y = height - (len(self.menu_items) * 26) - 28
     
+    def _get_detected_default(self):
+        """Get the auto-detected profile mapping as the 'default' for reset.
+        
+        If the controller_profiles module is available and a profile was detected,
+        use that. Otherwise fall back to the hardcoded DEFAULT_MAPPING.
+        """
+        try:
+            from controller_profiles import identify_controller
+            if self.controller and self.controller.is_connected():
+                name = self.controller.get_controller_name()
+                guid = self.controller.get_controller_guid()
+                joy = self.controller.active_controller
+                result = identify_controller(
+                    name, guid,
+                    joy.get_numbuttons(),
+                    joy.get_numaxes(),
+                    joy.get_numhats()
+                )
+                if result and result.get("mapping"):
+                    # Merge with DEFAULT_MAPPING to keep DPAD entries
+                    merged = dict(self.DEFAULT_MAPPING)
+                    merged.update(result["mapping"])
+                    return merged
+        except Exception as e:
+            print(f"[ButtonMapper] Could not get detected default: {e}")
+        
+        return dict(self.DEFAULT_MAPPING)
+    
     def _calculate_button_rects(self):
         """Pre-calculate button rectangles on the GBA visual"""
         self.button_rects = {}
@@ -178,7 +225,7 @@ class ButtonMapper:
         return self.DEFAULT_MAPPING.copy()
     
     def _save_mapping(self):
-        """Save mapping to config file"""
+        """Save mapping to config file AND to per-controller profile"""
         try:
             # Load existing config or create new
             config = {}
@@ -189,12 +236,37 @@ class ButtonMapper:
                 except:
                     pass
             
+            # Save to legacy flat key for backward compatibility
             config[self.CONFIG_KEY] = self.mapping
             
             with open(self.CONFIG_FILE, 'w') as f:
                 json.dump(config, f, indent=2)
             
             print(f"[ButtonMapper] Saved config to {self.CONFIG_FILE}")
+            
+            # Also save per-controller profile if we know which controller this is
+            if self._controller_name and self._controller_name != "No Controller":
+                try:
+                    from controller_profiles import save_controller_profile
+                    # Extract just the button mappings (not DPAD_ entries)
+                    btn_mapping = {}
+                    for btn in ['A', 'B', 'X', 'Y', 'L', 'R', 'SELECT', 'START']:
+                        if btn in self.mapping:
+                            btn_mapping[btn] = self.mapping[btn]
+                    
+                    profile_id = "custom"
+                    if self._profile_info:
+                        profile_id = self._profile_info.get("id", "custom")
+                    
+                    save_controller_profile(
+                        self._controller_name,
+                        btn_mapping,
+                        profile_id,
+                        self._controller_guid
+                    )
+                except ImportError:
+                    pass  # controller_profiles not available, legacy save is fine
+            
             return True
         except Exception as e:
             print(f"[ButtonMapper] Error saving config: {e}")
@@ -317,11 +389,16 @@ class ButtonMapper:
         self._start_listening(first_btn)
     
     def _reset_to_default(self):
-        """Reset all mappings to default"""
-        self.mapping = self.DEFAULT_MAPPING.copy()
+        """Reset all mappings to the auto-detected profile defaults"""
+        self.mapping = dict(self._detected_default_mapping)
         self._apply_mapping_to_controller()
-        self._show_status("Reset to defaults", (100, 200, 255))
-        print("[ButtonMapper] Reset to default mappings")
+        
+        profile_name = "defaults"
+        if self._profile_info and self._profile_info.get("description"):
+            profile_name = self._profile_info["description"]
+        
+        self._show_status(f"Reset: {profile_name}", (100, 200, 255))
+        print(f"[ButtonMapper] Reset to detected defaults ({profile_name})")
     
     def on_close(self):
         """Handle closing the mapper"""
@@ -499,6 +576,9 @@ class ButtonMapper:
         title_rect = title_surf.get_rect(centerx=self.width // 2, top=12)
         surf.blit(title_surf, title_rect)
         
+        # Show detected profile info below title
+        self._draw_profile_info(surf, title_rect.bottom + 2)
+        
         # Draw GBA visual
         self._draw_gba(surf)
         
@@ -515,6 +595,35 @@ class ButtonMapper:
         hint_surf = self.font_small.render(hints, True, (100, 100, 100))
         hint_rect = hint_surf.get_rect(centerx=self.width // 2, bottom=self.height - 8)
         surf.blit(hint_surf, hint_rect)
+    
+    def _draw_profile_info(self, surf, y):
+        """Draw the detected controller profile info"""
+        if self._profile_info and self._profile_info.get("description"):
+            desc = self._profile_info["description"]
+            match = self._profile_info.get("match_type", "")
+            
+            # Color-code by match quality
+            if match == "saved":
+                color = (100, 200, 100)  # Green for saved/custom
+                label = f"{desc}"
+            elif match in ("guid", "name"):
+                color = (100, 180, 255)  # Blue for auto-detected
+                label = f"Detected: {desc}"
+            elif match == "legacy":
+                color = (200, 180, 100)  # Amber for legacy
+                label = "Custom Mapping"
+            else:
+                color = (150, 150, 150)  # Grey for unknown/heuristic
+                label = f"{desc}"
+            
+            info_surf = self.font_tiny.render(label, True, color)
+            info_rect = info_surf.get_rect(centerx=self.width // 2, top=y)
+            surf.blit(info_surf, info_rect)
+        elif self._controller_name and self._controller_name != "No Controller":
+            # No profile info but controller is connected
+            info_surf = self.font_tiny.render(self._controller_name, True, (150, 150, 150))
+            info_rect = info_surf.get_rect(centerx=self.width // 2, top=y)
+            surf.blit(info_surf, info_rect)
     
     def _draw_gba(self, surf):
         """Draw the GBA visual with buttons"""

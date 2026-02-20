@@ -285,32 +285,28 @@ class SaveDataManager:
             
             section2_offset = section_offsets.get(2, 0)
             
-            # Empirically determined offsets (all in Section 2)
+            # RSE badge layout (verified against raw save data):
+            #   byte0: Badge 1 = bit 7
+            #   byte1: Badge 2 = bit 0, Badge 3 = bit 1, ... Badge 8 = bit 6
+            # FRLG badge layout: all 8 badges in a single byte, bit 0 = Badge 1
             if game_type == 'E':
-                badge_offset = section2_offset + 0x3E0
-                byte1 = data[badge_offset]
-                byte2 = data[badge_offset + 1]
-                # RSE: Badge 1 is bit 7 of byte1, badges 2-8 are bits 0-6 of byte2
-                badges = []
-                badges.append(bool((byte1 >> 7) & 1))
-                for i in range(7):
-                    badges.append(bool((byte2 >> i) & 1))
+                # All Emerald variants (International and Japanese):
+                # Section 2 + 0x3FD, single byte, bit 7 = Stone (Badge 1) ... bit 0 = Rain (Badge 8)
+                badge_byte = data[section2_offset + 0x3FD]
+                badges = [bool((badge_byte >> (7 - i)) & 1) for i in range(8)]
             elif game_type in ('RS', 'R', 'S'):
+                # Ruby/Sapphire: Section 2 + 0x3A0
                 badge_offset = section2_offset + 0x3A0
-                byte1 = data[badge_offset]
-                byte2 = data[badge_offset + 1]
-                badges = []
-                badges.append(bool((byte1 >> 7) & 1))
-                for i in range(7):
-                    badges.append(bool((byte2 >> i) & 1))
+                byte0 = data[badge_offset]
+                byte1 = data[badge_offset + 1]
+                badges = [bool((byte0 >> 7) & 1)]
+                badges += [bool((byte1 >> i) & 1) for i in range(7)]
             else:  # FRLG
-                # FRLG: All 8 badges in single byte
-                # Bit 0 = Boulder, Bit 1 = Cascade, ... Bit 7 = Earth
+                # FireRed/LeafGreen: Section 2 + 0x64
+                # All 8 badges in a single byte: Bit 0 = Boulder, Bit 7 = Earth
                 badge_offset = section2_offset + 0x64
                 badge_byte = data[badge_offset]
-                badges = []
-                for i in range(8):
-                    badges.append(bool((badge_byte >> i) & 1))
+                badges = [bool((badge_byte >> i) & 1) for i in range(8)]
             
             return badges
             

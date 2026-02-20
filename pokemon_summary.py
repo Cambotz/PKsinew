@@ -640,13 +640,14 @@ class PokemonSummary:
         # Nature
         info_y += 16
         nature = self.pokemon.get('nature', 0)
+        personality = self.pokemon.get('personality' ,0)
         if isinstance(nature, int):
             nature_names = ['Hardy', 'Lonely', 'Brave', 'Adamant', 'Naughty',
                           'Bold', 'Docile', 'Relaxed', 'Impish', 'Lax',
                           'Timid', 'Hasty', 'Serious', 'Jolly', 'Naive',
                           'Modest', 'Mild', 'Quiet', 'Bashful', 'Rash',
                           'Calm', 'Gentle', 'Sassy', 'Careful', 'Quirky']
-            nature = nature_names[nature % 25]
+            nature = nature_names[personality % 25]
         nature_text = self.small_font.render(f"{nature}", True, ui_colors.COLOR_TEXT)
         surf.blit(nature_text, (info_x, info_y))
         
@@ -662,7 +663,11 @@ class PokemonSummary:
         right_y = y
         
         ot_name = self.pokemon.get('ot_name', '???') or '???'
+        # Gen 3 stores TID and SID as a combined 32-bit ot_id value
+        # TID is lower 16 bits, SID is upper 16 bits
         ot_id = self.pokemon.get('ot_id', 0) or 0
+        tid = ot_id & 0xFFFF  # Lower 16 bits
+        sid = (ot_id >> 16) & 0xFFFF  # Upper 16 bits
         held_item = self.pokemon.get('held_item', 0) or 0
         met_location = self.pokemon.get('met_location', 0) or 0
         
@@ -671,8 +676,8 @@ class PokemonSummary:
         surf.blit(ot_text, (right_col_x, right_y))
         right_y += 14
         
-        # ID
-        id_text = self.small_font.render(f"ID:{ot_id:05d}", True, (180, 180, 180))
+        # ID (TID/SID format for Gen 3)
+        id_text = self.small_font.render(f"ID:{tid:05d}/{sid:05d}", True, (180, 180, 180))
         surf.blit(id_text, (right_col_x, right_y))
         right_y += 14
         
@@ -689,7 +694,7 @@ class PokemonSummary:
         # Met location
         if self.pokemon.get('egg'):
             met_text = self.small_font.render("Egg", True, (180, 180, 180))
-        elif met_location > 0:
+        elif met_location is not None:  # Changed from > 0 to handle location 0
             location_name = get_location_name(met_location, self.game_type)
             # Truncate long location names
             if len(location_name) > 12:
@@ -978,45 +983,67 @@ class PokemonSummary:
         
         y += 32
         
-        # Ribbons section
+        # Ribbons section - only show earned ribbons
         ribbons = self.pokemon.get('ribbons', {})
         if not ribbons:
             raw = self.pokemon.get('raw', {})
             ribbons = raw.get('ribbons', {})
         
-        if ribbons:
-            ribbon_title = self.small_font.render("RIBBONS:", True, ui_colors.COLOR_TEXT)
-            surf.blit(ribbon_title, (pad, y))
-            y += 18
+        # Collect earned ribbons
+        earned_ribbons = []
+        
+        # Contest ribbons with ranks
+        ribbon_data = [
+            ('cool', 'C', (255, 100, 100)),
+            ('beauty', 'B', (100, 100, 255)),
+            ('cute', 'U', (255, 150, 200)),
+            ('smart', 'S', (100, 255, 100)),
+            ('tough', 'T', (255, 200, 100))
+        ]
+        
+        for rkey, rname, rcolor in ribbon_data:
+            rank = ribbons.get(rkey, 'None')
+            if rank != 'None':
+                earned_ribbons.append((rname, rcolor))
+        
+        # Special ribbons
+        special_ribbons_data = [
+            ('champion', '★', (255, 215, 0)),
+            ('winning', 'W', (150, 255, 150)),
+            ('victory', 'V', (200, 150, 255)),
+        ]
+        
+        for rkey, symbol, rcolor in special_ribbons_data:
+            if ribbons.get(rkey, False):
+                earned_ribbons.append((symbol, rcolor))
+        
+        # Only draw ribbon section if there are earned ribbons
+        if earned_ribbons:
+            ribbon_y = self.height - 32
             
-            # Show contest ribbons
-            ribbon_order = ['cool', 'beauty', 'cute', 'smart', 'tough']
-            ribbon_text_parts = []
-            for rkey in ribbon_order:
-                rank = ribbons.get(rkey, 'None')
-                if rank != 'None':
-                    ribbon_text_parts.append(f"{rkey.capitalize()}: {rank}")
+            # Draw section background
+            ribbon_bg = pygame.Rect(pad, ribbon_y - 4, self.width - pad * 2, 28)
+            pygame.draw.rect(surf, (30, 30, 35), ribbon_bg)
+            pygame.draw.rect(surf, ui_colors.COLOR_BORDER, ribbon_bg, 1)
             
-            # Show special ribbons
-            special_ribbons = []
-            if ribbons.get('champion'):
-                special_ribbons.append("Champion")
-            if ribbons.get('effort'):
-                special_ribbons.append("Effort")
-            if ribbons.get('artist'):
-                special_ribbons.append("Artist")
-            if ribbons.get('winning'):
-                special_ribbons.append("Winning")
-            if ribbons.get('victory'):
-                special_ribbons.append("Victory")
+            ribbon_title = self.small_font.render("RIBBONS", True, (150, 150, 150))
+            surf.blit(ribbon_title, (pad + 4, ribbon_y - 2))
             
-            if ribbon_text_parts:
-                for part in ribbon_text_parts:
-                    ribbon_line = self.small_font.render(part, True, (200, 200, 100))
-                    surf.blit(ribbon_line, (pad + 8, y))
-                    y += 14
+            badge_x = pad + 60
+            badge_y = ribbon_y + 2
+            badge_size = 18
+            badge_spacing = 22
             
-            if special_ribbons:
-                special_text = ", ".join(special_ribbons)
-                special_line = self.small_font.render(special_text, True, (100, 200, 255))
-                surf.blit(special_line, (pad + 8, y))
+            for symbol, rcolor in earned_ribbons:
+                badge_rect = pygame.Rect(badge_x, badge_y, badge_size, badge_size)
+                
+                # Draw colored badge
+                pygame.draw.rect(surf, rcolor, badge_rect)
+                pygame.draw.rect(surf, (255, 255, 255), badge_rect, 1)
+                
+                # Draw symbol in center
+                symbol_text = self.small_font.render(symbol, True, (255, 255, 255))
+                symbol_rect = symbol_text.get_rect(center=badge_rect.center)
+                surf.blit(symbol_text, symbol_rect)
+                
+                badge_x += badge_spacing

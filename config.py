@@ -140,8 +140,6 @@ def get_core_filename():
 
 MGBA_CORE_PATH = os.path.join(CORES_DIR, get_core_filename())
 
-# External mGBA fallback (Windows development machine)
-MGBA_PATH = r"G:\Games\gba\mGBA\mGBA.exe"
 
 # ===== Save Editor Paths =====
 SAVES_PATH = SAVES_DIR  # Alias for compatibility

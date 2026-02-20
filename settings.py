@@ -602,6 +602,388 @@ Modal = Settings
 
 
 # -----------------------------
+# Keyboard Mapper
+# -----------------------------
+class KeyboardMapper:
+    """
+    Screen for rebinding keyboard keys for both Sinew UI navigation
+    and in-emulator GBA buttons.
+    
+    Saves to sinew_settings.json under:
+      'keyboard_nav_map'      -> Sinew menu navigation (arrows/WASD etc.)
+      'keyboard_emulator_map' -> In-game GBA buttons (z/x/enter etc.)
+    """
+    
+    # Navigation actions shown in the UI tab
+    NAV_ACTIONS = [
+        ('up',    'Up / W'),
+        ('down',  'Down / S'),
+        ('left',  'Left / A'),
+        ('right', 'Right / D'),
+        ('A',     'Confirm'),
+        ('B',     'Back'),
+        ('L',     'Page Up'),
+        ('R',     'Page Down'),
+    ]
+    
+    # Emulator GBA button actions
+    EMU_ACTIONS = [
+        ('A',      'GBA A'),
+        ('B',      'GBA B'),
+        ('L',      'GBA L'),
+        ('R',      'GBA R'),
+        ('START',  'GBA Start'),
+        ('SELECT', 'GBA Select'),
+        ('UP',     'GBA Up'),
+        ('DOWN',   'GBA Down'),
+        ('LEFT',   'GBA Left'),
+        ('RIGHT',  'GBA Right'),
+    ]
+    
+    # Default bindings (pygame key constants)
+    DEFAULT_NAV = {
+        'up':    [pygame.K_UP,    pygame.K_w],
+        'down':  [pygame.K_DOWN,  pygame.K_s],
+        'left':  [pygame.K_LEFT,  pygame.K_a],
+        'right': [pygame.K_RIGHT, pygame.K_d],
+        'A':     [pygame.K_RETURN, pygame.K_z],
+        'B':     [pygame.K_ESCAPE, pygame.K_x],
+        'L':     [pygame.K_PAGEUP, pygame.K_q],
+        'R':     [pygame.K_PAGEDOWN, pygame.K_e],
+    }
+    DEFAULT_EMU = {
+        'A':      [pygame.K_z],
+        'B':      [pygame.K_x],
+        'L':      [pygame.K_q],
+        'R':      [pygame.K_e],
+        'START':  [pygame.K_RETURN],
+        'SELECT': [pygame.K_BACKSPACE],
+        'UP':     [pygame.K_UP,    pygame.K_w],
+        'DOWN':   [pygame.K_DOWN,  pygame.K_s],
+        'LEFT':   [pygame.K_LEFT,  pygame.K_a],
+        'RIGHT':  [pygame.K_RIGHT, pygame.K_d],
+    }
+    
+    LISTEN_TIMEOUT = 5.0  # seconds
+    
+    def __init__(self, width, height, close_callback=None, controller=None,
+                 reload_kb_callback=None):
+        self.width = width
+        self.height = height
+        self.close_callback = close_callback
+        self.controller = controller
+        self.reload_kb_callback = reload_kb_callback  # Called after saving
+        self.visible = True
+        
+        # Tabs: 0 = navigation, 1 = emulator
+        self.active_tab = 0
+        self.TABS = ['Navigation', 'Emulator']
+        
+        # Selection
+        self.selected_index = 0
+        
+        # Listening state
+        self.listening = False
+        self.listen_action = None
+        self.listen_tab = None
+        self.listen_start = 0.0
+        self.listen_keys = []   # Keys recorded during capture
+        
+        # Status message
+        self._status = None
+        self._status_time = 0
+        
+        # Load current bindings
+        self.nav_map = {k: list(v) for k, v in self.DEFAULT_NAV.items()}
+        self.emu_map = {k: list(v) for k, v in self.DEFAULT_EMU.items()}
+        self._load_bindings()
+        
+        # Fonts
+        try:
+            font_path = config.FONT_PATH if CONFIG_AVAILABLE else "fonts/Pokemon_GB.ttf"
+            self.font_header = pygame.font.Font(font_path, 16)
+            self.font_text   = pygame.font.Font(font_path, 11)
+            self.font_small  = pygame.font.Font(font_path, 9)
+        except Exception:
+            self.font_header = pygame.font.SysFont(None, 22)
+            self.font_text   = pygame.font.SysFont(None, 16)
+            self.font_small  = pygame.font.SysFont(None, 13)
+    
+    def _load_bindings(self):
+        """Load saved bindings from sinew_settings.json"""
+        settings = load_sinew_settings()
+        saved_nav = settings.get('keyboard_nav_map', {})
+        for k in self.nav_map:
+            if k in saved_nav and isinstance(saved_nav[k], list):
+                self.nav_map[k] = [v for v in saved_nav[k] if isinstance(v, int)]
+        saved_emu = settings.get('keyboard_emulator_map', {})
+        for k in self.emu_map:
+            if k in saved_emu and isinstance(saved_emu[k], list):
+                self.emu_map[k] = [v for v in saved_emu[k] if isinstance(v, int)]
+    
+    def _save_bindings(self):
+        """Persist current bindings to sinew_settings.json"""
+        settings = load_sinew_settings()
+        settings['keyboard_nav_map']      = self.nav_map
+        settings['keyboard_emulator_map'] = self.emu_map
+        save_sinew_settings(settings)
+        print("[KeyboardMapper] Saved keyboard bindings")
+        if self.reload_kb_callback:
+            self.reload_kb_callback()
+    
+    def _reset_to_defaults(self):
+        """Reset all bindings to defaults"""
+        self.nav_map = {k: list(v) for k, v in self.DEFAULT_NAV.items()}
+        self.emu_map = {k: list(v) for k, v in self.DEFAULT_EMU.items()}
+        self._save_bindings()
+        self._status = "Reset to defaults"
+        self._status_time = pygame.time.get_ticks()
+    
+    @staticmethod
+    def key_name(key_const):
+        """Convert a pygame key constant to a short display string"""
+        name = pygame.key.name(key_const)
+        # Clean up some verbose names
+        name = name.replace('keypad ', 'KP').replace('left ', 'L-').replace('right ', 'R-')
+        return name.upper() if len(name) <= 4 else name.capitalize()
+    
+    def _keys_display(self, key_list):
+        """Format a list of key constants as a comma-separated string"""
+        if not key_list:
+            return "---"
+        return " / ".join(self.key_name(k) for k in key_list[:2])
+    
+    def _current_actions(self):
+        return self.NAV_ACTIONS if self.active_tab == 0 else self.EMU_ACTIONS
+    
+    def _current_map(self):
+        return self.nav_map if self.active_tab == 0 else self.emu_map
+    
+    def _start_listening(self, action):
+        self.listening = True
+        self.listen_action = action
+        self.listen_tab = self.active_tab
+        self.listen_start = time.time() if 'time' in dir(__builtins__) else pygame.time.get_ticks() / 1000.0
+        self.listen_keys = []
+    
+    def _stop_listening(self, save=True):
+        if save and self.listen_keys:
+            mapping = self._current_map()
+            mapping[self.listen_action] = list(self.listen_keys)
+            self._save_bindings()
+            self._status = f"Bound to {self._keys_display(self.listen_keys)}"
+            self._status_time = pygame.time.get_ticks()
+        self.listening = False
+        self.listen_action = None
+        self.listen_keys = []
+    
+    def on_close(self):
+        self._save_bindings()
+        self.visible = False
+        if self.close_callback:
+            self.close_callback()
+    
+    def handle_events(self, events):
+        """Handle pygame events"""
+        for event in events:
+            if event.type == pygame.KEYDOWN:
+                if self.listening:
+                    if event.key == pygame.K_ESCAPE:
+                        self._stop_listening(save=False)
+                        self._status = "Cancelled"
+                        self._status_time = pygame.time.get_ticks()
+                    else:
+                        # Record this key; allow up to 2 keys per action
+                        if event.key not in self.listen_keys:
+                            self.listen_keys.append(event.key)
+                        if len(self.listen_keys) >= 2:
+                            self._stop_listening(save=True)
+                else:
+                    actions = self._current_actions()
+                    if event.key in (pygame.K_UP, pygame.K_w):
+                        self.selected_index = max(0, self.selected_index - 1)
+                    elif event.key in (pygame.K_DOWN, pygame.K_s):
+                        self.selected_index = min(len(actions) - 1, self.selected_index + 1)
+                    elif event.key in (pygame.K_LEFT, pygame.K_a):
+                        self.active_tab = (self.active_tab - 1) % len(self.TABS)
+                        self.selected_index = 0
+                    elif event.key in (pygame.K_RIGHT, pygame.K_d):
+                        self.active_tab = (self.active_tab + 1) % len(self.TABS)
+                        self.selected_index = 0
+                    elif event.key in (pygame.K_RETURN, pygame.K_z):
+                        action_key = self._current_actions()[self.selected_index][0]
+                        self._start_listening(action_key)
+                    elif event.key == pygame.K_BACKSPACE:
+                        # Clear binding for selected action
+                        action_key = self._current_actions()[self.selected_index][0]
+                        self._current_map()[action_key] = []
+                        self._save_bindings()
+                        self._status = "Cleared"
+                        self._status_time = pygame.time.get_ticks()
+                    elif event.key == pygame.K_ESCAPE:
+                        self.on_close()
+    
+    def handle_controller(self, ctrl):
+        """Handle controller input"""
+        import time as _time
+        
+        if self.listening:
+            elapsed = _time.time() - self.listen_start
+            if elapsed >= self.LISTEN_TIMEOUT:
+                self._stop_listening(save=False)
+                self._status = "Timed out"
+                self._status_time = pygame.time.get_ticks()
+            return True
+        
+        actions = self._current_actions()
+        
+        if ctrl.is_dpad_just_pressed('up'):
+            ctrl.consume_dpad('up')
+            self.selected_index = max(0, self.selected_index - 1)
+        elif ctrl.is_dpad_just_pressed('down'):
+            ctrl.consume_dpad('down')
+            self.selected_index = min(len(actions) - 1, self.selected_index + 1)
+        elif ctrl.is_dpad_just_pressed('left'):
+            ctrl.consume_dpad('left')
+            self.active_tab = (self.active_tab - 1) % len(self.TABS)
+            self.selected_index = 0
+        elif ctrl.is_dpad_just_pressed('right'):
+            ctrl.consume_dpad('right')
+            self.active_tab = (self.active_tab + 1) % len(self.TABS)
+            self.selected_index = 0
+        
+        if ctrl.is_button_just_pressed('A'):
+            ctrl.consume_button('A')
+            action_key = self._current_actions()[self.selected_index][0]
+            self._start_listening(action_key)
+        
+        if ctrl.is_button_just_pressed('B'):
+            ctrl.consume_button('B')
+            self.on_close()
+        
+        if ctrl.is_button_just_pressed('L'):
+            ctrl.consume_button('L')
+            self._reset_to_defaults()
+        
+        return True
+    
+    def update(self, events):
+        import time as _time
+        self.handle_events(events)
+        # Auto-stop listening on timeout
+        if self.listening:
+            elapsed = _time.time() - self.listen_start
+            if elapsed >= self.LISTEN_TIMEOUT:
+                self._stop_listening(save=False)
+                self._status = "Timed out"
+                self._status_time = pygame.time.get_ticks()
+        return self.visible
+    
+    def draw(self, surf):
+        """Draw the keyboard mapper screen"""
+        # Background
+        overlay = pygame.Surface((self.width, self.height))
+        overlay.fill(ui_colors.COLOR_BG)
+        surf.blit(overlay, (0, 0))
+        pygame.draw.rect(surf, ui_colors.COLOR_BORDER, (0, 0, self.width, self.height), 2)
+        
+        # Title
+        title_surf = self.font_header.render("Keyboard Bindings", True, ui_colors.COLOR_HIGHLIGHT)
+        surf.blit(title_surf, title_surf.get_rect(centerx=self.width // 2, top=10))
+        
+        # Tabs
+        tab_y = 34
+        tab_w = (self.width - 40) // len(self.TABS)
+        for i, tab in enumerate(self.TABS):
+            tx = 20 + i * tab_w
+            tab_rect = pygame.Rect(tx, tab_y, tab_w - 4, 20)
+            is_active = (i == self.active_tab)
+            bg_col = ui_colors.COLOR_BUTTON_HOVER if is_active else ui_colors.COLOR_BUTTON
+            border_col = ui_colors.COLOR_HIGHLIGHT if is_active else ui_colors.COLOR_BORDER
+            pygame.draw.rect(surf, bg_col, tab_rect, border_radius=4)
+            pygame.draw.rect(surf, border_col, tab_rect, 1, border_radius=4)
+            ts = self.font_small.render(tab, True, ui_colors.COLOR_TEXT)
+            surf.blit(ts, ts.get_rect(center=tab_rect.center))
+        
+        # Action rows with scrolling support
+        actions = self._current_actions()
+        mapping  = self._current_map()
+        row_h = 22  # Back to 22px
+        start_y = 72
+        col_label = 20
+        col_keys  = self.width // 2
+        
+        # Column headers
+        hdr_label = self.font_small.render("Action", True, ui_colors.COLOR_BORDER)
+        hdr_keys  = self.font_small.render("Bound Keys  (A=bind, Bksp=clear)", True, ui_colors.COLOR_BORDER)
+        surf.blit(hdr_label, (col_label, start_y - 16))
+        surf.blit(hdr_keys,  (col_keys,  start_y - 16))
+        
+        # Calculate how many rows fit on screen
+        available_height = self.height - start_y - 35  # Reduced from 50 to fit ~2 more rows
+        visible_rows = available_height // row_h
+        
+        # Calculate scroll offset to keep selected item visible
+        scroll_offset = 0
+        if self.selected_index >= visible_rows:
+            scroll_offset = self.selected_index - visible_rows + 1
+        
+        # Draw only visible rows
+        for i in range(len(actions)):
+            visible_index = i - scroll_offset
+            if visible_index < 0 or visible_index >= visible_rows:
+                continue  # Skip rows outside visible area
+            
+            action_key, label = actions[i]
+            row_y = start_y + visible_index * row_h
+            is_sel = (i == self.selected_index)
+            is_listening = self.listening and self.listen_action == action_key and self.listen_tab == self.active_tab
+            
+            # Row background
+            row_rect = pygame.Rect(10, row_y - 2, self.width - 20, row_h - 2)
+            if is_listening:
+                pygame.draw.rect(surf, (60, 30, 10), row_rect, border_radius=3)
+                pygame.draw.rect(surf, (255, 140, 0), row_rect, 1, border_radius=3)
+            elif is_sel:
+                pygame.draw.rect(surf, ui_colors.COLOR_BUTTON, row_rect, border_radius=3)
+                pygame.draw.rect(surf, ui_colors.COLOR_HIGHLIGHT, row_rect, 1, border_radius=3)
+            
+            # Label
+            label_col = ui_colors.COLOR_HIGHLIGHT if is_sel else ui_colors.COLOR_TEXT
+            ls = self.font_text.render(label, True, label_col)
+            surf.blit(ls, (col_label, row_y))
+            
+            # Keys display
+            if is_listening:
+                import time as _t
+                elapsed = _t.time() - self.listen_start
+                remaining = max(0, self.LISTEN_TIMEOUT - elapsed)
+                recorded = self._keys_display(self.listen_keys) if self.listen_keys else "..."
+                ks_text = f"Press key(s)... {recorded}  [{remaining:.1f}s]"
+                ks = self.font_text.render(ks_text, True, (255, 160, 50))
+            else:
+                keys = mapping.get(action_key, [])
+                ks = self.font_text.render(self._keys_display(keys), True, (150, 220, 150))
+            surf.blit(ks, (col_keys, row_y))
+        
+        # Scroll indicator if there are more items
+        if len(actions) > visible_rows:
+            scroll_text = f"Row {self.selected_index + 1}/{len(actions)}"
+            scroll_surf = self.font_small.render(scroll_text, True, (100, 100, 100))
+            surf.blit(scroll_surf, scroll_surf.get_rect(right=self.width - 15, top=start_y - 16))
+        
+        # Status message (positioned above hints)
+        if self._status and pygame.time.get_ticks() - self._status_time < 2500:
+            st = self.font_small.render(self._status, True, ui_colors.COLOR_SUCCESS)
+            surf.blit(st, st.get_rect(centerx=self.width // 2, bottom=self.height - 24))
+        
+        # Hints (moved closer to status)
+        hint = "A: Bind   Bksp: Clear   L: Reset Defaults   B: Close"
+        hs = self.font_small.render(hint, True, (80, 80, 80))
+        surf.blit(hs, hs.get_rect(centerx=self.width // 2, bottom=self.height - 8))
+
+
+# -----------------------------
 # Main Setup / Settings Class
 # -----------------------------
 class MainSetup:
@@ -648,7 +1030,7 @@ class MainSetup:
             self.font_small = pygame.font.SysFont(None, 14)
 
         # Tab definitions
-        self.tabs = ["General", "Controller", "Info"]
+        self.tabs = ["General", "Controller", "Keyboard", "Info"]
         self.selected_tab = 0
         
         # Track if we're navigating tabs or options
@@ -668,11 +1050,16 @@ class MainSetup:
                 {"name": "Map Buttons", "type": "button"},
                 {"name": "Reset to Default", "type": "button"},
             ],
+            "Keyboard": [
+                {"name": "Map Keyboard Keys", "type": "button"},
+                {"name": "Reset Keyboard Defaults", "type": "button"},
+            ],
             "Info": [
-                {"name": "Sinew Version", "type": "label", "value": "v1.1.0"},
+                {"name": "Sinew Version", "type": "label", "value": "v1.3.0"},
                 {"name": "Author", "type": "label", "value": "Cameron Penna"},
                 {"name": "Pokemon DB Status", "type": "label", "value": "Checking..."},
                 {"name": "About/Legal", "type": "button"},
+                {"name": "Changelog", "type": "button"},
             ],
             "Dev": [
                 {"name": "Clear Cache", "type": "button"},
@@ -884,6 +1271,18 @@ class MainSetup:
                 controller=self.controller,
                 reload_combo_callback=self.reload_combo_callback
             )
+        elif name == "Map Keyboard Keys":
+            print("[Settings] Opening keyboard mapper...")
+            self.sub_screen = KeyboardMapper(
+                self.width, self.height,
+                close_callback=self._close_sub_screen,
+                controller=self.controller,
+                reload_kb_callback=self._on_keyboard_saved
+            )
+        elif name == "Reset Keyboard Defaults":
+            km = KeyboardMapper(self.width, self.height)
+            km._reset_to_defaults()
+            self._status_msg("Keyboard defaults restored")
         elif name == "Reset to Default":
             print("[Settings] Resetting controller to defaults...")
             if self.controller:
@@ -896,6 +1295,12 @@ class MainSetup:
         elif name == "About/Legal":
             print("[Settings] Opening About/Legal screen...")
             self.sub_screen = AboutLegalScreen(
+                self.width, self.height,
+                close_callback=self._close_sub_screen
+            )
+        elif name == "Changelog":
+            print("[Settings] Opening Changelog screen...")
+            self.sub_screen = ChangelogScreen(
                 self.width, self.height,
                 close_callback=self._close_sub_screen
             )
@@ -917,6 +1322,34 @@ class MainSetup:
     def _close_sub_screen(self):
         """Close any open sub-screen"""
         self.sub_screen = None
+    
+    def _status_msg(self, msg):
+        """Show a temporary status message"""
+        self._cache_message = msg
+        self._cache_message_time = pygame.time.get_ticks()
+    
+    def _on_keyboard_saved(self):
+        """Called after keyboard bindings are saved; reloads controller and emulator maps."""
+        self._close_sub_screen()
+        # Reload controller keyboard nav map
+        try:
+            ctrl = get_controller()
+            if hasattr(ctrl, 'reload_kb_nav_map'):
+                ctrl.reload_kb_nav_map()
+        except Exception as e:
+            print(f"[Settings] Could not reload controller kb map: {e}")
+        # Reload emulator keyboard map if one is active
+        try:
+            from mgba_emulator import MgbaEmulator
+            # The active emulator instance is accessed through main - best effort
+            import sys
+            for obj in sys.modules.values():
+                if hasattr(obj, 'emulator') and hasattr(obj.emulator, 'reload_keyboard_config'):
+                    obj.emulator.reload_keyboard_config()
+                    break
+        except Exception:
+            pass
+        self._status_msg("Keyboard bindings saved")
     
     def _do_clear_cache(self):
         """Called after confirmation to clear cache"""
@@ -1736,6 +2169,165 @@ class MainSetup:
                 btn_surf = self.font_small.render(btn_text, True, ui_colors.COLOR_HIGHLIGHT)
                 btn_rect = btn_surf.get_rect(right=right_x, centery=center_y)
                 surf.blit(btn_surf, btn_rect)
+
+
+# -----------------------------
+# Changelog Screen
+# -----------------------------
+class ChangelogScreen:
+    """Screen showing changelog.txt content with scrolling"""
+
+    def __init__(self, width, height, close_callback=None):
+        self.width = width
+        self.height = height
+        self.visible = True
+        self.close_callback = close_callback
+        self.scroll = 0
+
+        # Fonts
+        try:
+            font_path = config.FONT_PATH if CONFIG_AVAILABLE else "fonts/Pokemon_GB.ttf"
+            self.font_header = pygame.font.Font(font_path, 16)
+            self.font_text = pygame.font.Font(font_path, 11)
+            self.font_small = pygame.font.Font(font_path, 9)
+        except:
+            self.font_header = pygame.font.SysFont(None, 22)
+            self.font_text = pygame.font.SysFont(None, 16)
+            self.font_small = pygame.font.SysFont(None, 12)
+
+        self.lines = self._load_changelog()
+
+    def _load_changelog(self):
+        """Load and parse changelog.txt into (text, style) tuples"""
+        changelog_path = "changelog.txt"
+        if CONFIG_AVAILABLE and hasattr(config, 'BASE_DIR'):
+            changelog_path = os.path.join(config.BASE_DIR, "changelog.txt")
+
+        lines = []
+        try:
+            if not os.path.exists(changelog_path):
+                print(f"[Changelog] changelog.txt not found at: {changelog_path}")
+                lines.append(("changelog.txt not found", "normal"))
+                return lines
+            with open(changelog_path, 'r', encoding='utf-8') as f:
+                text = f.read()
+            for raw_line in text.splitlines():
+                stripped = raw_line.rstrip()
+                if not stripped:
+                    lines.append(("", "normal"))
+                elif stripped.startswith("===") or stripped.startswith("---"):
+                    lines.append(("", "normal"))
+                elif stripped.startswith("v") or stripped.startswith("V") or stripped.startswith("["):
+                    lines.append((stripped, "subheader"))
+                else:
+                    for wrapped in self._word_wrap(stripped, 50):
+                        lines.append((wrapped, "normal"))
+        except Exception as e:
+            print(f"[Changelog] Error loading changelog.txt: {e}")
+            lines.append((f"Error: {e}", "normal"))
+        return lines
+
+    def _word_wrap(self, text, max_chars):
+        """Simple word wrap"""
+        words = text.split()
+        result = []
+        current = ""
+        for word in words:
+            if len(current) + len(word) + 1 <= max_chars:
+                current = (current + " " + word).strip()
+            else:
+                if current:
+                    result.append(current)
+                current = word
+        if current:
+            result.append(current)
+        return result if result else [""]
+
+    def handle_controller(self, ctrl):
+        """Handle controller input"""
+        consumed = False
+        if ctrl.is_dpad_just_pressed('up'):
+            ctrl.consume_dpad('up')
+            self.scroll = max(0, self.scroll - 1)
+            consumed = True
+        if ctrl.is_dpad_just_pressed('down'):
+            ctrl.consume_dpad('down')
+            max_scroll = max(0, len(self.lines) - 10)
+            self.scroll = min(max_scroll, self.scroll + 1)
+            consumed = True
+        if ctrl.is_button_just_pressed('B'):
+            ctrl.consume_button('B')
+            self._close()
+            consumed = True
+        return consumed
+
+    def update(self, events):
+        """Handle pygame events"""
+        for event in events:
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    self._close()
+                elif event.key == pygame.K_UP:
+                    self.scroll = max(0, self.scroll - 1)
+                elif event.key == pygame.K_DOWN:
+                    max_scroll = max(0, len(self.lines) - 10)
+                    self.scroll = min(max_scroll, self.scroll + 1)
+
+    def _close(self):
+        self.visible = False
+        if self.close_callback:
+            self.close_callback()
+
+    def draw(self, surf):
+        """Draw the changelog screen"""
+        # Background overlay
+        overlay = pygame.Surface((self.width, self.height))
+        overlay.set_alpha(240)
+        overlay.fill(ui_colors.COLOR_BG)
+        surf.blit(overlay, (0, 0))
+
+        pygame.draw.rect(surf, ui_colors.COLOR_BORDER, (0, 0, self.width, self.height), 2)
+
+        # Title
+        title = self.font_header.render("Changelog", True, ui_colors.COLOR_TEXT)
+        surf.blit(title, (20, 12))
+
+        close_hint = self.font_small.render("B: Close", True, ui_colors.COLOR_BORDER)
+        surf.blit(close_hint, (self.width - close_hint.get_width() - 15, 15))
+
+        # Content area
+        content_rect = pygame.Rect(10, 45, self.width - 20, self.height - 75)
+        pygame.draw.rect(surf, ui_colors.COLOR_HEADER, content_rect, border_radius=5)
+        pygame.draw.rect(surf, ui_colors.COLOR_BORDER, content_rect, 1, border_radius=5)
+
+        line_height = 16
+        max_lines = (content_rect.height - 20) // line_height
+        y = content_rect.y + 10
+
+        for i, (text, style) in enumerate(self.lines[self.scroll:self.scroll + max_lines]):
+            if y > content_rect.bottom - 15:
+                break
+            if style == "subheader":
+                color = ui_colors.COLOR_HIGHLIGHT
+                font = self.font_text
+            else:
+                color = ui_colors.COLOR_TEXT
+                font = self.font_small
+            if text:
+                surf.blit(font.render(text, True, color), (content_rect.x + 15, y))
+            y += line_height
+
+        # Scroll indicators
+        if self.scroll > 0:
+            surf.blit(self.font_text.render("^", True, ui_colors.COLOR_HIGHLIGHT),
+                      (content_rect.right - 20, content_rect.y + 5))
+        if self.scroll + max_lines < len(self.lines):
+            surf.blit(self.font_text.render("v", True, ui_colors.COLOR_HIGHLIGHT),
+                      (content_rect.right - 20, content_rect.bottom - 20))
+
+        # Hint
+        hint = self.font_small.render("Up/Down: Scroll    B: Close", True, ui_colors.COLOR_BORDER)
+        surf.blit(hint, hint.get_rect(centerx=self.width // 2, bottom=self.height - 8))
 
 
 # -----------------------------

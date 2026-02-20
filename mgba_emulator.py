@@ -442,6 +442,7 @@ class MgbaEmulator:
         
         # Load saved controller config
         self._load_controller_config()
+        self._load_keyboard_config()
         
         # Load pause combo setting
         self._pause_combo_setting = self._load_pause_combo_setting()
@@ -503,6 +504,80 @@ class MgbaEmulator:
     def refresh_controller_config(self):
         """Reload controller configuration (call after button mapping changes)."""
         self._load_controller_config()
+        self._load_keyboard_config()
+    
+    def _load_keyboard_config(self):
+        """Load keyboard-to-GBA button map from sinew_settings.json.
+        
+        Stored under the key 'keyboard_emulator_map' as a dict mapping
+        button names ('A','B','UP','DOWN','LEFT','RIGHT','L','R','START','SELECT')
+        to pygame key constants (integers).  Supports a list of keys per button
+        for multi-key bindings.
+        
+        Falls back to built-in defaults for any missing entries.
+        """
+        import json
+        
+        # Built-in defaults
+        DEFAULT_KB = {
+            RETRO_DEVICE_ID_JOYPAD_A:      [pygame.K_z],
+            RETRO_DEVICE_ID_JOYPAD_B:      [pygame.K_x],
+            RETRO_DEVICE_ID_JOYPAD_SELECT: [pygame.K_BACKSPACE],
+            RETRO_DEVICE_ID_JOYPAD_START:  [pygame.K_RETURN],
+            RETRO_DEVICE_ID_JOYPAD_UP:     [pygame.K_UP,   pygame.K_w],
+            RETRO_DEVICE_ID_JOYPAD_DOWN:   [pygame.K_DOWN, pygame.K_s],
+            RETRO_DEVICE_ID_JOYPAD_LEFT:   [pygame.K_LEFT, pygame.K_a],
+            RETRO_DEVICE_ID_JOYPAD_RIGHT:  [pygame.K_RIGHT,pygame.K_d],
+            RETRO_DEVICE_ID_JOYPAD_L:      [pygame.K_q],
+            RETRO_DEVICE_ID_JOYPAD_R:      [pygame.K_e],
+        }
+        
+        # Button name -> retro ID mapping for settings lookup
+        NAME_TO_RETRO = {
+            'A':      RETRO_DEVICE_ID_JOYPAD_A,
+            'B':      RETRO_DEVICE_ID_JOYPAD_B,
+            'SELECT': RETRO_DEVICE_ID_JOYPAD_SELECT,
+            'START':  RETRO_DEVICE_ID_JOYPAD_START,
+            'UP':     RETRO_DEVICE_ID_JOYPAD_UP,
+            'DOWN':   RETRO_DEVICE_ID_JOYPAD_DOWN,
+            'LEFT':   RETRO_DEVICE_ID_JOYPAD_LEFT,
+            'RIGHT':  RETRO_DEVICE_ID_JOYPAD_RIGHT,
+            'L':      RETRO_DEVICE_ID_JOYPAD_L,
+            'R':      RETRO_DEVICE_ID_JOYPAD_R,
+        }
+        
+        # Start from defaults
+        self._kb_map = dict(DEFAULT_KB)
+        
+        if CONFIG_AVAILABLE and hasattr(config, 'SETTINGS_FILE'):
+            config_file = config.SETTINGS_FILE
+        elif CONFIG_AVAILABLE and hasattr(config, 'BASE_DIR'):
+            config_file = os.path.join(config.BASE_DIR, "sinew_settings.json")
+        else:
+            config_file = "sinew_settings.json"
+        
+        try:
+            if os.path.exists(config_file):
+                with open(config_file, 'r') as f:
+                    settings_data = json.load(f)
+                
+                saved = settings_data.get('keyboard_emulator_map', {})
+                for btn_name, retro_id in NAME_TO_RETRO.items():
+                    if btn_name in saved:
+                        val = saved[btn_name]
+                        if isinstance(val, list):
+                            self._kb_map[retro_id] = [v for v in val if isinstance(v, int)]
+                        elif isinstance(val, int):
+                            self._kb_map[retro_id] = [val]
+                
+                if saved:
+                    print(f"[MgbaEmulator] Loaded keyboard map from {config_file}")
+        except Exception as e:
+            print(f"[MgbaEmulator] Error loading keyboard config: {e}")
+    
+    def reload_keyboard_config(self):
+        """Reload keyboard map (call after user changes key bindings)."""
+        self._load_keyboard_config()
     
     def _load_core(self):
         """Load and initialize the libretro core."""
@@ -584,14 +659,6 @@ class MgbaEmulator:
                 arr = arr.reshape(-1, 2)
                 with self._audio_lock:
                     self.audio_queue.append(arr)
-                    queue_len = len(self.audio_queue)
-                # Debug: print occasionally
-                if hasattr(self, '_audio_debug_count'):
-                    self._audio_debug_count += 1
-                else:
-                    self._audio_debug_count = 0
-                if self._audio_debug_count % 500 == 0:
-                    print(f"[MgbaEmulator] Audio batch: {frames} frames, queue: {queue_len}")
                 return frames
             except Exception as e:
                 print(f"[MgbaEmulator] Audio batch error: {e}")
@@ -688,24 +755,28 @@ class MgbaEmulator:
         if self._key_state is None:
             return 0
         
-        # Default keyboard mapping
-        kb_map = {
-            RETRO_DEVICE_ID_JOYPAD_A: pygame.K_z,
-            RETRO_DEVICE_ID_JOYPAD_B: pygame.K_x,
+        # Use the loaded keyboard map (populated in _load_keyboard_config).
+        # Falls back to built-in defaults if not yet loaded.
+        kb_map = getattr(self, '_kb_map', None) or {
+            RETRO_DEVICE_ID_JOYPAD_A:      pygame.K_z,
+            RETRO_DEVICE_ID_JOYPAD_B:      pygame.K_x,
             RETRO_DEVICE_ID_JOYPAD_SELECT: pygame.K_BACKSPACE,
-            RETRO_DEVICE_ID_JOYPAD_START: pygame.K_RETURN,
-            RETRO_DEVICE_ID_JOYPAD_UP: pygame.K_UP,
-            RETRO_DEVICE_ID_JOYPAD_DOWN: pygame.K_DOWN,
-            RETRO_DEVICE_ID_JOYPAD_LEFT: pygame.K_LEFT,
-            RETRO_DEVICE_ID_JOYPAD_RIGHT: pygame.K_RIGHT,
-            RETRO_DEVICE_ID_JOYPAD_L: pygame.K_a,
-            RETRO_DEVICE_ID_JOYPAD_R: pygame.K_s,
+            RETRO_DEVICE_ID_JOYPAD_START:  pygame.K_RETURN,
+            RETRO_DEVICE_ID_JOYPAD_UP:     pygame.K_UP,
+            RETRO_DEVICE_ID_JOYPAD_DOWN:   pygame.K_DOWN,
+            RETRO_DEVICE_ID_JOYPAD_LEFT:   pygame.K_LEFT,
+            RETRO_DEVICE_ID_JOYPAD_RIGHT:  pygame.K_RIGHT,
+            RETRO_DEVICE_ID_JOYPAD_L:      pygame.K_a,
+            RETRO_DEVICE_ID_JOYPAD_R:      pygame.K_s,
         }
         
-        # Check keyboard
+        # Support multiple keys per button (list) or a single key (int)
         if button_id in kb_map:
-            if self._key_state[kb_map[button_id]]:
-                return 1
+            mapped = kb_map[button_id]
+            keys_to_check = mapped if isinstance(mapped, list) else [mapped]
+            for k in keys_to_check:
+                if self._key_state[k]:
+                    return 1
         
         # Check gamepad
         if self._joystick:
@@ -889,7 +960,11 @@ class MgbaEmulator:
         chunks_played = 0
         reinit_attempted = False
         last_play_time = time.time()
-        
+        # How many chunks to keep buffered at most before dropping stale audio.
+        # At ~32768 Hz with typical ~512-sample batches this is ~60-80ms of audio.
+        # Keeping this small prevents latency from accumulating over long sessions.
+        MAX_QUEUE_DEPTH = 4
+
         while self._audio_running:
             try:
                 # Skip if paused
@@ -926,6 +1001,15 @@ class MgbaEmulator:
                     if can_accept:
                         chunk = None
                         with self._audio_lock:
+                            # Latency guard: if the queue has backed up beyond our
+                            # threshold, drop the oldest chunks to re-sync audio.
+                            # This prevents latency from accumulating over long sessions.
+                            queue_len = len(self.audio_queue)
+                            if queue_len > MAX_QUEUE_DEPTH:
+                                dropped = queue_len - MAX_QUEUE_DEPTH
+                                for _ in range(dropped):
+                                    self.audio_queue.popleft()
+                                print(f"[MgbaEmulator] Audio latency correction: dropped {dropped} stale chunks")
                             if self.audio_queue:
                                 chunk = self.audio_queue.popleft()
                         
@@ -942,8 +1026,6 @@ class MgbaEmulator:
                                 
                                 chunks_played += 1
                                 last_play_time = time.time()
-                                if chunks_played % 100 == 0:
-                                    print(f"[MgbaEmulator] Audio: played {chunks_played} chunks, channel busy: {self._audio_channel.get_busy()}")
                                 error_count = 0  # Reset on success
                             except Exception as e:
                                 error_count += 1

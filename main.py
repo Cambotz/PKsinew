@@ -137,7 +137,6 @@ if sys.platform == 'win32':
     os.environ.setdefault('SDL_AUDIODRIVER', 'directsound')
 
 import json
-import subprocess
 import time
 import pygame
 from PIL import Image, ImageSequence
@@ -2331,18 +2330,7 @@ class GameScreen:
                 return
             except Exception as e:
                 print(f"Integrated emulator failed: {e}")
-                print("Falling back to external mGBA...")
-        
-        # Fallback to external mGBA
-        mgba_path = config.MGBA_PATH
-        if not os.path.exists(mgba_path):
-            print(f"mGBA not found: {mgba_path}")
-            return
-        
-        try:
-            subprocess.Popen([mgba_path, rom_path])
-        except Exception as e:
-            print(f"Failed to launch game: {e}")
+                print("No compatible emulator core found for this platform.")
     
     def _launch_integrated_emulator(self, rom_path, sav_path):
         """Launch the game using the integrated mGBA emulator"""
@@ -2381,6 +2369,10 @@ class GameScreen:
         # Stop menu music while in game
         self._stop_menu_music()
         
+        # Switch scaler to GBA native resolution for direct GPU scaling
+        if self.scaler:
+            self.scaler.set_virtual_resolution(240, 160)
+        
         print(f"[Sinew] Launched: {os.path.basename(rom_path)}")
     
     def _stop_emulator(self):
@@ -2395,6 +2387,10 @@ class GameScreen:
         
         # Reset pause combo state
         self._emulator_pause_combo_released = True
+        
+        # Restore menu virtual resolution
+        if self.scaler:
+            self.scaler.restore_virtual_resolution()
         
         # Reload save data in Sinew since it may have changed
         self.load_game_and_background()
@@ -2439,11 +2435,17 @@ class GameScreen:
                 # Resume game
                 self._stop_menu_music()  # Stop menu music when resuming game
                 self.emulator.resume()
+                # Switch to emulator resolution
+                if self.scaler:
+                    self.scaler.set_virtual_resolution(240, 160)
                 print("[Sinew] Resuming game")
             else:
                 # Pause and return to Sinew
                 self.emulator.pause()
                 self.emulator_active = False
+                # Restore menu virtual resolution
+                if self.scaler:
+                    self.scaler.restore_virtual_resolution()
                 # Force reload save data since it was modified by emulator
                 self._force_reload_current_save()
                 # Check achievements based on updated save data
@@ -2769,47 +2771,30 @@ class GameScreen:
             surf.blit(sub_surf, sub_rect)
     
     def _draw_emulator(self, surf):
-        """Draw the emulator screen"""
-        # Fill background black
-        surf.fill((0, 0, 0))
-        
-        # Get emulator surface and scale to fit
+        """Draw the emulator screen — direct blit, scaler handles upscaling via GPU"""
+        # Blit emulator frame directly to the virtual surface (now 240x160)
         emu_surf = self.emulator.get_surface(scale=1)
-        
-        # Calculate scale to fit screen while maintaining aspect ratio
-        emu_w, emu_h = 240, 160  # GBA native resolution
-        scale_x = self.width / emu_w
-        scale_y = self.height / emu_h
-        scale = min(scale_x, scale_y)
-        
-        # Scale the surface
-        scaled_w = int(emu_w * scale)
-        scaled_h = int(emu_h * scale)
-        scaled_surf = pygame.transform.scale(emu_surf, (scaled_w, scaled_h))
-        
-        # Center on screen
-        x = (self.width - scaled_w) // 2
-        y = (self.height - scaled_h) // 2
-        surf.blit(scaled_surf, (x, y))
+        surf.blit(emu_surf, (0, 0))
         
         # Draw pause indicator if paused
         if self.emulator.paused:
             # Dark overlay
-            overlay = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+            sw, sh = surf.get_size()
+            overlay = pygame.Surface((sw, sh), pygame.SRCALPHA)
             overlay.fill((0, 0, 0, 150))
             surf.blit(overlay, (0, 0))
             
-            # Pause text
+            # Pause text (smaller font since we're at 240x160 now)
             try:
-                pause_font = pygame.font.Font(config.FONT_PATH, 12)
+                pause_font = pygame.font.Font(config.FONT_PATH, 8)
             except:
                 pause_font = self.font
             
             pause_text = pause_font.render("PAUSED", True, (255, 255, 0))
             hint_text = pause_font.render(self._get_pause_combo_hint_text(), True, (200, 200, 200))
             
-            pause_rect = pause_text.get_rect(center=(self.width // 2, self.height // 2 - 20))
-            hint_rect = hint_text.get_rect(center=(self.width // 2, self.height // 2 + 20))
+            pause_rect = pause_text.get_rect(center=(sw // 2, sh // 2 - 12))
+            hint_rect = hint_text.get_rect(center=(sw // 2, sh // 2 + 12))
             
             surf.blit(pause_text, pause_rect)
             surf.blit(hint_text, hint_rect)
@@ -2833,6 +2818,9 @@ class GameScreen:
             self._stop_menu_music()
             self.emulator.resume()
             self.emulator_active = True
+            # Switch to emulator resolution
+            if self.scaler:
+                self.scaler.set_virtual_resolution(240, 160)
             print("[Sinew] Resumed game from modal via START+SELECT")
     
     def _on_event_claimed(self, event_key):
@@ -2901,6 +2889,9 @@ class GameScreen:
                 self._stop_menu_music()  # Stop menu music when resuming game
                 self.emulator.resume()
                 self.emulator_active = True
+                # Switch to emulator resolution
+                if self.scaler:
+                    self.scaler.set_virtual_resolution(240, 160)
                 print("[Sinew] Resuming game via menu")
             return
         
@@ -3050,6 +3041,9 @@ class GameScreen:
             except Exception as e:
                 print(f"[Sinew] Error stopping game: {e}")
             self.emulator_active = False
+            # Restore menu virtual resolution
+            if self.scaler:
+                self.scaler.restore_virtual_resolution()
             # Reset menu index to point at "Launch Game" for quick restart
             self.menu_index = 0
             self._show_notification(f"Stopped: {game_name}", "Game saved")
@@ -3119,6 +3113,9 @@ class GameScreen:
                 self.emulator.resume()
                 print(f"[Sinew] After resume: paused={self.emulator.paused}")
                 self.emulator_active = True
+                # Switch to emulator resolution
+                if self.scaler:
+                    self.scaler.set_virtual_resolution(240, 160)
                 print("[Sinew] Resuming game - emulator_active set to True")
                 return True
             
@@ -3310,6 +3307,16 @@ class GameScreen:
                 callback=lambda: None
             )
             menu_button.draw(surf, self.font)
+            
+            # Draw navigation hints at bottom of screen
+            hint_text = "< > Change Game    ^ v Scroll Menu"
+            try:
+                hint_font = pygame.font.Font(config.FONT_PATH, 8)
+            except:
+                hint_font = pygame.font.SysFont(None, 14)
+            hint_surf = hint_font.render(hint_text, True, (150, 150, 150))
+            hint_rect = hint_surf.get_rect(centerx=self.width // 2, bottom=self.height - 5)
+            surf.blit(hint_surf, hint_rect)
             
             # Draw resume game banner at top if emulator is paused
             if self.emulator and self.emulator.loaded and not self.emulator_active:
