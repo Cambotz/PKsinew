@@ -1,7 +1,7 @@
 {
   "app_name": "Sinew",
   "description": "A tool for managing and interacting with game save data across supported systems.",
-  "version": "1.3.1",
+  "version": "1.3.2",
   "author": "Cameron Penna",
   "source_url": "https://github.com/Cambotz/PKsinew",
   "devlog": "https://pksinew.hashnode.dev/",

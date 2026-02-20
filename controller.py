@@ -695,7 +695,7 @@ class ControllerManager:
         
         for direction in ['up', 'down', 'left', 'right']:
             keys_for_dir = self.kb_nav_map.get(direction, [])
-            kb_pressed = any(kb[k] for k in keys_for_dir if k < len(kb))
+            kb_pressed = any(kb[k] for k in keys_for_dir)
             
             was_pressed = self.dpad_states[direction]
             # Combine with gamepad below; mark kb contribution now
@@ -705,7 +705,7 @@ class ControllerManager:
         
         for action in ['A', 'B', 'L', 'R']:
             keys_for_action = self.kb_nav_map.get(action, [])
-            kb_pressed = any(kb[k] for k in keys_for_action if k < len(kb))
+            kb_pressed = any(kb[k] for k in keys_for_action)
             self._kb_btn_pressed = getattr(self, '_kb_btn_pressed', {})
             self._kb_btn_pressed[action] = kb_pressed
         

@@ -1061,7 +1061,7 @@ class MainSetup:
                 {"name": "Reset Keyboard Defaults", "type": "button"},
             ],
             "Info": [
-                {"name": "Sinew Version", "type": "label", "value": "v1.3.1"},
+                {"name": "Sinew Version", "type": "label", "value": "v1.3.2"},
                 {"name": "Author", "type": "label", "value": "Cameron Penna"},
                 {"name": "Pokemon DB Status", "type": "label", "value": "Checking..."},
                 {"name": "About/Legal", "type": "button"},

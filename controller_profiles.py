@@ -193,6 +193,29 @@ PROFILES = [
             "_dpad_axes": [(0, 1)],
         },
     },
+    # DragonRise Inc. "USB Gamepad" — vendor 0x0079, product 0x0011.
+    # 10 buttons, 5 axes, 0 hats.  D-pad is axis-based: UP/DOWN on axis 4,
+    # LEFT/RIGHT on axis 0.  Another cheap USB retro pad variant.
+    {
+        "id": "dragonrise_usb_0011",
+        "description": "USB Gamepad (DragonRise 0011)",
+        "guids": [
+            "03006ce8790000001100000000000000",  # Windows
+            "030000007900000011000000",           # Linux (shorter)
+        ],
+        "name_patterns": [],  # Too generic — rely on GUID match only
+        "mapping": {
+            "A": [1],
+            "B": [2],
+            "X": [0],
+            "Y": [3],
+            "L": [4],
+            "R": [5],
+            "SELECT": [8],
+            "START": [9],
+            "_dpad_axes": [(0, 4)],
+        },
+    },
     # ----- Generic / catch-all -----
     # Matches controllers not in GameControllerDB and not matching above.
     # Uses standard Xbox-style layout as the most common convention.

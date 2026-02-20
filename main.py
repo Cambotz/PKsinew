@@ -1782,7 +1782,23 @@ class GameScreen:
         
         # Update emulator mapping if active
         if self.emulator:
-            self.emulator.set_swap_ab(enabled)
+            try:
+                from mgba_emulator import RETRO_DEVICE_ID_JOYPAD_A, RETRO_DEVICE_ID_JOYPAD_B
+                gmap = getattr(self.emulator, '_gamepad_map', None)
+                if gmap is not None:
+                    # Store original values on first call
+                    if not hasattr(self.emulator, '_original_a_btn'):
+                        self.emulator._original_a_btn = gmap.get(RETRO_DEVICE_ID_JOYPAD_A, 0)
+                        self.emulator._original_b_btn = gmap.get(RETRO_DEVICE_ID_JOYPAD_B, 1)
+                    if enabled:
+                        gmap[RETRO_DEVICE_ID_JOYPAD_A] = self.emulator._original_b_btn
+                        gmap[RETRO_DEVICE_ID_JOYPAD_B] = self.emulator._original_a_btn
+                    else:
+                        gmap[RETRO_DEVICE_ID_JOYPAD_A] = self.emulator._original_a_btn
+                        gmap[RETRO_DEVICE_ID_JOYPAD_B] = self.emulator._original_b_btn
+                    print(f"[Sinew] Emulator A/B: A→btn{gmap[RETRO_DEVICE_ID_JOYPAD_A]}, B→btn{gmap[RETRO_DEVICE_ID_JOYPAD_B]}")
+            except Exception as e:
+                print(f"[Sinew] Could not update emulator A/B swap: {e}")
         
         print(f"[Sinew] A/B swap {'enabled' if enabled else 'disabled'}")
     

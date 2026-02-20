@@ -32,6 +32,17 @@
             "",
             "Python is used as the primary runtime for this project."
           ]
+        },
+      
+    
+        {
+          "name": "SDL_GameControllerDB",          
+          "lines": [
+            "Copyright (c) 2013–2025 the SDL_GameControllerDB contributors",
+            "Licensed under the zlib License",
+            "",
+            "SDL_GameControllerDB is used for controller support for this project."
+          ]
         }
       ]
     },

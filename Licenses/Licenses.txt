@@ -32,6 +32,12 @@ Licensed under the Python Software Foundation License (PSF License)
 Python is used as the primary runtime for this project.
 
 
+SDL_GameControllerDB
+Copyright (c) 2013–2025 the SDL_GameControllerDB contributors
+Licensed under the zlib License
+
+The full license text is available in the licenses folder distributed with Sinew.
+
 APIs
 ----
 

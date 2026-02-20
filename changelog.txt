@@ -1,3 +1,19 @@
+Sinew 1.3.2 – Stability & Controller Fixes
+
+Sinew 1.3.2 focuses on resolving input-related issues and improving controller compatibility.
+
+Fixes
+
+Fixed an issue where keyboard inputs could not be properly bound
+
+Fixed a crash caused by using the “Swap A and B” option
+
+Improvements
+
+Added SDL_GameControllerDB to improve controller detection and compatibility across more devices
+
+-----------------------------------------------------------
+
 Sinew 1.3.0 – Input & Stability Update
 New Features
 
