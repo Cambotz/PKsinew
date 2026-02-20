@@ -2,53 +2,13 @@
 Sinew Configuration
 All paths, constants, and configuration settings
 
-IMPORTANT: All paths are anchored to the script location, not the working directory.
-Use the resolve_path() function or pre-defined path constants to ensure paths work
-regardless of where the script is executed from.
+NOTE: All paths are absolute and should be constructed using os.path.join for cross-platform compatibility. 
 """
 
+
 import os
-
-# ===== Base Directory Setup =====
-# This is the KEY fix - anchor all paths to where config.py is located
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-BASE_DIR = SCRIPT_DIR  # These are the same - the project root
-
-# ===== Path Resolution Helper =====
-def resolve_path(*path_parts):
-    """
-    Resolve a path relative to the project root (BASE_DIR).
-    
-    This ensures paths work regardless of the current working directory.
-    
-    Args:
-        *path_parts: Path components to join (e.g., "data", "sprites", "gen3")
-        
-    Returns:
-        str: Absolute path anchored to the project root
-        
-    Examples:
-        resolve_path("fonts", "Pokemon_GB.ttf")
-        resolve_path("data/sprites/gen3/normal")  # Can use forward slashes too
-    """
-    # Handle single path with forward slashes
-    if len(path_parts) == 1 and '/' in path_parts[0]:
-        path_parts = path_parts[0].split('/')
-    
-    return os.path.join(BASE_DIR, *path_parts)
-
-
-def resolve_data_path(*path_parts):
-    """
-    Resolve a path relative to the data directory.
-    
-    Args:
-        *path_parts: Path components to join
-        
-    Returns:
-        str: Absolute path anchored to the data directory
-    """
-    return os.path.join(DATA_DIR, *path_parts)
+import sys
+import platform
 
 
 # ===== Display Settings =====
@@ -58,21 +18,29 @@ SCREEN_WIDTH = WINDOW_WIDTH  # Alias for compatibility
 SCREEN_HEIGHT = WINDOW_HEIGHT
 FPS = 60
 
+
 # ===== Directory Paths =====
-# Sinew parent directory (for shared data if needed)
-SINEW_DIR = os.path.join(os.path.dirname(SCRIPT_DIR), "Sinew")
 
-# Core directories - all anchored to BASE_DIR
+# Core directories (internal, read-only)
+BASE_DIR = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
 CORES_DIR = os.path.join(BASE_DIR, "cores")
-SYSTEM_DIR = os.path.join(BASE_DIR, "system")
-ROMS_DIR = os.path.join(BASE_DIR, "roms")
-SAVES_DIR = os.path.join(BASE_DIR, "saves")
 FONTS_DIR = os.path.join(BASE_DIR, "fonts")
-THEMES_DIR = os.path.join(BASE_DIR, "themes")
+PARSER_DIR = os.path.join(BASE_DIR, "parser")
 
-# Data directory structure
-DATA_DIR = os.path.join(BASE_DIR, "data")
-SPRITES_DIR = os.path.join(DATA_DIR, "sprites")
+# External (user-accessible) directories
+if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+    EXT_DIR = os.path.dirname(sys.executable)
+else:
+    # In dev mode, use ../dist as EXT_DIR for external files
+    # This is where the executable would output to anyway
+    EXT_DIR = os.path.abspath(os.path.join(BASE_DIR, "../dist"))
+
+SYSTEM_DIR = os.path.join(EXT_DIR, "system")
+ROMS_DIR = os.path.join(EXT_DIR, "roms")
+SAVES_DIR = os.path.join(EXT_DIR, "saves")
+DATA_DIR = os.path.join(EXT_DIR, "data")
+THEMES_DIR = os.path.join(EXT_DIR, "data/themes")
+SPRITES_DIR = os.path.join(EXT_DIR, "data/sprites")
 
 # Sprite directories
 GEN3_SPRITES_DIR = os.path.join(SPRITES_DIR, "gen3")
@@ -142,6 +110,12 @@ MGBA_CORE_PATH = os.path.join(CORES_DIR, get_core_filename())
 
 
 # ===== Save Editor Paths =====
+
+# TO DO: Properly detect game versions, then we can align filenames between roms and saves
+# Header check: Read 4 bytes at 0xAC for BPRE, BPGE, AXVE, AXPE, BPEE
+# SHA1 sums: Compare against known hashes for each version
+
+# For now just rely on the user to name their roms and saves correctly, and provide a fallback path if not found
 SAVES_PATH = SAVES_DIR  # Alias for compatibility
 
 # ROM and Save paths for each game
@@ -163,13 +137,11 @@ SAVE_PATHS = {
 
 # ===== Parser Settings =====
 PARSER_LOCATIONS = [
-    os.path.join(SCRIPT_DIR, 'parser'),
-    os.path.join(os.path.dirname(SCRIPT_DIR), 'parser'),
-    SCRIPT_DIR,
+    os.path.join(BASE_DIR, 'parser'),
 ]
 
 # ===== Settings File =====
-SETTINGS_FILE = os.path.join(BASE_DIR, "sinew_settings.json")
+SETTINGS_FILE = os.path.join(SAVES_DIR, "sinew_settings.json")
 
 # ===== Animation Settings =====
 SHOWDOWN_FRAME_MS_DEFAULT = 100
@@ -252,7 +224,8 @@ def get_egg_sprite_path(sprite_type="gen3"):
 
 # ===== Directory Creation =====
 # Create necessary directories if they don't exist
-for dir_path in [ROMS_DIR, SAVES_DIR, SYSTEM_DIR, CORES_DIR]:
+# Other external directories (data, themes, sprites) should be included in the distribution
+for dir_path in [ROMS_DIR, SAVES_DIR, SYSTEM_DIR]:
     os.makedirs(dir_path, exist_ok=True)
 
 
@@ -263,7 +236,7 @@ def print_paths():
     print("PKsinew Path Configuration")
     print("=" * 50)
     print(f"BASE_DIR:     {BASE_DIR}")
-    print(f"SCRIPT_DIR:   {SCRIPT_DIR}")
+    print(f"EXT_DIR:      {EXT_DIR}")
     print(f"DATA_DIR:     {DATA_DIR}")
     print(f"SPRITES_DIR:  {SPRITES_DIR}")
     print(f"FONTS_DIR:    {FONTS_DIR}")

@@ -7,6 +7,9 @@ import os
 import sys
 import subprocess
 import threading
+import runpy
+import io
+import traceback
 import pygame
 import ui_colors
 from controller import get_controller, NavigableList
@@ -114,74 +117,55 @@ class DBBuilderScreen:
         # Start build in background thread
         self.build_thread = threading.Thread(target=self._run_build, daemon=True)
         self.build_thread.start()
-    
+
     def _run_build(self):
         """Run the build process and capture output"""
-        try:
-            # Use config.BASE_DIR if available, otherwise fall back to cwd
-            if CONFIG_AVAILABLE and hasattr(config, 'BASE_DIR'):
-                project_root = config.BASE_DIR
-            else:
-                project_root = os.getcwd()
-            script_path = os.path.join(project_root, "DBbuilder.py")
-            
-            self._add_line(f"CWD: {project_root}")
-            
-            if not os.path.exists(script_path):
-                self._add_line("ERROR: DBbuilder.py not found!")
+        def execute_in_thread():
+            self.is_building = True
+            self.cancel_requested = False
+            old_stdout = sys.stdout
+            old_stderr = sys.stderr
+
+            try:
+                # sys._MEIPASS is the temporary folder where PyInstaller 
+                # extracts all bundled libraries.
+                if getattr(sys, 'frozen', False):
+                    bundle_dir = sys._MEIPASS
+                    if bundle_dir not in sys.path:
+                        sys.path.insert(0, bundle_dir)
+
+                script_path = os.path.join(config.BASE_DIR, "DBbuilder.py")
+
+                # Logging Redirector
+                class UILogger:
+                    def __init__(self, func): self.func = func
+                    def write(self, s): 
+                        if s.strip(): self.func(s.strip())
+                    def flush(self): pass
+
+                sys.stdout = UILogger(self._add_line)
+                sys.stderr = UILogger(self._add_line)
+
+                # Use init_globals=globals() so it inherits already loaded modules
+                custom_globals = globals().copy()
+                custom_globals.update({
+                    'ui_instance': self,
+                    'config': config,
+                    '__name__': '__main__'
+                })
+                runpy.run_path(script_path, init_globals=custom_globals, run_name="__main__")
+                
+                self._add_line("Build finished successfully!")
+
+            except Exception as e:
+                self._add_line(f"Build Error: {traceback.format_exc()}")
+            finally:
+                sys.stdout = old_stdout
+                sys.stderr = old_stderr
                 self.is_building = False
-                return
-            
-            self._add_line(f"Running: DBbuilder.py")
-            self._add_line("")
-            
-            # Windows-specific: prevent console window from appearing
-            startupinfo = None
-            creationflags = 0
-            if sys.platform == 'win32':
-                startupinfo = subprocess.STARTUPINFO()
-                startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-                startupinfo.wShowWindow = subprocess.SW_HIDE
-                creationflags = subprocess.CREATE_NO_WINDOW
-            
-            # Run from project root so relative paths work
-            self.build_process = subprocess.Popen(
-                [sys.executable, "-u", script_path],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                text=True,
-                bufsize=1,
-                shell=False,
-                cwd=project_root,
-                startupinfo=startupinfo,
-                creationflags=creationflags
-            )
-            
-            # Read output line by line
-            while True:
-                line = self.build_process.stdout.readline()
-                if not line and self.build_process.poll() is not None:
-                    break
-                if line:
-                    self._add_line(line.rstrip())
-            
-            self.build_process.wait()
-            
-            self._add_line("")
-            if self.build_process.returncode == 0:
-                self._add_line("=" * 35)
-                self._add_line("Build completed successfully!")
-            else:
-                self._add_line(f"Exit code: {self.build_process.returncode}")
-            
-        except Exception as e:
-            self._add_line(f"ERROR: {e}")
-            import traceback
-            for line in traceback.format_exc().split('\n'):
-                self._add_line(line)
-        finally:
-            self.is_building = False
-            self.build_process = None
+
+        import threading
+        threading.Thread(target=execute_in_thread, daemon=True).start()
     
     def _start_wallpaper_build(self):
         """Start the wallpaper generation in a background thread"""
@@ -199,92 +183,62 @@ class DBBuilderScreen:
     
     def _run_wallpaper_build(self):
         """Run wallgen.py and capture output"""
-        try:
-            # Use config.BASE_DIR if available, otherwise fall back to cwd
-            if CONFIG_AVAILABLE and hasattr(config, 'BASE_DIR'):
-                project_root = config.BASE_DIR
-            else:
-                project_root = os.getcwd()
-            script_path = os.path.join(project_root, "wallgen.py")
-            
-            self._add_line(f"CWD: {project_root}")
-            
-            if not os.path.exists(script_path):
-                self._add_line("ERROR: wallgen.py not found!")
-                self.is_building = False
-                return
-            
-            # Check if font exists
-            if CONFIG_AVAILABLE and hasattr(config, 'FONT_SOLID_PATH'):
-                font_path = config.FONT_SOLID_PATH
-            else:
-                font_path = os.path.join(project_root, "fonts", "Pokemon Solid.ttf")
-            if not os.path.exists(font_path):
-                self._add_line(f"WARNING: Font not found:")
-                self._add_line(f"  {font_path}")
-            
-            self._add_line(f"Running: wallgen.py")
-            self._add_line("")
-            
-            # Windows-specific: prevent console window from appearing
-            startupinfo = None
-            creationflags = 0
-            if sys.platform == 'win32':
-                startupinfo = subprocess.STARTUPINFO()
-                startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-                startupinfo.wShowWindow = subprocess.SW_HIDE
-                creationflags = subprocess.CREATE_NO_WINDOW
-            
-            # Run from project root so relative paths work
-            self.build_process = subprocess.Popen(
-                [sys.executable, "-u", script_path],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                text=True,
-                bufsize=1,
-                shell=False,
-                cwd=project_root,
-                startupinfo=startupinfo,
-                creationflags=creationflags
-            )
-            
-            # Read output line by line
-            while True:
-                line = self.build_process.stdout.readline()
-                if not line and self.build_process.poll() is not None:
-                    break
-                if line:
-                    self._add_line(line.rstrip())
-            
-            self.build_process.wait()
-            
-            self._add_line("")
-            if self.build_process.returncode == 0:
+        def execute():
+            self.is_building = True
+            self.cancel_requested = False
+            old_stdout = sys.stdout
+            old_stderr = sys.stderr
+
+            try:
+                import config
+                # Ensure internal libs are accessible
+                bundle_dir = getattr(sys, '_MEIPASS', config.BASE_DIR)
+                if bundle_dir not in sys.path:
+                    sys.path.insert(0, bundle_dir)
+
+                script_path = os.path.join(config.BASE_DIR, "wallgen.py")
+                    
+                # Use the same UILogger class we defined for the DB builder
+                class UILogger:
+                    def __init__(self, func): self.func = func
+                    def write(self, s): 
+                        if s.strip(): self.func(s.strip())
+                    def flush(self): pass
+
+                sys.stdout = UILogger(self._add_line)
+                sys.stderr = sys.stdout
+
+                self._add_line(f"Starting wallpaper generation...")
+                    
+                # Execute the script
+                custom_globals = globals().copy()
+                custom_globals.update({
+                    'ui_instance': self,
+                    'config': config,
+                    '__name__': '__main__'
+                })
+                runpy.run_path(script_path, init_globals=custom_globals, run_name="__main__")
+                    
                 self._add_line("=" * 35)
                 self._add_line("Wallpapers generated!")
-            else:
-                self._add_line(f"Exit code: {self.build_process.returncode}")
-            
-        except Exception as e:
-            self._add_line(f"ERROR: {e}")
-            import traceback
-            for line in traceback.format_exc().split('\n'):
-                self._add_line(line)
-        finally:
-            self.is_building = False
-            self.build_process = None
+
+            except Exception as e:
+                # Catching the custom "Cancel" exception if we implement it, or standard errors
+                self._add_line(f"ERROR: {e}")
+            finally:
+                sys.stdout = old_stdout
+                sys.stderr = old_stderr
+                self.is_building = False
+                self.build_thread = None
+
+        self.build_thread = threading.Thread(target=execute, daemon=True)
+        self.build_thread.start()
     
     def _cancel_build(self):
-        """Cancel the current build if running"""
-        if self.build_process and self.is_building:
-            try:
-                self.build_process.terminate()
-                self.build_process.kill()  # Force kill if terminate doesn't work
-                self._add_line("")
-                self._add_line("Cancelled by user.")
-                self.is_building = False
-            except Exception as e:
-                self._add_line(f"Error cancelling: {e}")
+        if self.is_building:
+            self._add_line("Cancelling...")
+            self.is_building = False
+            self.cancel_requested = True
     
     def handle_events(self, events):
         """Handle pygame events"""

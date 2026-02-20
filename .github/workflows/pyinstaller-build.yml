@@ -1,0 +1,54 @@
+name: Build Executables with PyInstaller
+
+on:
+  push:
+    branches: [ main, pyinstaller ]
+  pull_request:
+    branches: [ main, pyinstaller ]
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact_name: PKsinew-Linux_x86-64
+          - os: macos-latest
+            artifact_name: PKsinew-macOS
+          - os: windows-latest
+            artifact_name: PKsinew-Windows
+          - os: ubuntu-22.04-arm
+            artifact_name: PKsinew-Linux_aarch64
+
+    name: Build on ${{ matrix.os }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Build executable
+        run: |
+          pyinstaller --clean PKsinew.spec
+
+      - name: Set permissions
+        if: runner.os != 'Windows'
+        run: chmod +x dist/*
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}.zip
+          path: dist/

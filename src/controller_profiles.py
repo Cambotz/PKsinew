@@ -287,8 +287,8 @@ def _find_gcdb_path():
     
     try:
         import config as cfg
-        if hasattr(cfg, 'BASE_DIR'):
-            candidates.append(os.path.join(cfg.BASE_DIR, "gamecontrollerdb.txt"))
+        if hasattr(cfg, 'EXT_DIR'):
+            candidates.append(os.path.join(cfg.EXT_DIR, "gamecontrollerdb.txt"))
     except ImportError:
         pass
     

@@ -8,6 +8,7 @@ import json
 import os
 import time
 import math
+import config
 from ui_components import Button
 import ui_colors
 from controller import get_controller, NavigableList
@@ -244,8 +245,8 @@ class AchievementManager:
     Handles loading, saving, checking conditions, and granting rewards.
     """
     
-    SAVE_PATH = os.path.join("data", "achievements_progress.json")
-    REWARDS_PATH = os.path.join("data", "achievements", "rewards")
+    SAVE_PATH = os.path.join(config.EXT_DIR, "saves", "achievements", "achievements_progress.json")
+    REWARDS_PATH = os.path.join(config.EXT_DIR, "saves", "achievements", "rewards")
     
     def __init__(self):
         self.progress = {}  # {achievement_id: {"unlocked": bool, "unlocked_at": timestamp, "reward_claimed": bool}}

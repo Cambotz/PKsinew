@@ -21,8 +21,8 @@ except ImportError:
 # Settings file path - use absolute path from config if available
 if CONFIG_AVAILABLE and hasattr(config, 'SETTINGS_FILE'):
     SETTINGS_FILE = config.SETTINGS_FILE
-elif CONFIG_AVAILABLE and hasattr(config, 'BASE_DIR'):
-    SETTINGS_FILE = os.path.join(config.BASE_DIR, "sinew_settings.json")
+elif CONFIG_AVAILABLE and hasattr(config, 'SAVE_DIR'):
+    SETTINGS_FILE = os.path.join(config.SAVE_DIR, "sinew_settings.json")
 else:
     SETTINGS_FILE = "sinew_settings.json"
 
@@ -1128,7 +1128,7 @@ class MainSetup:
     # -------------------
     def _get_pokemon_db_status(self):
         """Get the current Pokemon database status"""
-        db_path = "data/pokemon_db.json"
+        db_path = os.path.join(config.DATA_DIR, "pokemon_db.json")
         
         if not os.path.exists(db_path):
             return "Not Built"
@@ -1399,7 +1399,7 @@ class MainSetup:
             print(f"[Settings] Error clearing save cache: {e}")
         
         # Clear sprite cache folder if it exists
-        sprite_cache_dir = "data/cache"
+        sprite_cache_dir = os.path.join(config.DATA_DIR, "cache")
         if os.path.exists(sprite_cache_dir):
             try:
                 shutil.rmtree(sprite_cache_dir)
@@ -1575,7 +1575,7 @@ class MainSetup:
             if not manager:
                 return
             
-            export_path = "data/achievements_export.json"
+            export_path = os.path.join(config.DATA_DIR, "achievements_export.json")
             
             # Get list of unlocked achievement IDs
             unlocked_ids = [aid for aid, data in manager.progress.items() 
@@ -2232,9 +2232,7 @@ class ChangelogScreen:
 
     def _load_changelog(self):
         """Load and parse changelog.txt into (text, style) tuples"""
-        changelog_path = "changelog.txt"
-        if CONFIG_AVAILABLE and hasattr(config, 'BASE_DIR'):
-            changelog_path = os.path.join(config.BASE_DIR, "changelog.txt")
+        changelog_path = os.path.join(config.BASE_DIR, "changelog.txt")
 
         lines = []
         try:
@@ -2410,10 +2408,10 @@ class AboutLegalScreen:
     def _load_json_data(self):
         """Load JSON files for each tab"""
         json_files = {
-            "About": "Licenses/about.json",
-            "License": "Licenses/sinewLicense.json",
-            "Third-Party": "Licenses/3pLicenses.json",
-            "Acknowledgments": "Licenses/AKN.json"
+            "About": os.path.join(config.BASE_DIR, "licenses", "about.json"),
+            "License": os.path.join(config.BASE_DIR, "licenses", "sinewLicense.json"),
+            "Third-Party": os.path.join(config.BASE_DIR, "licenses", "3pLicenses.json"),
+            "Acknowledgments": os.path.join(config.BASE_DIR, "licenses", "AKN.json")
         }
         
         for tab, filepath in json_files.items():
