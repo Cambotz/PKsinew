@@ -114,6 +114,26 @@ def get_platform_info():
     return os_name, arch_name, ext
 
 
+def is_linux_arm():
+    """
+    Return True when running on a Linux ARM device (arm32 or arm64).
+    Used to select optimized audio buffer settings for low-power handhelds.
+    """
+    os_name, arch_name, _ = get_platform_info()
+    return os_name == 'linux' and arch_name in ('arm32', 'arm64')
+
+
+def get_audio_settings():
+    """
+    Return (buffer_size, max_queue_depth) tuned for the current platform.
+    Linux ARM (Raspberry Pi, Powkiddy, etc.): smaller buffer to reduce latency.
+    All other platforms: larger buffer for stability.
+    """
+    if is_linux_arm():
+        return 256, 8
+    return 1024, 4
+
+
 def get_core_filename():
     """
     Get the platform-specific core filename.
@@ -991,6 +1011,8 @@ class MgbaEmulator:
                 pass
             
             # Try to initialize mixer with multiple attempts
+            audio_buffer, _ = get_audio_settings()
+            print(f"[MgbaEmulator] Audio buffer size: {audio_buffer} (platform: {'linux_arm' if is_linux_arm() else 'default'})")
             max_attempts = 3
             for attempt in range(max_attempts):
                 try:
@@ -999,7 +1021,7 @@ class MgbaEmulator:
                         frequency=self.sample_rate,
                         size=-16,
                         channels=2,
-                        buffer=1024
+                        buffer=audio_buffer
                     )
                     pygame.mixer.init()
                     
@@ -1050,7 +1072,7 @@ class MgbaEmulator:
         # How many chunks to keep buffered at most before dropping stale audio.
         # At ~32768 Hz with typical ~512-sample batches this is ~60-80ms of audio.
         # Keeping this small prevents latency from accumulating over long sessions.
-        MAX_QUEUE_DEPTH = 4
+        _, MAX_QUEUE_DEPTH = get_audio_settings()
 
         while self._audio_running:
             try:
@@ -1066,7 +1088,8 @@ class MgbaEmulator:
                         reinit_attempted = True
                         try:
                             sample_rate = getattr(self, 'sample_rate', 32768)
-                            pygame.mixer.init(frequency=sample_rate, size=-16, channels=2, buffer=1024)
+                            audio_buffer, _ = get_audio_settings()
+                            pygame.mixer.init(frequency=sample_rate, size=-16, channels=2, buffer=audio_buffer)
                             pygame.mixer.set_num_channels(8)
                             self._audio_channel = pygame.mixer.Channel(7)
                             print(f"[MgbaEmulator] Mixer reinitialized: {pygame.mixer.get_init()}")
@@ -1458,7 +1481,7 @@ class MgbaEmulator:
                 except:
                     pass
                 
-                pygame.mixer.pre_init(frequency=sample_rate, size=-16, channels=2, buffer=1024)
+                pygame.mixer.pre_init(frequency=sample_rate, size=-16, channels=2, buffer=get_audio_settings()[0])
                 pygame.mixer.init()
                 pygame.mixer.set_num_channels(8)
                 print(f"[MgbaEmulator] Mixer reinitialized: {pygame.mixer.get_init()}")
