@@ -223,10 +223,7 @@ def load_theme_preference(settings_path=None):
         str: Name of the loaded theme
     """
     # Use absolute path for settings
-    if settings_path is None:
-        settings_path = os.path.join(BASE_DIR, "sinew_settings.json")
-    elif not os.path.isabs(settings_path):
-        settings_path = os.path.join(BASE_DIR, settings_path)
+    settings_path = os.path.join(config.BASE_DIR, "sinew_settings.json")
     
     theme_name = "Dark"  # Default
     

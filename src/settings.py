@@ -2232,7 +2232,7 @@ class ChangelogScreen:
 
     def _load_changelog(self):
         """Load and parse changelog.txt into (text, style) tuples"""
-        changelog_path = os.path.join(config.BASE_DIR, "changelog.txt")
+        changelog_path = os.path.join(config.EXT_DIR, "changelog.txt")
 
         lines = []
         try:
@@ -2408,10 +2408,10 @@ class AboutLegalScreen:
     def _load_json_data(self):
         """Load JSON files for each tab"""
         json_files = {
-            "About": os.path.join(config.BASE_DIR, "licenses", "about.json"),
-            "License": os.path.join(config.BASE_DIR, "licenses", "sinewLicense.json"),
-            "Third-Party": os.path.join(config.BASE_DIR, "licenses", "3pLicenses.json"),
-            "Acknowledgments": os.path.join(config.BASE_DIR, "licenses", "AKN.json")
+            "About": os.path.join(config.EXT_DIR, "licenses", "about.json"),
+            "License": os.path.join(config.EXT_DIR, "licenses", "sinewLicense.json"),
+            "Third-Party": os.path.join(config.EXT_DIR, "licenses", "3pLicenses.json"),
+            "Acknowledgments": os.path.join(config.EXT_DIR, "licenses", "AKN.json")
         }
         
         for tab, filepath in json_files.items():
