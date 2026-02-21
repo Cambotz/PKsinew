@@ -999,7 +999,7 @@ class MgbaEmulator:
                         frequency=self.sample_rate,
                         size=-16,
                         channels=2,
-                        buffer=1024
+                        buffer=256
                     )
                     pygame.mixer.init()
                     
