@@ -16,6 +16,8 @@ temp/
 tmp/
 logs/
 saves/
+system/
+dist/PKsinew*
 
 generated/
 backups/
@@ -45,11 +47,11 @@ sinew.log
 sinew.log.1
 # --- Build / packaged output ---
 build/
-dist/
 out/
 
 # --- Python ---
 __pycache__/
+venv/
 *.pyc
 *.pyo
 

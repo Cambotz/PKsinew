@@ -14,8 +14,10 @@ import shutil
 import base64
 from datetime import datetime
 
+import config
+
 # Storage paths
-STORAGE_DIR = "sinew"
+STORAGE_DIR = os.path.join(config.EXT_DIR, "saves", "storage")
 STORAGE_FILE = os.path.join(STORAGE_DIR, "sinew_storage.json")
 BACKUP_FILE = os.path.join(STORAGE_DIR, "sinew_storage_backup.json")
 TEMP_FILE = os.path.join(STORAGE_DIR, "sinew_storage_temp.json")

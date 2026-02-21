@@ -21,7 +21,7 @@ def setup_logging():
     # Determine base directory for log file
     try:
         import config
-        log_dir = config.BASE_DIR
+        log_dir = config.EXT_DIR
     except ImportError:
         log_dir = os.path.dirname(os.path.abspath(__file__))
     
@@ -1783,7 +1783,7 @@ class GameScreen:
     
     def _init_menu_music(self):
         """Initialize menu music system"""
-        self._menu_music_path = "data/sounds/SinewMenu.mp3"
+        self._menu_music_path = os.path.join(config.DATA_DIR, "sounds", "SinewMenu.mp3")
         self._menu_music_playing = False
         self._menu_music_muted = self.settings.get("mute_menu_music", False)
         
@@ -1923,11 +1923,10 @@ class GameScreen:
     
     def _check_database(self):
         """Check if the Pokemon database exists and is complete"""
-        db_path = os.path.join("data", "pokemon_db.json")
-        
+        db_path = os.path.join(config.DATA_DIR, "pokemon_db.json")
         # Check if database file exists
         if not os.path.exists(db_path):
-            print("[Sinew] Pokemon database not found!")
+            print(f"[Sinew] Pokemon database not found: {db_path}")
             self._show_db_warning("Pokemon database not found", "The database needs to be built before you can use all features.")
             return
         

@@ -238,7 +238,7 @@ class EventsScreen:
     def _load_claimed_events(self):
         """Load which events have been claimed from sinew_data.json"""
         try:
-            data_path = os.path.join("data", "sinew_data.json")
+            data_path = os.path.join(config.DATA_DIR, "sinew_data.json")
             if os.path.exists(data_path):
                 with open(data_path, 'r') as f:
                     data = json.load(f)
@@ -251,7 +251,7 @@ class EventsScreen:
     def _save_claimed_events(self):
         """Save claimed events to sinew_data.json"""
         try:
-            data_path = os.path.join("data", "sinew_data.json")
+            data_path = os.path.join(config.DATA_DIR, "sinew_data.json")
             
             # Load existing data
             data = {}

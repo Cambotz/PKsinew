@@ -999,7 +999,7 @@ class MgbaEmulator:
                         frequency=self.sample_rate,
                         size=-16,
                         channels=2,
-                        buffer=1024
+                        buffer=256
                     )
                     pygame.mixer.init()
                     
@@ -1050,7 +1050,7 @@ class MgbaEmulator:
         # How many chunks to keep buffered at most before dropping stale audio.
         # At ~32768 Hz with typical ~512-sample batches this is ~60-80ms of audio.
         # Keeping this small prevents latency from accumulating over long sessions.
-        MAX_QUEUE_DEPTH = 4
+        MAX_QUEUE_DEPTH = 8
 
         while self._audio_running:
             try:

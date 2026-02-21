@@ -6,14 +6,8 @@ Handles loading, applying, and saving theme preferences
 import os
 import json
 
-# Import config for base directory (path resolution)
-try:
-    import config
-    CONFIG_AVAILABLE = True
-    BASE_DIR = config.BASE_DIR
-except ImportError:
-    CONFIG_AVAILABLE = False
-    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+import config
+CONFIG_AVAILABLE = True
 
 # Default theme values (Dark theme)
 DEFAULT_THEME = {
@@ -30,30 +24,14 @@ DEFAULT_THEME = {
     "HP_COLOR_GOOD": [0, 200, 0],
     "HP_COLOR_WARN": [220, 180, 0],
     "HP_COLOR_BAD": [200, 0, 0],
-    "FONT_PATH": "fonts/Pokemon_GB.ttf",
+    "FONT_PATH": os.path.join(config.FONTS_DIR, "Pokemon_GB.ttf"),
 }
 
 # Theme directory - use absolute path
-THEMES_DIR = os.path.join(BASE_DIR, "themes")
+THEMES_DIR = os.path.join(config.DATA_DIR, "themes")
 
 # Current theme name
 _current_theme_name = "Dark"
-
-
-def _resolve_path(path):
-    """
-    Resolve a potentially relative path to absolute.
-    
-    Args:
-        path: Path string (relative or absolute)
-        
-    Returns:
-        str: Absolute path
-    """
-    if os.path.isabs(path):
-        return path
-    return os.path.join(BASE_DIR, path)
-
 
 def _resolve_theme_paths(theme_data):
     """
@@ -72,7 +50,7 @@ def _resolve_theme_paths(theme_data):
     
     # Resolve FONT_PATH if present and relative
     if 'FONT_PATH' in result:
-        result['FONT_PATH'] = _resolve_path(result['FONT_PATH'])
+        result['FONT_PATH'] = os.path.join(config.FONTS_DIR, os.path.basename(result['FONT_PATH']))
     
     return result
 
@@ -212,10 +190,7 @@ def save_theme_preference(theme_name, settings_path=None):
         settings_path: Path to settings JSON file
     """
     # Use absolute path for settings
-    if settings_path is None:
-        settings_path = os.path.join(BASE_DIR, "sinew_settings.json")
-    elif not os.path.isabs(settings_path):
-        settings_path = os.path.join(BASE_DIR, settings_path)
+    settings_path = os.path.join(config.SAVES_DIR, "sinew_settings.json")
     
     settings = {}
     
@@ -248,10 +223,7 @@ def load_theme_preference(settings_path=None):
         str: Name of the loaded theme
     """
     # Use absolute path for settings
-    if settings_path is None:
-        settings_path = os.path.join(BASE_DIR, "sinew_settings.json")
-    elif not os.path.isabs(settings_path):
-        settings_path = os.path.join(BASE_DIR, settings_path)
+    settings_path = os.path.join(config.BASE_DIR, "sinew_settings.json")
     
     theme_name = "Dark"  # Default
     

@@ -58,8 +58,8 @@ class PokemonDatabase:
     
     def _load_gen3_sprites(self, pokemon_data, pid_str):
         """Load Gen3 static sprites"""
-        gen3_path = os.path.join(config.GEN3_NORMAL_DIR, f"{pid_str}.png")
-        gen3_shiny_path = os.path.join(config.GEN3_SHINY_DIR, f"{pid_str}.png")
+        gen3_path = os.path.join(config.DATA_DIR, "sprites", "gen3", "normal", f"{pid_str}.png")
+        gen3_shiny_path = os.path.join(config.DATA_DIR, "sprites", "gen3", "shiny", f"{pid_str}.png")
         
         pokemon_data['gen3_normal_path'] = gen3_path if os.path.exists(gen3_path) else None
         pokemon_data['gen3_shiny_path'] = gen3_shiny_path if os.path.exists(gen3_shiny_path) else None
@@ -74,8 +74,8 @@ class PokemonDatabase:
     
     def _load_showdown_sprites(self, pokemon_data, pid_str):
         """Load Showdown animated GIF sprites"""
-        sd_normal = os.path.join(config.SHOWDOWN_NORMAL_DIR, f"{pid_str}.gif")
-        sd_shiny = os.path.join(config.SHOWDOWN_SHINY_DIR, f"{pid_str}.gif")
+        sd_normal = os.path.join(config.DATA_DIR, "sprites", "showdown", "normal", f"{pid_str}.gif")
+        sd_shiny = os.path.join(config.DATA_DIR, "sprites", "showdown", "shiny", f"{pid_str}.gif")
         
         chosen = None
         if os.path.exists(sd_normal):

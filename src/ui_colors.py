@@ -15,7 +15,8 @@ try:
 except ImportError:
     # Fallback for standalone testing - this will only work if cwd is project root
     import os
-    FONT_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fonts", "Pokemon_GB.ttf")
+    import config
+    FONT_PATH = os.path.join(config.FONTS_DIR, "Pokemon_GB.ttf")
 
 # Background colors
 COLOR_BG = (0, 20, 40)
@@ -96,7 +97,7 @@ def resolve_font_path(relative_path):
     # Resolve relative to config.BASE_DIR
     try:
         import config
-        return os.path.join(config.BASE_DIR, relative_path)
+        return config.resolve_path(relative_path)
     except ImportError:
         # Fallback - try relative to this file's directory
         return os.path.join(os.path.dirname(os.path.abspath(__file__)), relative_path)

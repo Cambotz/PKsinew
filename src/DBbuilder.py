@@ -12,15 +12,22 @@ import os
 import time
 from typing import List, Dict, Optional
 
+try:
+    import config
+except ImportError as e:
+    print(f"ERROR: Could not import config: {e}", flush=True)
+    import sys
+    print("sys.path:", sys.path, flush=True)
+    exit(1)
+
 # --------- Config ----------
 MAX_POKEMON = 386             # up to Emerald
-DATA_DIR = "data"
-SPRITES_DIR = os.path.join(DATA_DIR, "sprites")
+SPRITES_DIR = os.path.join(config.DATA_DIR, "sprites")
 GEN3_NORMAL_DIR = os.path.join(SPRITES_DIR, "gen3", "normal")
 GEN3_SHINY_DIR = os.path.join(SPRITES_DIR, "gen3", "shiny")
 ITEMS_DIR = os.path.join(SPRITES_DIR, "items")
 
-DB_PATH = os.path.join(DATA_DIR, "pokemon_db.json")
+DB_PATH = os.path.join(config.DATA_DIR, "pokemon_db.json")
 
 # Create directories
 for d in (GEN3_NORMAL_DIR, GEN3_SHINY_DIR, ITEMS_DIR):
@@ -93,7 +100,7 @@ for key, filename in ITEM_SPRITES.items():
     url = f"https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/{filename}"
     dest_path = os.path.join(ITEMS_DIR, filename)
     if download_file(url, dest_path):
-        print(f"[Item] Downloaded {filename}")
+        print(f"[Item] Downloaded {filename}", flush=True)
 
 # -------------------------
 # Load existing DB if it exists
@@ -114,6 +121,8 @@ if "items" not in pokemon_db:
 # Iterate Pokémon
 # -------------------------
 for i in range(1, MAX_POKEMON + 1):
+    if 'ui_instance' in globals() and getattr(ui_instance, 'cancel_requested', False):
+        break
     pid_str = f"{i:03d}"
 
     db_entry = pokemon_db.get(pid_str, {})
@@ -134,7 +143,7 @@ for i in range(1, MAX_POKEMON + 1):
 
         p_resp = SESSION.get(pokemon_url, timeout=10)
         if p_resp.status_code != 200:
-            print(f"[{pid_str}] FAILED pokemon endpoint ({p_resp.status_code})")
+            print(f"[{pid_str}] FAILED pokemon endpoint ({p_resp.status_code})", flush=True)
             time.sleep(0.2)
             continue
 

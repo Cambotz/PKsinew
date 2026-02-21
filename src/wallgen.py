@@ -2,16 +2,16 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont
 import os
 import math
 
+import config
+
 # ----------------- SETTINGS -----------------
-# Get the directory where this script is located
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 WIDTH, HEIGHT = 480, 320
 GRID_THICKNESS = 2
 LOGO_SCALE = 0.6
 
 # Use absolute paths based on script location
-TEXT_FONT_PATH = os.path.join(SCRIPT_DIR, "fonts", "Pokemon Solid.ttf")
+TEXT_FONT_PATH = os.path.join(config.BASE_DIR, "fonts", "Pokemon Solid.ttf")
 
 THEMES = {
     "firered":   ((120, 10, 10), (220, 60, 30)),
@@ -21,8 +21,8 @@ THEMES = {
     "emerald":   ((0, 70, 50), (40, 200, 140)),
 }
 
-LOGO_PATH = os.path.join(SCRIPT_DIR, "data", "sprites", "title", "SINEW.png")
-OUT_DIR = os.path.join(SCRIPT_DIR, "data", "sprites", "title")
+LOGO_PATH = os.path.join(config.DATA_DIR, "sprites", "title", "SINEW.png")
+OUT_DIR = os.path.join(config.DATA_DIR, "sprites", "title")
 os.makedirs(OUT_DIR, exist_ok=True)
 
 # ----------------- BACKGROUNDS -----------------
@@ -173,14 +173,17 @@ def generate_sinew_wallpaper():
 
 # ----------------- RUN -----------------
 if __name__ == "__main__":
-    print("Script directory: %s" % SCRIPT_DIR)
+    print("Base directory: %s" % config.BASE_DIR)
     print("Font path: %s" % TEXT_FONT_PATH)
     print("Output directory: %s" % OUT_DIR)
     print("")
     
     for game, colors in THEMES.items():
+        if 'ui_instance' in globals() and getattr(ui_instance, 'cancel_requested', False):
+            break
         generate_game_wallpaper(game, colors)
 
-    generate_sinew_wallpaper()
+    if not (globals().get('ui_instance') and ui_instance.cancel_requested):
+        generate_sinew_wallpaper()
     print("")
     print("All wallpapers generated!")

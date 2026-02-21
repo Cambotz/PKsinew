@@ -20,31 +20,57 @@ PKsinew supports **Windows, macOS, and Linux**, and works best with a **controll
 
 ## Table of Contents
 
-1. [Quick Setup](#quick-setup)
-2. [Install Python 3](#install-python-3)
-3. [Install Dependencies](#install-dependencies)
-4. [Prepare the Launcher](#prepare-the-launcher)
-5. [Add ROMs](#add-roms)
-6. [Run the App](#run-the-app)
-7. [First-time In-App Setup](#first-time-in-app-setup)
-8. [Tips & Notes](#tips--notes)
+1. [How to Use](#how-to-use)
+   - [Add ROMs](#add-roms)
+   - [First-time In-App Setup](#first-time-in-app-setup)
+   - [Tips & Notes](#tips--notes)
+3. [How to Build ](#building)
+   - [Install Python 3](#install-python-3)
+   - [Install Dependencies](#install-dependencies)
+   - [Build Executable](#build-executable)
+   - [Dev Environment](#dev-environment)
+4. [Troubleshooting](#troubleshooting)
 
 ---
 
-## Quick Setup
+## How to Use
 
-Clone the repo:
+If you downloaded a release, you do **not** need Python or any dependencies. Just follow these steps:
 
-```bash
-git clone https://github.com/Cambotz/PKsinew.git
-cd PKsinew
-```
+### Add ROMs
 
-> ⚠️ On older macOS/Linux, HTTPS may fail. Use SSH or bypass SSL when cloning.
+1. Place your legally obtained ROMs in the `roms` folder.
+- Supported formats: `.gba`, `.zip`, `.7z`
+- Supported games:
+   - Pokémon Ruby
+   - Pokémon Sapphire
+   - Pokémon Emerald
+   - Pokémon FireRed
+   - Pokémon LeafGreen
 
 ---
 
-## Install Python 3
+### First-time In-App Setup
+
+1. **Map your controller buttons** in Settings
+2. Point each game slot to its ROM file
+3. Start playing — achievements and tracking begin automatically
+
+---
+
+### Tips & Notes
+
+- Save files are stored in the `saves/` folder — back these up regularly
+- Logs are written to `sinew.log` in the root folder — include this if reporting a bug
+- Controller is highly recommended but keyboard works too
+
+---
+
+## Building
+
+If you want to build PKsinew yourself, follow these steps:
+
+### Install Python 3
 
 | Platform | Instructions |
 |----------|--------------|
@@ -52,7 +78,7 @@ cd PKsinew
 | **macOS** | [Download Python 3](https://www.python.org/downloads/macos/) |
 | **Linux** | See below |
 
-### Windows — Important Installation Steps
+#### Windows — Important Installation Steps
 
 1. Download **Python 3.12** from the link above (3.12 is recommended for best compatibility)
 2. Run the installer
@@ -66,7 +92,7 @@ python --version
 
 You should see something like `Python 3.12.x`. If you get an error, you likely missed the PATH checkbox — re-run the installer and check it.
 
-### macOS
+#### macOS
 
 [Download Python 3](https://www.python.org/downloads/macos/) and follow the standard installer.
 
@@ -76,7 +102,7 @@ You should see something like `Python 3.12.x`. If you get an error, you likely m
 python3 --version
 ```
 
-### Linux
+#### Linux
 
 ```bash
 sudo apt install python3 python3-pip
@@ -88,171 +114,40 @@ sudo apt install python3 python3-pip
 python3 --version
 ```
 
----
+### Install Dependencies
 
-## Install Dependencies
+All commands from this point on need to be run from **inside the PKsinew folder**.
 
-All commands from this point on need to be run from **inside the PKsinew folder**. Here's how to open a terminal there:
-
-<details>
-<summary><b>Windows — Opening PowerShell in the PKsinew folder</b></summary>
-
-**Option A (easiest — Windows 11):**
-1. Open File Explorer and navigate to the PKsinew folder
-2. Right-click on an empty space inside the folder
-3. Select **"Open in Terminal"**
-
-**Option B (Windows 10):**
-1. Open File Explorer and navigate to the PKsinew folder
-2. Hold **Shift** and right-click on an empty space inside the folder
-3. Select **"Open PowerShell window here"**
-
-**Option C (manual cd):**
-1. Open PowerShell from the Start menu
-2. Type `cd` followed by the path to your PKsinew folder, for example:
-   ```powershell
-   cd C:\Users\YourName\Downloads\PKsinew
-   ```
-
-> ⚠️ Do **not** use Command Prompt (cmd) — use PowerShell only.
-
-</details>
-
-<details>
-<summary><b>macOS / Linux — Opening a terminal in the PKsinew folder</b></summary>
-
-**macOS:**
-1. Right-click the PKsinew folder in Finder
-2. Select **"New Terminal at Folder"** (if available), or open Terminal and drag the folder into it
-
-**Linux:**
-1. Most file managers support right-click → **"Open Terminal Here"**
-2. Or open a terminal and `cd` to the folder:
-   ```bash
-   cd ~/Downloads/PKsinew
-   ```
-
-</details>
-
-Once your terminal is open inside the PKsinew folder, install the dependencies:
-
-### Windows (PowerShell)
-
-```powershell
-pip install pillow numpy pygame requests
-```
-
-### macOS / Linux
-
-```bash
-pip3 install pillow numpy pygame requests
-```
-
-> **Note:** Pillow replaces PIL. NumPy and Pygame are required for Sinew. requests is used to build the database.
-
-If pip gives a permissions error on macOS/Linux, try:
-
-```bash
-pip3 install --user pillow numpy pygame requests
-```
-
----
-
-## Prepare the Launcher
-
-<details>
-<summary><b>Windows</b></summary>
-
-Double-click `Sinew.bat` to launch.
-
-If nothing happens, right-click it and select **Run as administrator**, or open PowerShell in the PKsinew folder and run:
-
-```powershell
-python main.py
-```
-
-</details>
-
-<details>
-<summary><b>macOS</b></summary>
-
-1. Make the launcher executable:
-   ```bash
-   chmod +x Sinew.bat
-   ```
-
-2. Right-click `Sinew.bat` → **Get Info** → **Open with:** Terminal → **Change All...**
-
-3. Double-click `Sinew.bat` to run
-
-</details>
-
-<details>
-<summary><b>Linux</b></summary>
-
-1. Make the launcher executable:
-   ```bash
-   chmod +x Sinew.bat
-   ```
-
-2. Run from terminal:
-   ```bash
-   ./Sinew.bat
-   ```
-
-   Or create a desktop shortcut pointing to the script.
-
-</details>
-
----
-
-## Add ROMs
-
-1. Place your legally obtained ROMs in the `roms` folder
-2. Supported formats: `.gba`, `.zip`, `.7z`
-3. Supported games:
-   - Pokémon Ruby
-   - Pokémon Sapphire
-   - Pokémon Emerald
-   - Pokémon FireRed
-   - Pokémon LeafGreen
-
----
-
-## Run the App
-
-Make sure your terminal is open inside the PKsinew folder (see [Install Dependencies](#install-dependencies) above for how to do this), then run:
+With your terminal open in the PKsinew folder, run:
 
 **Windows (PowerShell):**
 ```powershell
-python main.py
+pip install -r requirements.txt
 ```
 
 **macOS / Linux:**
 ```bash
-python3 main.py
+pip3 install -r requirements.txt
 ```
 
-> 💡 **Tip:** Using a controller is strongly recommended for the best experience.
+If you get a permissions error on macOS/Linux, try:
+```bash
+pip3 install --user -r requirements.txt
+```
+
+This will install all required packages (Pillow, NumPy, Pygame, requests, etc.) automatically.
+
+### Build Executable
+
+1. Run the build command from the project root:
+   `pyinstaller --clean PKsinew.spec`
+2. The built app will appear in the `dist/` folder.
 
 ---
 
-## First-time In-App Setup
+### Dev Environment
 
-1. **Map your controller buttons** in Settings
-2. Point each game slot to its ROM file
-3. Start playing — achievements and tracking begin automatically
-
----
-
-## Tips & Notes
-
-- Save files are stored in the `saves/` folder — back these up regularly
-- Logs are written to `sinew.log` in the root folder — include this if reporting a bug
-- If the app crashes on launch, check that all dependencies installed correctly by running `pip show pygame` in PowerShell
-- Controller is highly recommended but keyboard works too
-
----
+You can of course run PKsinew from the unpacked `src` folder (e.g. testing changes and other development things), just `cd src` and run `python3 main.py`. PKsinew is configured to know when it's being run in dev mode and should find all resource folders automatically.
 
 ## Troubleshooting
 
@@ -263,13 +158,7 @@ python3 main.py
 > Same cause as above — Python isn't on your PATH. Re-run the installer with the PATH option enabled.
 
 **Black screen / app won't start**
-> Make sure all dependencies are installed. Open PowerShell and run:
-> ```powershell
-> pip install pillow numpy pygame requests
-> ```
-
-**"No such file or directory: main.py" error**
-> Your terminal isn't open in the PKsinew folder. See the [Install Dependencies](#install-dependencies) section for how to open PowerShell directly inside the folder.
+> Make sure all dependencies are installed. See above for running `pip install -r requirements.txt`.
 
 **Game not detected**
-> Make sure your ROM filename contains the game name (e.g. `Pokemon Ruby.gba`). Check the `roms/` folder and ensure the file extension is `.gba`.
+> Make sure your ROM filename contains the game name (e.g. `Pokemon Ruby.gba`). Check the `roms/` folder and ensure the file extension is supported.
