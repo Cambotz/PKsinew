@@ -946,6 +946,11 @@ class GameScreen:
                     self._achievement_manager.update_tracking("owned_set", set(owned_list))
                     
                     for ach in game_achievements:
+                        # Guard: only unlock achievements that actually belong to this game.
+                        # achievements_data generates per-game lists but the 'game' field is the
+                        # authoritative source - double-check to prevent cross-contamination.
+                        if ach.get("game") != game_name:
+                            continue
                         if not self._achievement_manager.is_unlocked(ach["id"]):
                             if check_achievement_unlocked(ach, ach_save_data):
                                 # Unlock silently (no notification) - use proper format
@@ -975,6 +980,12 @@ class GameScreen:
             
             # Save progress
             self._achievement_manager._save_progress()
+            
+            # Restore the global singleton manager to the currently viewed game.
+            # The startup scan creates temporary per-game managers, leaving the
+            # singleton pointing at whichever game was scanned last.  Re-load
+            # the current game so badge checks and UI reads are correct.
+            self._load_current_save()
             
             print("[Achievements] Startup check complete")
             
@@ -2042,37 +2053,88 @@ class GameScreen:
     def _is_events_unlocked_for_current_game(self):
         """
         Check if Events menu should be shown for current game.
-        Requires:
-        1. Current game has 8 badges (is Champion)
-        2. That game's "Pokemon Champion!" achievement reward has been claimed
+
+        RSE  (Ruby / Sapphire / Emerald):
+            Requires the 'Pokemon Champion!' achievement reward to be claimed
+            (i.e. player has all 8 badges and has collected that reward).
+
+        FRLG (FireRed / LeafGreen):
+            Requires the 'Sevii Pokemon Ranger' achievement reward to be claimed
+            (i.e. player has the National Dex AND Rainbow Pass and collected that reward).
+            Badge count is NOT used as the gate for FRLG.
         """
-        # Check current game's badge count first
-        manager = get_manager()
-        if not manager or not manager.is_loaded():
+        current_game = self.get_current_game_name()
+        if not current_game or current_game == "Sinew":
             return False
-        
-        try:
-            badges = manager.get_badges()
-            badge_count = sum(1 for b in badges if b)
+
+        is_frlg = current_game in ('FireRed', 'LeafGreen')
+
+        if is_frlg:
+            # For FRLG the gate is the Sevii Pokemon Ranger achievement reward.
+            # We trust the achievement manager's reward_claimed flag — the achievement
+            # itself is only unlocked when the player has National Dex + Rainbow Pass.
+            if self._achievement_manager:
+                events_ach_id = self._get_events_unlock_achievement_id(current_game)
+                if events_ach_id:
+                    # Achievement must be unlocked AND its reward claimed
+                    if not self._achievement_manager.is_unlocked(events_ach_id):
+                        return False
+                    if not self._achievement_manager.is_reward_claimed(events_ach_id):
+                        return False
+            return True
+
+        else:
+            # RSE: gate on 8 badges (Pokemon Champion).
+            # Read from per-game tracking first so the global manager singleton
+            # doesn't bleed wrong-game badge counts after the startup scan.
+            badge_count = 0
+            if self._achievement_manager:
+                badge_count = self._achievement_manager.get_tracking("badges", default=0, game_name=current_game)
+
+            # Fall back to global manager only when tracking is empty
+            if badge_count == 0:
+                manager = get_manager()
+                if manager and manager.is_loaded():
+                    loaded_game = getattr(getattr(manager, 'parser', None), 'game_name', None)
+                    if loaded_game and self._save_matches_game(loaded_game, current_game):
+                        try:
+                            badges = manager.get_badges()
+                            badge_count = sum(1 for b in badges if b)
+                        except:
+                            pass
+
             if badge_count < 8:
                 return False
-        except:
+
+            # Also require the Pokemon Champion reward to have been claimed
+            if self._achievement_manager:
+                events_ach_id = self._get_events_unlock_achievement_id(current_game)
+                if events_ach_id and not self._achievement_manager.is_reward_claimed(events_ach_id):
+                    return False
+
+            return True
+
+    def _save_matches_game(self, loaded_game_name, expected_game_name):
+        """
+        Check if the parser's reported game_name matches the expected game.
+        Handles paired parser names like 'FireRed/LeafGreen' and 'Ruby/Sapphire'.
+        """
+        if not loaded_game_name or not expected_game_name:
             return False
-        
-        # Check if this game's "Pokemon Champion!" reward has been claimed
-        if self._achievement_manager:
-            # Get achievement ID for current game's champion achievement
-            current_game = self.get_current_game_name()
-            champion_ach_id = self._get_champion_achievement_id(current_game)
-            
-            if champion_ach_id and not self._achievement_manager.is_reward_claimed(champion_ach_id):
-                return False
-        
-        return True
+        if loaded_game_name == expected_game_name:
+            return True
+        # Parser returns paired names (e.g. 'FireRed/LeafGreen')
+        if expected_game_name in loaded_game_name:
+            return True
+        return False
     
-    def _get_champion_achievement_id(self, game_name):
-        """Get the Pokemon Champion! achievement ID for a specific game."""
-        # Map game names to achievement prefixes
+    def _get_events_unlock_achievement_id(self, game_name):
+        """
+        Return the achievement ID whose reward_claimed flag gates Events access.
+
+        RSE  → _028  (Pokemon Champion!)
+        FRLG → _057  (Sevii Pokemon Ranger — National Dex + Rainbow Pass)
+        """
         prefix_map = {
             'Ruby': 'RUBY',
             'Sapphire': 'SAPP',
@@ -2081,9 +2143,13 @@ class GameScreen:
             'LeafGreen': 'LG',
         }
         prefix = prefix_map.get(game_name)
-        if prefix:
-            return f"{prefix}_028"  # Pokemon Champion! is always _028
-        return None
+        if not prefix:
+            return None
+
+        if game_name in ('FireRed', 'LeafGreen'):
+            return f"{prefix}_057"  # Sevii Pokemon Ranger
+
+        return f"{prefix}_028"  # Pokemon Champion!
     
     def _get_running_game_name(self):
         """Get the name of the currently running game, or None if no game is running."""

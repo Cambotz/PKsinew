@@ -727,6 +727,16 @@ class AchievementManager:
             return True
         return False
     
+    def unlock_achievement(self, achievement_data):
+        """
+        Alias for unlock() that accepts an achievement dict.
+        Called from main.py's _on_event_claimed and similar callback paths.
+        """
+        if not achievement_data:
+            return False
+        ach_id = achievement_data.get("id") if isinstance(achievement_data, dict) else achievement_data
+        return self.unlock(ach_id, achievement_data if isinstance(achievement_data, dict) else None)
+
     def is_reward_claimed(self, achievement_id):
         """Check if reward was claimed"""
         return self.progress.get(achievement_id, {}).get("reward_claimed", False)

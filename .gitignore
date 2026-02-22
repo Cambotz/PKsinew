@@ -35,6 +35,7 @@ scripts/
 sinew_settings.json
 sinew/sinew_storage.json
 sinew/sinew_storage_backup.json
+data/sinew_data.json
 data/sprites/title/emerald.gif
 data/sprites/title/Ruby.gif
 data/sprites/title/Sapphire.gif
