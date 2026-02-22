@@ -132,8 +132,10 @@ _sinew_logger.info("=" * 60)
 # SDL hints for audio stability in fullscreen mode
 # Set these before importing pygame
 os.environ.setdefault('SDL_AUDIO_ALLOW_CHANGES', '0')  # Prevent audio format changes
-if sys.platform == 'win32':
-    # Windows: prefer directsound for stability with fullscreen
+if sys.platform == 'win32' and not getattr(sys, 'frozen', False):
+    # Windows dev mode: prefer directsound for stability with fullscreen.
+    # Skip when frozen (PyInstaller) — let SDL auto-select; forcing directsound
+    # can fail if the driver DLL isn't found in the temp extraction folder.
     os.environ.setdefault('SDL_AUDIODRIVER', 'directsound')
 
 import json
