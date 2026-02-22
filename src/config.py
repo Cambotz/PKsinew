@@ -27,7 +27,7 @@ CORES_DIR = os.path.join(BASE_DIR, "cores")
 FONTS_DIR = os.path.join(BASE_DIR, "fonts")
 PARSER_DIR = os.path.join(BASE_DIR, "parser")
 
-# External (user-accessible) directories
+# External (user-accessible) directories and files
 if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
     EXT_DIR = os.path.dirname(sys.executable)
 else:
@@ -35,14 +35,20 @@ else:
     # This is where the executable would output to anyway
     EXT_DIR = os.path.abspath(os.path.join(BASE_DIR, "../dist"))
 
-SYSTEM_DIR = os.path.join(EXT_DIR, "system")
+DATA_DIR = os.path.join(EXT_DIR, "data")
 ROMS_DIR = os.path.join(EXT_DIR, "roms")
 SAVES_DIR = os.path.join(EXT_DIR, "saves")
-DATA_DIR = os.path.join(EXT_DIR, "data")
+SYSTEM_DIR = os.path.join(EXT_DIR, "system")
+
+# Sinew-specific save paths
+ACH_SAVE_PATH = os.path.join(SAVES_DIR, "sinew", "achievements_progress.json")
+ACH_REWARDS_PATH = os.path.join(SAVES_DIR, "sinew", "rewards")
+SETTINGS_FILE = os.path.join(SAVES_DIR, "sinew", "sinew_settings.json")
+
+# Sprite directories
 THEMES_DIR = os.path.join(DATA_DIR, "themes")
 SPRITES_DIR = os.path.join(DATA_DIR, "sprites")
 
-# Sprite directories
 GEN3_SPRITES_DIR = os.path.join(SPRITES_DIR, "gen3")
 GEN3_NORMAL_DIR = os.path.join(GEN3_SPRITES_DIR, "normal")
 GEN3_SHINY_DIR = os.path.join(GEN3_SPRITES_DIR, "shiny")
@@ -61,7 +67,7 @@ TITLE_SPRITES_DIR = os.path.join(SPRITES_DIR, "title")
 # Database paths
 POKEMON_DB_PATH = os.path.join(DATA_DIR, "pokemon_db.json")
 
-# ===== Font Paths =====
+# Font Paths
 FONT_PATH = os.path.join(FONTS_DIR, "Pokemon_GB.ttf")
 FONT_SOLID_PATH = os.path.join(FONTS_DIR, "Pokemon Solid.ttf")
 
@@ -139,9 +145,6 @@ SAVE_PATHS = {
 PARSER_LOCATIONS = [
     os.path.join(BASE_DIR, 'parser'),
 ]
-
-# ===== Settings File =====
-SETTINGS_FILE = os.path.join(SAVES_DIR, "sinew_settings.json")
 
 # ===== Animation Settings =====
 SHOWDOWN_FRAME_MS_DEFAULT = 100

@@ -11,7 +11,7 @@ import math
 from ui_components import Button
 import ui_colors
 from controller import get_controller, NavigableList
-from config import EXT_DIR, FONT_PATH
+from config import EXT_DIR, FONT_PATH, ACH_SAVE_PATH, ACH_REWARDS_PATH
 
 # Lazy imports to avoid circular import issues
 # from achievements_data import get_achievements_for, check_achievement_unlocked, GAME_ACHIEVEMENTS, GAMES
@@ -244,9 +244,6 @@ class AchievementManager:
     Manages achievement state across all games.
     Handles loading, saving, checking conditions, and granting rewards.
     """
-    
-    SAVE_PATH = os.path.join(EXT_DIR, "saves", "achievements", "achievements_progress.json")
-    REWARDS_PATH = os.path.join(EXT_DIR, "saves", "achievements", "rewards")
     
     def __init__(self):
         self.progress = {}  # {achievement_id: {"unlocked": bool, "unlocked_at": timestamp, "reward_claimed": bool}}
@@ -674,8 +671,8 @@ class AchievementManager:
     def _load_progress(self):
         """Load achievement progress from file"""
         try:
-            if os.path.exists(self.SAVE_PATH):
-                with open(self.SAVE_PATH, 'r') as f:
+            if os.path.exists(ACH_SAVE_PATH):
+                with open(ACH_SAVE_PATH, 'r') as f:
                     data = json.load(f)
                     self.progress = data.get("progress", {})
                     self.stats = data.get("stats", {})
@@ -694,8 +691,8 @@ class AchievementManager:
     def _save_progress(self):
         """Save achievement progress to file"""
         try:
-            os.makedirs(os.path.dirname(self.SAVE_PATH), exist_ok=True)
-            with open(self.SAVE_PATH, 'w') as f:
+            os.makedirs(os.path.dirname(ACH_SAVE_PATH), exist_ok=True)
+            with open(ACH_SAVE_PATH, 'w') as f:
                 json.dump({
                     "progress": self.progress,
                     "stats": self.stats,
@@ -1284,10 +1281,10 @@ class AchievementManager:
         Use when normal reset doesn't work.
         """
         import os
-        print(f"[Achievements] NUCLEAR RESET - deleting {self.SAVE_PATH}")
+        print(f"[Achievements] NUCLEAR RESET - deleting {ACH_SAVE_PATH}")
         try:
-            if os.path.exists(self.SAVE_PATH):
-                os.remove(self.SAVE_PATH)
+            if os.path.exists(ACH_SAVE_PATH):
+                os.remove(ACH_SAVE_PATH)
                 print(f"[Achievements] Deleted save file")
         except Exception as e:
             print(f"[Achievements] Could not delete file: {e}")

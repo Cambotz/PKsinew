@@ -17,7 +17,7 @@ from datetime import datetime
 from config import EXT_DIR, SAVES_DIR
 
 # Storage paths
-STORAGE_DIR = os.path.join(EXT_DIR, "saves", "storage")
+STORAGE_DIR = os.path.join(EXT_DIR, "saves", "sinew")
 STORAGE_FILE = os.path.join(STORAGE_DIR, "sinew_storage.json")
 BACKUP_FILE = os.path.join(STORAGE_DIR, "sinew_storage_backup.json")
 TEMP_FILE = os.path.join(STORAGE_DIR, "sinew_storage_temp.json")
