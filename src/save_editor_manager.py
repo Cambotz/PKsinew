@@ -10,7 +10,7 @@ import sys
 from config import MGBA_PATH, PARSER_LOCATIONS, ROM_PATHS, SAVES_DIR
 from item_names import get_item_name
 
-# Import the save parser (with path handling)
+# Handle parser path logic before importing
 parser_found = False
 for location in PARSER_LOCATIONS:
     if os.path.exists(os.path.join(location, "gen3_save_parser.py")):

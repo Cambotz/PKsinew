@@ -5,7 +5,7 @@ on:
     branches:
       - "**"
     tags:
-      - "v*"
+      - v*
   pull_request:
     branches:
       - "**"
@@ -35,7 +35,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-          cache: "pip"
+          cache: pip
 
       - name: Install dependencies
         run: |
@@ -84,7 +84,8 @@ jobs:
 
       - name: Set permissions
         if: runner.os != 'Windows' && matrix.os != 'ubuntu-latest'
-        run: chmod +x dist/*
+        run: |
+          find dist -type f -exec chmod 755 {} \;
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4

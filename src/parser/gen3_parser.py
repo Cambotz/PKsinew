@@ -86,7 +86,7 @@ class Gen3SaveParser:
 
             # Check for invalid/blank save
             if self.game_type == "INVALID":
-                print(f"[Parser] ERROR: Save file is blank or corrupted")
+                print("[Parser] ERROR: Save file is blank or corrupted")
                 self.loaded = False
                 return False
 
