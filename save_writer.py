@@ -10,6 +10,58 @@ from datetime import datetime
 
 
 # =============================================================================
+# EXTERNAL EMULATOR MIRROR REGISTRY
+# =============================================================================
+# Maps  sinew_save_path  →  ext_save_path
+# When external emulator dev mode is active, _launch_external_emulator in
+# main.py registers a mapping here. Every write_save_file call that targets a
+# registered sinew path will also write the same data to the external emulator's
+# save path, keeping it in sync with every Sinew edit without requiring a
+# game session to be started first.
+
+_ext_mirror_map: dict = {}
+
+
+def register_ext_mirror(sinew_path: str, ext_path: str) -> None:
+    """Register a sinew save path -> external emulator save path mirror.
+
+    Called by main.py when entering external-emulator dev mode.
+    After registration, every write_save_file() call that writes to
+    sinew_path will also write to ext_path automatically.
+
+    Args:
+        sinew_path: Absolute path of the save file in Sinew's saves/ folder.
+        ext_path:   Absolute path of the save file in the external emulator's
+                    saves folder.
+    """
+    sinew_path = os.path.abspath(sinew_path)
+    ext_path   = os.path.abspath(ext_path)
+    _ext_mirror_map[sinew_path] = ext_path
+    print(f"[SaveWriter] Ext mirror registered: {os.path.basename(sinew_path)} -> {ext_path}")
+
+
+def unregister_ext_mirror(sinew_path: str) -> None:
+    """Remove a previously registered mirror mapping.
+
+    Called by main.py when the emulator session ends so that subsequent
+    Sinew edits no longer flow to the external emulator folder.
+
+    Args:
+        sinew_path: Absolute path that was previously registered.
+    """
+    sinew_path = os.path.abspath(sinew_path)
+    if sinew_path in _ext_mirror_map:
+        del _ext_mirror_map[sinew_path]
+        print(f"[SaveWriter] Ext mirror unregistered: {os.path.basename(sinew_path)}")
+
+
+def clear_ext_mirrors() -> None:
+    """Remove all registered mirror mappings (emergency reset)."""
+    _ext_mirror_map.clear()
+    print("[SaveWriter] All ext mirrors cleared")
+
+
+# =============================================================================
 # CONSTANTS
 # =============================================================================
 
@@ -453,22 +505,40 @@ def load_save_file(filepath):
 def write_save_file(filepath, save_data, create_backup_first=True):
     """
     Write save data to file.
-    
+
+    If an external-emulator mirror is registered for this filepath (via
+    register_ext_mirror), the same data is also written to the external
+    emulator's save path immediately, so every Sinew edit is reflected
+    there without needing to start a game session first.
+
     Args:
         filepath: Path to save file
         save_data: Save data (bytes or bytearray)
         create_backup_first: Whether to create a backup before writing
-        
+
     Returns:
         bool: True if successful
     """
     if create_backup_first and os.path.exists(filepath):
         create_backup(filepath)
-    
+
     with open(filepath, 'wb') as f:
         f.write(save_data)
-    
+
     print(f"Save file written: {filepath}")
+
+    # --- External emulator mirror sync ---
+    abs_path = os.path.abspath(filepath)
+    ext_path = _ext_mirror_map.get(abs_path)
+    if ext_path:
+        try:
+            os.makedirs(os.path.dirname(ext_path), exist_ok=True)
+            with open(ext_path, 'wb') as f:
+                f.write(save_data)
+            print(f"[SaveWriter] Mirrored to external emulator: {os.path.basename(ext_path)}")
+        except Exception as e:
+            print(f"[SaveWriter] Mirror write failed ({os.path.basename(ext_path)}): {e}")
+
     return True
 
 

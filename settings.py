@@ -1078,6 +1078,7 @@ class MainSetup:
                 {"name": "Changelog", "type": "button"},
             ],
             "Dev": [
+                {"name": "Use External Emulator", "type": "toggle", "value": False},
                 {"name": "Clear Cache", "type": "button"},
                 {"name": "Reset ALL Achievements", "type": "button"},
                 {"name": "Reset Game Achievements...", "type": "button"},
@@ -1117,6 +1118,11 @@ class MainSetup:
         for opt in self.tab_options["Controller"]:
             if opt["name"] == "Swap A/B Buttons":
                 opt["value"] = settings.get("swap_ab", False)
+
+        # Load Dev tab settings
+        for opt in self.tab_options["Dev"]:
+            if opt["name"] == "Use External Emulator":
+                opt["value"] = settings.get("use_external_emulator", False)
 
     def _update_option_nav(self):
         """Update NavigableList for current tab"""
@@ -1220,6 +1226,18 @@ class MainSetup:
             self.fullscreen_callback(value)
         elif name == 'Mute Menu Music' and self.music_mute_callback:
             self.music_mute_callback(value)
+        elif name == 'Use External Emulator':
+            try:
+                settings = load_sinew_settings()
+                settings['use_external_emulator'] = value
+                save_sinew_settings(settings)
+                import builtins
+                builtins.SINEW_USE_EXTERNAL_EMULATOR = value
+                status = "ON" if value else "OFF"
+                print(f"[Settings] Use External Emulator: {status}")
+                self._status_msg(f"External Emulator: {status}")
+            except Exception as e:
+                print(f"[Settings] Failed to save external emulator setting: {e}")
 
     def _activate_option(self):
         """Activate/select current option"""
