@@ -48,7 +48,8 @@ jobs:
 
       - name: Verify binary was created (non-Windows)
         if: runner.os != 'Windows'
-        run: test -f dist/PKsinew || (echo "ERROR: dist/PKsinew not found" && exit 1)
+        run: |
+          test -f dist/PKsinew || (echo "ERROR: dist/PKsinew not found" && exit 1)
 
       - name: Verify binary was created (Windows)
         if: runner.os == 'Windows'
