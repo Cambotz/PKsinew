@@ -44,9 +44,9 @@ jobs:
           pip install pyinstaller
 
       - name: Build executable
-        run: |
-          pyinstaller --clean PKsinew.spec
+        run: pyinstaller --clean PKsinew.spec
 
+      # --- Linux x86_64: build AppImage ---
       - name: Build AppImage (Ubuntu x86_64 only)
         if: matrix.os == 'ubuntu-latest'
         run: |
@@ -74,16 +74,55 @@ jobs:
           rm dist/PKsinew
           '
 
-      - name: Set permissions (non-Ubuntu)
-        if: runner.os != 'Windows' && matrix.os != 'ubuntu-latest'
-        run: |
-          find dist -type f -exec chmod 755 {} \;
+      # --- Linux aarch64: rename binary ---
+      - name: Rename aarch64 binary
+        if: matrix.os == 'ubuntu-22.04-arm'
+        run: mv dist/PKsinew dist/PKsinew-Linux_aarch64
 
-      - name: Upload artifact
+      # --- macOS: rename binary ---
+      - name: Rename macOS binary
+        if: matrix.os == 'macos-latest'
+        run: mv dist/PKsinew dist/PKsinew-macOS
+
+      # --- Windows: rename binary ---
+      - name: Rename Windows binary
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: Rename-Item dist\PKsinew.exe PKsinew-Windows.exe
+
+      # --- Set executable permissions (non-Windows) ---
+      - name: Set permissions
+        if: runner.os != 'Windows'
+        run: find dist -type f -exec chmod 755 {} \;
+
+      # --- Upload each platform's single artifact ---
+      - name: Upload artifact (Linux x86_64 AppImage)
+        if: matrix.os == 'ubuntu-latest'
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.artifact_name }}
-          path: dist/
+          name: PKsinew-Linux_x86-64
+          path: dist/PKsinew-Linux_x86-64.AppImage
+
+      - name: Upload artifact (Linux aarch64)
+        if: matrix.os == 'ubuntu-22.04-arm'
+        uses: actions/upload-artifact@v4
+        with:
+          name: PKsinew-Linux_aarch64
+          path: dist/PKsinew-Linux_aarch64
+
+      - name: Upload artifact (macOS)
+        if: matrix.os == 'macos-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: PKsinew-macOS
+          path: dist/PKsinew-macOS
+
+      - name: Upload artifact (Windows)
+        if: matrix.os == 'windows-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: PKsinew-Windows
+          path: dist/PKsinew-Windows.exe
 
   release:
     name: Create GitHub Release
@@ -92,37 +131,42 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
           path: artifacts
+          merge-multiple: false
 
-      - name: Copy only main artifacts + release zip
+      - name: Collect release files
         run: |
           mkdir release-files
-          cp artifacts/PKsinew-Linux_x86-64/* release-files/ 2>/dev/null || true
-          cp artifacts/PKsinew-Linux_aarch64/* release-files/ 2>/dev/null || true
-          cp artifacts/PKsinew-Windows/* release-files/ 2>/dev/null || true
-          cp artifacts/PKsinew-macOS/* release-files/ 2>/dev/null || true
-          # optional release zip
-          cp artifacts/PKsinew-*.zip release-files/ 2>/dev/null || true
+          cp artifacts/PKsinew-Linux_x86-64/PKsinew-Linux_x86-64.AppImage release-files/ 2>/dev/null || true
+          cp artifacts/PKsinew-Linux_aarch64/PKsinew-Linux_aarch64        release-files/ 2>/dev/null || true
+          cp artifacts/PKsinew-Windows/PKsinew-Windows.exe                 release-files/ 2>/dev/null || true
+          cp artifacts/PKsinew-macOS/PKsinew-macOS                         release-files/ 2>/dev/null || true
+          ls -lh release-files/
 
       - name: Read changelog
         id: changelog
         run: |
-          if [ -f dist/changelog.txt ]; then
-            CHANGELOG=$(cat dist/changelog.txt)
+          if [ -f CHANGELOG.md ]; then
+            CHANGELOG=$(cat CHANGELOG.md)
           else
-            echo "Warning: changelog.txt not found or empty."
             CHANGELOG="No changelog available for this release."
           fi
-          echo "::set-output name=body::$CHANGELOG"
+          echo "body<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHANGELOG" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Create Release and Upload Assets
         uses: softprops/action-gh-release@v1
         with:
           files: release-files/*
           body: ${{ steps.changelog.outputs.body }}
+          generate_release_notes: true
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GH_PAT }}
