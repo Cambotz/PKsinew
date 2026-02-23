@@ -47,7 +47,7 @@ jobs:
         run: |
           pyinstaller --clean PKsinew.spec
 
-      - name: Build AppImage (containerized 20.04)
+      - name: Build AppImage (Ubuntu only)
         if: matrix.os == 'ubuntu-latest'
         run: |
           docker run --rm \
@@ -74,7 +74,7 @@ jobs:
           rm dist/PKsinew
           '
 
-      - name: Set permissions
+      - name: Set permissions (non-Ubuntu)
         if: runner.os != 'Windows' && matrix.os != 'ubuntu-latest'
         run: |
           find dist -type f -exec chmod 755 {} \;
@@ -82,7 +82,7 @@ jobs:
       - name: Upload artifacts + changelog
         uses: actions/upload-artifact@v4
         with:
-          # include github.run_id to avoid conflicts in matrix
+          # Include github.run_id to avoid name conflicts
           name: ${{ matrix.artifact_name }}-${{ github.run_id }}
           path: |
             dist/*
