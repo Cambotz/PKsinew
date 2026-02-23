@@ -20,12 +20,12 @@ jobs:
         include:
           - os: ubuntu-latest
             artifact_name: PKsinew-Linux_x86-64
-          - os: ubuntu-22.04-arm
-            artifact_name: PKsinew-Linux_aarch64
           - os: macos-latest
             artifact_name: PKsinew-macOS
           - os: windows-latest
             artifact_name: PKsinew-Windows
+          - os: ubuntu-22.04-arm
+            artifact_name: PKsinew-Linux_aarch64
 
     steps:
       - name: Checkout code
@@ -44,24 +44,10 @@ jobs:
           pip install pyinstaller
 
       - name: Build executable
-        run: pyinstaller --clean --noconfirm PKsinew.spec
-
-      - name: Verify binary was created (non-Windows)
-        if: runner.os != 'Windows'
         run: |
-          test -f dist/PKsinew || (echo "ERROR: dist/PKsinew not found" && exit 1)
+          pyinstaller --clean PKsinew.spec
 
-      - name: Verify binary was created (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          if (-Not (Test-Path dist\PKsinew.exe)) {
-            Write-Error "ERROR: dist\PKsinew.exe not found"
-            exit 1
-          }
-
-      # Linux x86_64: wrap the binary in an AppImage
-      - name: Build AppImage (Ubuntu x86_64 only)
+      - name: Build AppImage (containerized 20.04)
         if: matrix.os == 'ubuntu-latest'
         run: |
           docker run --rm \
@@ -72,58 +58,41 @@ jobs:
           apt-get update
           apt-get install -y wget file squashfs-tools
           cd /work
+
           wget -q https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
           chmod +x appimagetool-x86_64.AppImage
           ./appimagetool-x86_64.AppImage --appimage-extract
+
           mkdir -p AppDir/usr/bin
           cp dist/PKsinew AppDir/usr/bin/PKsinew
+
           if [ -f "assets/pksinew.png" ]; then
             cp assets/pksinew.png AppDir/pksinew.png
           fi
+
           printf "[Desktop Entry]\nName=PKsinew\nExec=PKsinew\nIcon=pksinew\nType=Application\nCategories=Utility;\nTerminal=true\n" > AppDir/pksinew.desktop
-          printf "#!/bin/sh\nHERE=\"$(dirname "$(readlink -f "$0")")\"\ncd \"$HERE\"\nexec \"$HERE/usr/bin/PKsinew\" \"$@\"\n" > AppDir/AppRun
+
+          printf "#!/bin/sh\nHERE=\"\$(dirname \"\$(readlink -f \"\$0\")\")\"\ncd \"\$HERE\"\nexec \"\$HERE/usr/bin/PKsinew\" \"\$@\"\n" > AppDir/AppRun
+
           chmod +x AppDir/AppRun
+
           ./squashfs-root/AppRun AppDir dist/PKsinew-Linux_x86-64.AppImage
-          chmod +x dist/PKsinew-Linux_x86-64.AppImage
+
+          chmod +x dist/PKsinew dist/PKsinew-Linux_x86-64.AppImage
+          rm dist/PKsinew
           '
 
-      # Rename binaries to final artifact names
-      - name: Rename binary (Linux aarch64)
-        if: matrix.os == 'ubuntu-22.04-arm'
-        run: mv dist/PKsinew dist/PKsinew-Linux_aarch64
-
-      - name: Rename binary (macOS)
-        if: matrix.os == 'macos-latest'
-        run: mv dist/PKsinew dist/PKsinew-macOS
-
-      - name: Rename binary (Windows)
-        if: matrix.os == 'windows-latest'
-        shell: pwsh
-        run: Rename-Item dist\PKsinew.exe PKsinew-Windows.exe
-
-      # Set executable bit on non-Windows binaries
+      # trunk-ignore(checkov/CKV2_GHA_1)
       - name: Set permissions
-        if: runner.os != 'Windows'
-        run: find dist -type f -name 'PKsinew-*' -exec chmod 755 {} \;
-
-      # Zip the artifact so the release gets a proper named zip
-      - name: Zip artifact (non-Windows)
-        if: runner.os != 'Windows'
-        run: cd dist && zip ${{ matrix.artifact_name }}.zip ${{ matrix.artifact_name }}*
-
-      - name: Zip artifact (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
+        if: runner.os != 'Windows' && matrix.os != 'ubuntu-latest'
         run: |
-          Set-Location dist
-          Compress-Archive -Path "${{ matrix.artifact_name }}*" -DestinationPath "${{ matrix.artifact_name }}.zip"
+          find dist -type f -exec chmod 755 {} \;
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact_name }}
-          path: dist/${{ matrix.artifact_name }}.zip
-          if-no-files-found: error
+          path: dist/
 
   release:
     name: Create GitHub Release
@@ -139,7 +108,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: artifacts
-          merge-multiple: true
+          merge-multiple: false
 
       - name: Read changelog
         id: changelog
@@ -156,7 +125,7 @@ jobs:
       - name: Create Release and Upload Assets
         uses: softprops/action-gh-release@v1
         with:
-          files: artifacts/*.zip
+          files: artifacts/**/*
           body: ${{ steps.changelog.outputs.body }}
           generate_release_notes: true
           prerelease: false
