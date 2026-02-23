@@ -484,12 +484,11 @@ class ThemesScreen:
                 ("Button", preview_button),
             ]
 
-            for j, color in enumerate(colors_to_show):
+            for j, (name, color_value) in enumerate(colors_to_show):
                 sx = preview_x + 15 + j * (swatch_size + swatch_gap + 2)
                 swatch_rect = pygame.Rect(sx, swatch_y, swatch_size, swatch_size)
-                pygame.draw.rect(surf, color, swatch_rect)
+                pygame.draw.rect(surf, color_value, swatch_rect)  # use the actual color tuple
                 pygame.draw.rect(surf, dimmed_color, swatch_rect, 1)
-
             # Unlock requirement info (below swatches)
             unlock_y = swatch_y + swatch_size + 15
 

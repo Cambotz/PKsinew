@@ -14,7 +14,7 @@ import os
 import pygame
 
 from config import FONT_PATH
-from ui_colors import COLOR_HIGHLIGHT, COLOR_TEXT
+from ui_colors import COLOR_HIGHLIGHT, COLOR_TEXT ,COLOR_BG, COLOR_BORDER
 
 
 class ButtonMapper:
