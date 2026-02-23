@@ -59,7 +59,6 @@ _species_names = {}
 
 def _load_species_names():
     """Load species names from pokemon_db.json"""
-    global _species_names
     if _species_names:
         return  # Already loaded
 
@@ -85,7 +84,6 @@ def precache_save(save_path):
     Pre-parse a save file and cache it.
     Returns True if successful, False otherwise.
     """
-    global _save_cache
 
     if not save_path or not os.path.exists(save_path):
         return False
@@ -124,7 +122,6 @@ def invalidate_save_cache(save_path):
     Args:
         save_path: Path to the save file to invalidate
     """
-    global _save_cache
     if save_path in _save_cache:
         del _save_cache[save_path]
         print(f"Invalidated cache for: {save_path}")

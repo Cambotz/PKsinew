@@ -207,9 +207,7 @@ if __name__ == "__main__":
     print("")
 
     for game, colors in THEMES.items():
-        if "ui_instance" in globals() and getattr(
-            ui_instance, "cancel_requested", False
-        ):
+        if (ui := globals().get("ui_instance")) and ui.cancel_requested:
             break
         generate_game_wallpaper(game, colors)
 

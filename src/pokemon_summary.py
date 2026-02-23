@@ -222,7 +222,6 @@ _base_stats_cache = {}
 
 def _load_base_stats():
     """Load base stats from pokemon_db.json"""
-    global _base_stats_cache
     if _base_stats_cache:
         return
 
