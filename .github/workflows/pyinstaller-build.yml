@@ -46,7 +46,7 @@ jobs:
       - name: Build executable
         run: pyinstaller --clean PKsinew.spec
 
-      # --- Linux x86_64: build AppImage ---
+      # Linux x86_64: wrap the binary in an AppImage
       - name: Build AppImage (Ubuntu x86_64 only)
         if: matrix.os == 'ubuntu-latest'
         run: |
@@ -62,67 +62,41 @@ jobs:
           chmod +x appimagetool-x86_64.AppImage
           ./appimagetool-x86_64.AppImage --appimage-extract
           mkdir -p AppDir/usr/bin
-          cp dist/PKsinew AppDir/usr/bin/PKsinew
+          cp dist/PKsinew-Linux_x86-64 AppDir/usr/bin/PKsinew-Linux_x86-64
           if [ -f "assets/pksinew.png" ]; then
             cp assets/pksinew.png AppDir/pksinew.png
           fi
-          printf "[Desktop Entry]\nName=PKsinew\nExec=PKsinew\nIcon=pksinew\nType=Application\nCategories=Utility;\nTerminal=true\n" > AppDir/pksinew.desktop
-          printf "#!/bin/sh\nHERE=\"\$(dirname \"\$(readlink -f \"\$0\")\")\"\ncd \"\$HERE\"\nexec \"\$HERE/usr/bin/PKsinew\" \"\$@\"\n" > AppDir/AppRun
+          printf "[Desktop Entry]\nName=PKsinew\nExec=PKsinew-Linux_x86-64\nIcon=pksinew\nType=Application\nCategories=Utility;\nTerminal=true\n" > AppDir/pksinew.desktop
+          printf "#!/bin/sh\nHERE=\"$(dirname "$(readlink -f "$0")")\"\ncd \"$HERE\"\nexec \"$HERE/usr/bin/PKsinew-Linux_x86-64\" \"$@\"\n" > AppDir/AppRun
           chmod +x AppDir/AppRun
           ./squashfs-root/AppRun AppDir dist/PKsinew-Linux_x86-64.AppImage
           chmod +x dist/PKsinew-Linux_x86-64.AppImage
-          rm dist/PKsinew
+          rm dist/PKsinew-Linux_x86-64
           '
 
-      # --- Linux aarch64: rename binary ---
-      - name: Rename aarch64 binary
-        if: matrix.os == 'ubuntu-22.04-arm'
-        run: mv dist/PKsinew dist/PKsinew-Linux_aarch64
-
-      # --- macOS: rename binary ---
-      - name: Rename macOS binary
-        if: matrix.os == 'macos-latest'
-        run: mv dist/PKsinew dist/PKsinew-macOS
-
-      # --- Windows: rename binary ---
-      - name: Rename Windows binary
-        if: matrix.os == 'windows-latest'
-        shell: pwsh
-        run: Rename-Item dist\PKsinew.exe PKsinew-Windows.exe
-
-      # --- Set executable permissions (non-Windows) ---
+      # Set executable bit on non-Windows binaries
       - name: Set permissions
         if: runner.os != 'Windows'
-        run: find dist -type f -exec chmod 755 {} \;
+        run: find dist -type f -name 'PKsinew-*' -exec chmod 755 {} \;
 
-      # --- Upload each platform's single artifact ---
-      - name: Upload artifact (Linux x86_64 AppImage)
-        if: matrix.os == 'ubuntu-latest'
+      # Zip the artifact so the release gets a proper named zip
+      - name: Zip artifact (non-Windows)
+        if: runner.os != 'Windows'
+        run: cd dist && zip ${{ matrix.artifact_name }}.zip ${{ matrix.artifact_name }}*
+
+      - name: Zip artifact (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Set-Location dist
+          Compress-Archive -Path "${{ matrix.artifact_name }}*" -DestinationPath "${{ matrix.artifact_name }}.zip"
+
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: PKsinew-Linux_x86-64
-          path: dist/PKsinew-Linux_x86-64.AppImage
-
-      - name: Upload artifact (Linux aarch64)
-        if: matrix.os == 'ubuntu-22.04-arm'
-        uses: actions/upload-artifact@v4
-        with:
-          name: PKsinew-Linux_aarch64
-          path: dist/PKsinew-Linux_aarch64
-
-      - name: Upload artifact (macOS)
-        if: matrix.os == 'macos-latest'
-        uses: actions/upload-artifact@v4
-        with:
-          name: PKsinew-macOS
-          path: dist/PKsinew-macOS
-
-      - name: Upload artifact (Windows)
-        if: matrix.os == 'windows-latest'
-        uses: actions/upload-artifact@v4
-        with:
-          name: PKsinew-Windows
-          path: dist/PKsinew-Windows.exe
+          name: ${{ matrix.artifact_name }}
+          path: dist/${{ matrix.artifact_name }}.zip
+          if-no-files-found: error
 
   release:
     name: Create GitHub Release
@@ -138,16 +112,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: artifacts
-          merge-multiple: false
-
-      - name: Collect release files
-        run: |
-          mkdir release-files
-          cp artifacts/PKsinew-Linux_x86-64/PKsinew-Linux_x86-64.AppImage release-files/ 2>/dev/null || true
-          cp artifacts/PKsinew-Linux_aarch64/PKsinew-Linux_aarch64        release-files/ 2>/dev/null || true
-          cp artifacts/PKsinew-Windows/PKsinew-Windows.exe                 release-files/ 2>/dev/null || true
-          cp artifacts/PKsinew-macOS/PKsinew-macOS                         release-files/ 2>/dev/null || true
-          ls -lh release-files/
+          merge-multiple: true
 
       - name: Read changelog
         id: changelog
@@ -164,7 +129,7 @@ jobs:
       - name: Create Release and Upload Assets
         uses: softprops/action-gh-release@v1
         with:
-          files: release-files/*
+          files: artifacts/*.zip
           body: ${{ steps.changelog.outputs.body }}
           generate_release_notes: true
           prerelease: false
