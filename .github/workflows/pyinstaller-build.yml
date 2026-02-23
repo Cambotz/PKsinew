@@ -44,7 +44,20 @@ jobs:
           pip install pyinstaller
 
       - name: Build executable
-        run: pyinstaller --clean PKsinew.spec
+        run: pyinstaller --clean --noconfirm PKsinew.spec
+
+      - name: Verify binary was created (non-Windows)
+        if: runner.os != 'Windows'
+        run: test -f dist/PKsinew || (echo "ERROR: dist/PKsinew not found" && exit 1)
+
+      - name: Verify binary was created (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          if (-Not (Test-Path dist\PKsinew.exe)) {
+            Write-Error "ERROR: dist\PKsinew.exe not found"
+            exit 1
+          }
 
       # Linux x86_64: wrap the binary in an AppImage
       - name: Build AppImage (Ubuntu x86_64 only)
@@ -62,17 +75,30 @@ jobs:
           chmod +x appimagetool-x86_64.AppImage
           ./appimagetool-x86_64.AppImage --appimage-extract
           mkdir -p AppDir/usr/bin
-          cp dist/PKsinew-Linux_x86-64 AppDir/usr/bin/PKsinew-Linux_x86-64
+          cp dist/PKsinew AppDir/usr/bin/PKsinew
           if [ -f "assets/pksinew.png" ]; then
             cp assets/pksinew.png AppDir/pksinew.png
           fi
-          printf "[Desktop Entry]\nName=PKsinew\nExec=PKsinew-Linux_x86-64\nIcon=pksinew\nType=Application\nCategories=Utility;\nTerminal=true\n" > AppDir/pksinew.desktop
-          printf "#!/bin/sh\nHERE=\"$(dirname "$(readlink -f "$0")")\"\ncd \"$HERE\"\nexec \"$HERE/usr/bin/PKsinew-Linux_x86-64\" \"$@\"\n" > AppDir/AppRun
+          printf "[Desktop Entry]\nName=PKsinew\nExec=PKsinew\nIcon=pksinew\nType=Application\nCategories=Utility;\nTerminal=true\n" > AppDir/pksinew.desktop
+          printf "#!/bin/sh\nHERE=\"$(dirname "$(readlink -f "$0")")\"\ncd \"$HERE\"\nexec \"$HERE/usr/bin/PKsinew\" \"$@\"\n" > AppDir/AppRun
           chmod +x AppDir/AppRun
           ./squashfs-root/AppRun AppDir dist/PKsinew-Linux_x86-64.AppImage
           chmod +x dist/PKsinew-Linux_x86-64.AppImage
-          rm dist/PKsinew-Linux_x86-64
           '
+
+      # Rename binaries to final artifact names
+      - name: Rename binary (Linux aarch64)
+        if: matrix.os == 'ubuntu-22.04-arm'
+        run: mv dist/PKsinew dist/PKsinew-Linux_aarch64
+
+      - name: Rename binary (macOS)
+        if: matrix.os == 'macos-latest'
+        run: mv dist/PKsinew dist/PKsinew-macOS
+
+      - name: Rename binary (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: Rename-Item dist\PKsinew.exe PKsinew-Windows.exe
 
       # Set executable bit on non-Windows binaries
       - name: Set permissions
