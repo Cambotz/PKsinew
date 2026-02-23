@@ -171,3 +171,7 @@ You can of course run PKsinew from the unpacked `src` folder (e.g. testing chang
 **Game not detected**
 
 > Make sure your ROM filename contains the game name (e.g. `Pokemon Ruby.gba`). Check the `roms/` folder and ensure the file extension is supported.
+
+**Linux: No module named 'pygame.font' / 'pygame.mixer'**
+
+> Try to install pygame through your package manager, and retrying from [Build Executable](#build-executable). This may be called "python3-pygame" or "python-pygame", depending on your distro.
