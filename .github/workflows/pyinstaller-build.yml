@@ -79,7 +79,7 @@ jobs:
         run: |
           find dist -type f -exec chmod 755 {} \;
 
-      - name: Upload artifacts + changelog
+      - name: Upload artifacts + changelog + Readme
         uses: actions/upload-artifact@v4
         with:
           # Include github.run_id to avoid name conflicts
@@ -87,6 +87,8 @@ jobs:
           path: |
             dist/*
             dist/changelog.txt
+            dist/Zlib-license.txt
+            dist/Readme.md
 
   release:
     name: Create GitHub Release
@@ -100,10 +102,10 @@ jobs:
         with:
           path: artifacts
 
-      - name: Flatten artifact structure
+      - name: Flatten artifact structure (skip empty files)
         run: |
           mkdir release-files
-          find artifacts -type f -exec cp {} release-files/ \;
+          find artifacts -type f -size +0 -exec cp {} release-files/ \;
 
       - name: Read changelog
         id: changelog
