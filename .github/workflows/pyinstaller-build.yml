@@ -82,7 +82,8 @@ jobs:
       - name: Upload artifacts + changelog
         uses: actions/upload-artifact@v4
         with:
-          name: release-files
+          # include github.run_id to avoid conflicts in matrix
+          name: ${{ matrix.artifact_name }}-${{ github.run_id }}
           path: |
             dist/*
             dist/changelog.txt
@@ -114,7 +115,6 @@ jobs:
             echo "Warning: changelog.txt not found or empty. Release will have no body."
             CHANGELOG="No changelog available for this release."
           fi
-
           echo "::set-output name=body::$CHANGELOG"
 
       - name: Create Release and Upload Assets
@@ -122,6 +122,6 @@ jobs:
         with:
           files: release-files/*
           body: ${{ steps.changelog.outputs.body }}
-          prerelease: false   # ensures this release is marked as latest
+          prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GH_PAT }}
