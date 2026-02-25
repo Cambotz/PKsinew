@@ -1092,13 +1092,15 @@ class PokedexModal:
         center_x = box_x + box_w // 2
 
         # ===== TOP SECTION - Sprite =====
-        # Use original image for detail panel, scale to fill available space (same as pc box info panel)
-        sprite = self.sprite_cache[self.selected_index]
-        sprite_y = box_y + int(box_h * 0.22)
+        sprite = self.sprite_cache_full[self.selected_index]
+        sprite_y = box_y + int(box_h * 0.18)
         if sprite:
-            max_sprite_w = int(box_w * 0.4)
-            max_sprite_h = int(box_h * 0.35)
-            scaled_sprite = self._scale_preserve_aspect(sprite, max_sprite_w, max_sprite_h)
+            # Scale sprite relative to box size (max ~22% of box height)
+            orig_w, orig_h = sprite.get_size()
+            max_sprite_size = int(box_h * 0.22)
+            scale_factor = min(max_sprite_size / orig_w, max_sprite_size / orig_h)
+            new_w, new_h = int(orig_w * scale_factor), int(orig_h * scale_factor)
+            scaled_sprite = pygame.transform.scale(sprite, (new_w, new_h))
             sprite_rect = scaled_sprite.get_rect(center=(center_x, sprite_y))
             surf.blit(scaled_sprite, sprite_rect)
 

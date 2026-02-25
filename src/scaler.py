@@ -1,10 +1,76 @@
+import os
+import platform
+
 import pygame
+
+
+def _is_embedded_handheld():
+    """
+    Detect if we're running on an embedded Linux handheld (Powkiddy X55,
+    Anbernic, Miyoo, etc.) that uses KMSDRM or fbdev instead of X11/Wayland.
+
+    These devices:
+      - Run Linux on ARM SoCs (RK3566, RK3326, etc.)
+      - Have no desktop environment (no X11, no Wayland)
+      - Use SDL's KMSDRM or directfb video driver
+      - Have a fixed-resolution screen (no window resizing)
+      - Should always run fullscreen
+    """
+    # Not Linux → not a handheld
+    if platform.system().lower() != "linux":
+        return False
+
+    # Not ARM → not a handheld
+    machine = platform.machine().lower()
+    if machine not in ("aarch64", "arm64", "armv7l", "armv6l", "arm"):
+        return False
+
+    # Check for handheld-specific OS markers (ROCKNIX, JELOS, ArkOS, etc.)
+    handheld_markers = [
+        "/etc/rocknix",       # ROCKNIX (formerly JELOS)
+        "/etc/jelos",         # JELOS
+        "/etc/arkos",         # ArkOS
+        "/etc/batocera",      # Batocera
+        "/etc/emuelec",       # EmuELEC
+        "/etc/retrolibrary",  # RetroLibrary
+    ]
+    for marker in handheld_markers:
+        if os.path.exists(marker):
+            return True
+
+    # Check SDL video driver — if KMSDRM is active, we're likely headless
+    try:
+        driver = os.environ.get("SDL_VIDEODRIVER", "").lower()
+        if driver in ("kmsdrm", "directfb", "fbcon"):
+            return True
+    except Exception:
+        pass
+
+    # Check if X11 / Wayland display is available — if not, likely a handheld
+    if not os.environ.get("DISPLAY") and not os.environ.get("WAYLAND_DISPLAY"):
+        # Additional check: are we on a device with a small fixed screen?
+        # (Desktops without X are rare but possible — be conservative)
+        try:
+            # Check for common handheld device-tree compatible strings
+            with open("/proc/device-tree/compatible", "rb") as f:
+                compat = f.read().lower()
+                if any(
+                    name in compat
+                    for name in [b"rockchip", b"allwinner", b"amlogic", b"rk3566", b"rk3326"]
+                ):
+                    return True
+        except (FileNotFoundError, PermissionError):
+            pass
+
+    return False
 
 
 class Scaler:
     """
     Handles resolution scaling and fullscreen for the game.
-    Uses SDL's hardware scaling (pygame.SCALED) for GPU-accelerated rendering.
+    Uses SDL's hardware scaling (pygame.SCALED) for GPU-accelerated rendering
+    on desktop, and software scaling with direct fullscreen on embedded
+    Linux handhelds (Powkiddy X55, Anbernic, etc.).
     """
 
     # Common resolution presets (16:9 and 4:3 friendly)
@@ -59,8 +125,18 @@ class Scaler:
         self._windowed_width = window_width
         self._windowed_height = window_height
 
-        # Hardware vs software scaling
-        self.use_hardware_scaling = True
+        # ---- Handheld detection ----
+        self.is_handheld = _is_embedded_handheld()
+
+        if self.is_handheld:
+            # On handhelds: always fullscreen, no hardware SCALED flag
+            # (KMSDRM doesn't reliably support pygame.SCALED or RESIZABLE)
+            self.fullscreen = True
+            self.use_hardware_scaling = False
+            print("[Scaler] Embedded handheld detected — using software scaling + fullscreen")
+        else:
+            # Desktop: use hardware scaling as before
+            self.use_hardware_scaling = True
 
         # Create window
         self._create_window()
@@ -70,10 +146,64 @@ class Scaler:
 
     def _create_window(self):
         """Create or recreate the display window"""
-        if self.use_hardware_scaling:
+        if self.is_handheld:
+            self._create_window_handheld()
+        elif self.use_hardware_scaling:
             self._create_window_hardware()
         else:
             self._create_window_software()
+
+    def _create_window_handheld(self):
+        """
+        Create window for embedded Linux handhelds (KMSDRM/fbdev).
+
+        On these devices we always go fullscreen at the native screen
+        resolution and do our own software scaling from the virtual
+        surface.  We avoid pygame.SCALED and pygame.RESIZABLE which
+        can fail or behave unpredictably on KMSDRM.
+        """
+        # Try to get the native screen resolution
+        try:
+            display_info = pygame.display.Info()
+            native_w = display_info.current_w
+            native_h = display_info.current_h
+            # Sanity check — Info() can return 0 or -1 before a mode is set
+            if native_w <= 0 or native_h <= 0:
+                native_w, native_h = 1280, 720  # X55 default
+        except Exception:
+            native_w, native_h = 1280, 720
+
+        # Try fullscreen with HWSURFACE + DOUBLEBUF first (best for KMSDRM)
+        flags = pygame.FULLSCREEN
+        try:
+            # Attempt hardware-accelerated fullscreen
+            self.window = pygame.display.set_mode(
+                (native_w, native_h),
+                flags | pygame.HWSURFACE | pygame.DOUBLEBUF,
+            )
+        except pygame.error:
+            try:
+                # Fall back to basic fullscreen
+                self.window = pygame.display.set_mode((native_w, native_h), flags)
+            except pygame.error:
+                # Last resort: try setting mode at 0,0 to let SDL pick
+                self.window = pygame.display.set_mode((0, 0), flags)
+
+        # Read back actual size
+        actual_size = self.window.get_size()
+        self.window_width = actual_size[0] if actual_size[0] > 0 else native_w
+        self.window_height = actual_size[1] if actual_size[1] > 0 else native_h
+
+        # Create the virtual surface for game rendering
+        self.virtual_surface = pygame.Surface(
+            (self.virtual_width, self.virtual_height)
+        )
+
+        pygame.display.set_caption("Sinew")
+        print(
+            f"[Scaler] Handheld mode: {self.virtual_width}x{self.virtual_height} -> "
+            f"{self.window_width}x{self.window_height}"
+        )
 
     def _create_window_hardware(self):
         """Create window with hardware (GPU) scaling via pygame.SCALED"""
@@ -135,7 +265,7 @@ class Scaler:
     def update_scale(self):
         """Calculate scale factor for mouse coordinate conversion"""
         # For hardware scaling, get the actual window size
-        if self.use_hardware_scaling:
+        if self.use_hardware_scaling and not self.is_handheld:
             try:
                 actual_surface = pygame.display.get_surface()
                 if actual_surface:
@@ -174,6 +304,9 @@ class Scaler:
 
     def handle_resize(self, new_width, new_height):
         """Handle window resize event"""
+        if self.is_handheld:
+            return  # Fixed screen, no resizing
+
         if not self.fullscreen:
             self.window_width = new_width
             self.window_height = new_height
@@ -189,6 +322,10 @@ class Scaler:
 
     def toggle_fullscreen(self):
         """Toggle between fullscreen and windowed mode"""
+        if self.is_handheld:
+            # Handhelds are always fullscreen — no-op
+            return self.fullscreen
+
         self.fullscreen = not self.fullscreen
 
         if not self.fullscreen:
@@ -219,11 +356,17 @@ class Scaler:
 
     def set_fullscreen(self, enabled):
         """Set fullscreen mode explicitly"""
+        if self.is_handheld:
+            return  # Always fullscreen on handhelds
+
         if enabled != self.fullscreen:
             self.toggle_fullscreen()
 
     def set_resolution(self, width, height):
         """Set window resolution (only applies in windowed mode)"""
+        if self.is_handheld:
+            return  # Fixed resolution on handhelds
+
         if not self.fullscreen:
             self.window_width = width
             self.window_height = height
@@ -252,7 +395,17 @@ class Scaler:
         self.virtual_width = width
         self.virtual_height = height
 
-        # Recreate the display at the new virtual resolution
+        if self.is_handheld:
+            # On handhelds: just recreate the virtual surface, keep the
+            # fullscreen window as-is to avoid KMSDRM re-acquisition issues
+            self.virtual_surface = pygame.Surface(
+                (self.virtual_width, self.virtual_height)
+            )
+            self.update_scale()
+            print(f"[Scaler] Handheld virtual resolution set to {width}x{height}")
+            return
+
+        # Desktop path: recreate the display at the new virtual resolution
         if self.use_hardware_scaling:
             try:
                 pygame.display.quit()
@@ -280,10 +433,11 @@ class Scaler:
 
     def scale_mouse(self, pos):
         """Convert window mouse coordinates to virtual surface coordinates"""
-        if self.use_hardware_scaling:
+        if self.use_hardware_scaling and not self.is_handheld:
             # With pygame.SCALED, coordinates are already in virtual space
             return pos
 
+        # Software scaling: convert from screen coords to virtual coords
         x, y = pos
         x = (x - self.offset_x) / self.scale
         y = (y - self.offset_y) / self.scale
@@ -291,7 +445,7 @@ class Scaler:
 
     def is_mouse_in_bounds(self, pos):
         """Check if mouse position is within the game area"""
-        if self.use_hardware_scaling:
+        if self.use_hardware_scaling and not self.is_handheld:
             x, y = pos
             return 0 <= x < self.virtual_width and 0 <= y < self.virtual_height
 
@@ -310,12 +464,12 @@ class Scaler:
 
     def blit_scaled(self):
         """Draw virtual surface to window, scaled"""
-        if self.use_hardware_scaling:
+        if self.use_hardware_scaling and not self.is_handheld:
             # Hardware scaling - just flip, SDL handles the rest
             pygame.display.flip()
             return
 
-        # Software scaling fallback
+        # Software scaling (desktop fallback AND handheld path)
         display_surface = pygame.display.get_surface()
         if display_surface is None:
             display_surface = self.window
@@ -339,6 +493,10 @@ class Scaler:
 
     def get_resolution_presets(self):
         """Get list of available resolution presets that fit the current display"""
+        if self.is_handheld:
+            # On handhelds, the only "resolution" is the native screen
+            return [(self.window_width, self.window_height)]
+
         display_info = pygame.display.Info()
         max_w, max_h = display_info.current_w, display_info.current_h
 
@@ -372,6 +530,14 @@ class Scaler:
         """Load settings from a dict"""
         if "integer_scaling" in settings:
             self.integer_scaling = settings["integer_scaling"]
+
+        if self.is_handheld:
+            # On handhelds: ignore fullscreen/resolution/hardware settings,
+            # always use our handheld defaults
+            self._create_window()
+            self.update_scale()
+            return
+
         if "hardware_scaling" in settings:
             self.use_hardware_scaling = settings.get("hardware_scaling", True)
         if "fullscreen" in settings:
