@@ -112,11 +112,13 @@ create-release:
       run: |
         VERSION="PKsinew ${{ inputs.version }}"
 
+        # Extract section from CHANGELOG.md up to the next ===== separator
         awk "/^${VERSION}$/,/^=+$/ " CHANGELOG.md > release_notes.txt
 
-        # Remove the trailing ===== separator if present
+        # Remove trailing ===== if present
         sed -i '${/^=\\+$/d;}' release_notes.txt
 
+        # Write to GitHub Actions output safely
         echo "body<<EOF" >> $GITHUB_OUTPUT
         cat release_notes.txt >> $GITHUB_OUTPUT
         echo "EOF" >> $GITHUB_OUTPUT
