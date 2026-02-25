@@ -38,7 +38,7 @@ Fixed an issue where transferring Pokémon before obtaining the Pokédex could c
 Notes
 
 This release primarily focuses on internal improvements and build stability.
-No gameplay changes were introduced beyond the transfer fix.
+No gameplay changes were introduced beyond the transfer fix. 
 
 ======================================================================
 PKsinew 1.3.2 – Stability & Controller Fixes
