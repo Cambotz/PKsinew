@@ -3082,6 +3082,40 @@ class GameScreen:
 
         print(f"[Sinew] Launched: {os.path.basename(rom_path)}")
 
+    def _show_return_loading_screen(self, message="Returning to Sinew..."):
+        """Show a brief loading screen when dropping back from a game to the Sinew menu."""
+        # Always grab the current display surface - the cached _loading_screen
+        # may be stale/quit after a scaler resolution change
+        try:
+            screen = pygame.display.get_surface()
+        except Exception:
+            screen = self._loading_screen
+        if screen is None:
+            return
+        screen.fill((30, 30, 40))
+
+        title_font = self.font
+        title = title_font.render("Sinew", True, (255, 255, 255))
+        title_rect = title.get_rect(center=(self.width // 2, self.height // 3))
+        screen.blit(title, title_rect)
+
+        msg = title_font.render(message, True, (200, 200, 200))
+        msg_rect = msg.get_rect(center=(self.width // 2, self.height // 2))
+        screen.blit(msg, msg_rect)
+
+        bar_width = int(self.width * 0.6)
+        bar_height = 20
+        bar_x = (self.width - bar_width) // 2
+        bar_y = int(self.height * 0.6)
+        pygame.draw.rect(screen, (60, 60, 70), (bar_x, bar_y, bar_width, bar_height))
+        pygame.draw.rect(screen, (100, 200, 100), (bar_x, bar_y, bar_width // 2, bar_height))
+        pygame.draw.rect(screen, (100, 100, 120), (bar_x, bar_y, bar_width, bar_height), 2)
+
+        if self.scaler:
+            self.scaler.blit_scaled()
+        else:
+            pygame.display.flip()
+
     def _stop_emulator(self):
         """Stop and cleanup the integrated mGBA emulator"""
         builtins.SINEW_EMULATOR = None
@@ -3093,12 +3127,17 @@ class GameScreen:
             self.emulator.unload()
         self.emulator_active = False
 
+        # Restore keyboard filter in case it was disabled (e.g. KeyboardMapper left it off)
+        if self.controller and hasattr(self.controller, "kb_filter_enabled"):
+            self.controller.kb_filter_enabled = True
+
         # Reset pause combo state
         self._emulator_pause_combo_released = True
 
-        # Restore menu virtual resolution
+        # Restore menu virtual resolution and show loading screen
         if self.scaler:
             self.scaler.restore_virtual_resolution()
+        self._show_return_loading_screen("Returning to Sinew...")
 
         # Reload save data in Sinew since it may have changed
         self.load_game_and_background()
@@ -3153,9 +3192,10 @@ class GameScreen:
                 # Pause and return to Sinew
                 self.emulator.pause()
                 self.emulator_active = False
-                # Restore menu virtual resolution
+                # Restore menu virtual resolution and show loading screen
                 if self.scaler:
                     self.scaler.restore_virtual_resolution()
+                self._show_return_loading_screen("Returning to Sinew...")
                 # Force reload save data since it was modified by emulator
                 self._force_reload_current_save()
                 # Check achievements based on updated save data

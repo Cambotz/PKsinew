@@ -47,45 +47,30 @@ jobs:
           pip install pyinstaller
 
       - name: Build executable
-        run: |
-          pyinstaller --clean PKsinew.spec
+        run: pyinstaller --clean PKsinew.spec
 
-      - name: Build AppImage (containerized 20.04)
+      - name: Build AppImage (Ubuntu)
         if: matrix.os == 'ubuntu-latest'
         run: |
-          docker run --rm \
-            -v "$PWD:/work" \
-            ubuntu:20.04 \
-            bash -c '
+          docker run --rm -v "$PWD:/work" ubuntu:20.04 bash -c '
           set -e
-          apt-get update
-          apt-get install -y wget file squashfs-tools
+          apt-get update && apt-get install -y wget file squashfs-tools
           cd /work
-
           wget -q https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
           chmod +x appimagetool-x86_64.AppImage
           ./appimagetool-x86_64.AppImage --appimage-extract
-
           mkdir -p AppDir/usr/bin
           cp dist/PKsinew AppDir/usr/bin/PKsinew
-
-          if [ -f "assets/pksinew.png" ]; then
-            cp assets/pksinew.png AppDir/pksinew.png
-          fi
-
+          [ -f "assets/pksinew.png" ] && cp assets/pksinew.png AppDir/pksinew.png
           printf "[Desktop Entry]\nName=PKsinew\nExec=PKsinew\nIcon=pksinew\nType=Application\nCategories=Utility;\nTerminal=true\n" > AppDir/pksinew.desktop
-
           printf "#!/bin/sh\nHERE=\"\$(dirname \"\$(readlink -f \"\$0\")\")\"\ncd \"\$HERE\"\nexec \"\$HERE/usr/bin/PKsinew\" \"\$@\"\n" > AppDir/AppRun
-
           chmod +x AppDir/AppRun
-
           ./squashfs-root/AppRun AppDir dist/PKsinew-Linux_x86-64.AppImage
-
           chmod +x dist/PKsinew dist/PKsinew-Linux_x86-64.AppImage
           rm dist/PKsinew
           '
 
-      - name: Upload artifact
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact_name }}
@@ -107,7 +92,7 @@ jobs:
         with:
           path: ./release-assets
 
-      - name: Verify release artifacts
+      - name: Verify artifacts
         run: |
           echo "Listing release artifacts:"
           ls -R ./release-assets
@@ -116,34 +101,29 @@ jobs:
             exit 1
           fi
 
-      - name: Extract relevant changelog section
+      - name: Extract changelog for this version
         id: changelog
         run: |
           VERSION="PKsinew ${{ inputs.version }}"
-
-          # Extract only current version section from CHANGELOG.md
           awk "/^${VERSION}$/,/^=+$/ " CHANGELOG.md > release_notes.txt
           sed -i '${/^=\\+$/d;}' release_notes.txt
-
-          # Fail if section not found
           if [ ! -s release_notes.txt ]; then
             echo "Changelog section for $VERSION not found!"
             exit 1
           fi
-
-          # Write multiline output safely (unquoted EOF)
           echo "body<<END_OF_BODY" >> $GITHUB_OUTPUT
           cat release_notes.txt >> $GITHUB_OUTPUT
           echo "END_OF_BODY" >> $GITHUB_OUTPUT
 
-      - name: Create GitHub Release
+      - name: Create GitHub release with artifacts
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ inputs.version }}           # auto-create tag if missing
+          tag_name: ${{ inputs.version }}
           name: Release ${{ inputs.version }}
           body: ${{ steps.changelog.outputs.body }}
           prerelease: ${{ inputs.is_prerelease }}
-          files: ./release-assets/**/*               # attach all build artifacts
+          files: ./release-assets/**/*        # attach all artifacts
           generate_release_notes: false
+          replace_assets: true                # safe replacement
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
