@@ -15,7 +15,7 @@ Bug fixes
 Corrected incorrect game achievement checks
 Fixed cross-save data appearing in Pokédex, Trainer Card, and PC Box
 Prevented moving Pokémon to games without valid save files
-Fixed nickname/species name handling issues
+Fixed nickname/species name handling issues 
 
 ======================================================================
 PKsinew v1.3.3
