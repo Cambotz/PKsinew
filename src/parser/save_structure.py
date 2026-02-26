@@ -176,9 +176,8 @@ def detect_game_type(data, section_offsets):
     Detect whether the save is from FRLG, Ruby/Sapphire, or Emerald.
 
     Uses multiple heuristics to determine game type:
-    1. Check game code in Section 0 (FRLG-specific field)
-    2. Check team data validity at both offsets
-    3. Check security key patterns
+    1. Check game code in Section 0 (to determine if Ruby/Sapphire/Emerald or FRLG)
+    2. Check save data location only used by Emerald (to determing Ruby/Sapphire vs. Emerald)
 
     Args:
         data: Save file data
@@ -186,7 +185,7 @@ def detect_game_type(data, section_offsets):
 
     Returns:
         tuple: (game_type, game_name)
-            game_type: 'FRLG', 'RS', 'E', or 'INVALID'
+            game_type: 'FRLG', 'RS', or 'E'
             game_name: Human-readable game name
     """
     # Check for blank/corrupted save
@@ -197,180 +196,41 @@ def detect_game_type(data, section_offsets):
         return "INVALID", "Invalid/Blank Save"
 
     section0_offset = section_offsets.get(0, 0)
-    section1_offset = section_offsets.get(1, 0)
 
     # Check for missing sections
     if 0 not in section_offsets:
         print("[GameDetect] Warning: Section 0 not found!")
-    if 1 not in section_offsets:
-        print("[GameDetect] Warning: Section 1 not found!")
 
-    # Method 1: Check FRLG-specific game code at 0x0AC in Section 0
-    # This field is used as Emerald security key, but in FRLG it's the game code
-    # FRLG also has security key at 0x0F20
-    frlg_security_key_offset = section0_offset + 0x0F20
-    frlg_security_key = 0
-    if frlg_security_key_offset + 4 <= len(data):
-        frlg_security_key = struct.unpack(
-            "<I", data[frlg_security_key_offset : frlg_security_key_offset + 4]
+    # Check the value at 0x0AC in Section 0
+    # This is known as the Game Code on Bulbapedia
+    # in FRLG, this value is always 1
+    # in RSE, this is either the E security key, or RS battle tower data (0 if no battle tower)
+
+    gamecode_offset = section0_offset + 0x0AC
+    if gamecode_offset + 4 <= len(data):
+        gamecode_value = struct.unpack(
+            "<I", data[gamecode_offset : gamecode_offset + 4]
         )[0]
 
-    # Method 2: Check RSE/E security key at 0x00AC in Section 0
-    rse_security_key_offset = section0_offset + 0x00AC
-    rse_security_key = 0
-    if rse_security_key_offset + 4 <= len(data):
-        rse_security_key = struct.unpack(
-            "<I", data[rse_security_key_offset : rse_security_key_offset + 4]
-        )[0]
-
-    # Method 3: Check team data validity at FRLG offset vs RSE offset
-    # FRLG: team_size at 0x0034, team_data at 0x0038
-    # RSE:  team_size at 0x0234, team_data at 0x0238
-    frlg_team_size_offset = section1_offset + 0x0034
-    rse_team_size_offset = section1_offset + 0x0234
-
-    frlg_team_size = 0
-    rse_team_size = 0
-
-    if frlg_team_size_offset + 4 <= len(data):
-        frlg_team_size = struct.unpack(
-            "<I", data[frlg_team_size_offset : frlg_team_size_offset + 4]
-        )[0]
-    if rse_team_size_offset + 4 <= len(data):
-        rse_team_size = struct.unpack(
-            "<I", data[rse_team_size_offset : rse_team_size_offset + 4]
-        )[0]
-
-    # Score each game type
-    frlg_score = 0
-    rse_score = 0
-
-    # Team size validity (1-6)
-    if 1 <= frlg_team_size <= 6:
-        frlg_score += 2
-    if 1 <= rse_team_size <= 6:
-        rse_score += 2
-
-    # Check if first Pokemon at each offset looks valid
-    if frlg_team_size >= 1:
-        frlg_pokemon_offset = section1_offset + 0x0038
-        if _validate_pokemon_at_offset(data, frlg_pokemon_offset):
-            frlg_score += 3
-
-    if rse_team_size >= 1:
-        rse_pokemon_offset = section1_offset + 0x0238
-        if _validate_pokemon_at_offset(data, rse_pokemon_offset):
-            rse_score += 3
-
-    # FRLG-specific: Check game code field at 0x0AF8 in Section 0
-    # This is 0 or 1 in FRLG (game version), random garbage in RSE
-    frlg_game_code_offset = section0_offset + 0x0AF8
-    if frlg_game_code_offset + 4 <= len(data):
-        frlg_game_code = struct.unpack(
-            "<I", data[frlg_game_code_offset : frlg_game_code_offset + 4]
-        )[0]
-        # FRLG game code is typically 0 (FireRed) or 1 (LeafGreen)
-        if frlg_game_code in (0, 1):
-            frlg_score += 2
-
-    # FRLG security key check - if it's non-zero and decrypts money to valid range
-    if frlg_security_key != 0:
-        frlg_money_offset = section1_offset + 0x0290
-        if frlg_money_offset + 4 <= len(data):
-            frlg_money_encrypted = struct.unpack(
-                "<I", data[frlg_money_offset : frlg_money_offset + 4]
-            )[0]
-            frlg_money_decrypted = frlg_money_encrypted ^ frlg_security_key
-            if 0 <= frlg_money_decrypted <= 999999:
-                frlg_score += 2
-
-    # RSE money check at 0x0490 (unencrypted in RS, encrypted in E)
-    rse_money_offset = section1_offset + 0x0490
-    if rse_money_offset + 4 <= len(data):
-        rse_money = struct.unpack("<I", data[rse_money_offset : rse_money_offset + 4])[
-            0
-        ]
-        # RS has unencrypted money
-        if rse_security_key == 0 and 0 <= rse_money <= 999999:
-            rse_score += 2
-        # E has encrypted money
-        elif rse_security_key != 0:
-            money_decrypted = rse_money ^ rse_security_key
-            if 0 <= money_decrypted <= 999999:
-                rse_score += 2
-
-    # Debug output
-    print(f"[GameDetect] Scores: FRLG={frlg_score}, RSE={rse_score}")
-    print(
-        f"[GameDetect] Team sizes: FRLG_offset={frlg_team_size}, RSE_offset={rse_team_size}"
-    )
-    print(
-        f"[GameDetect] Security keys: FRLG=0x{frlg_security_key:08X}, RSE=0x{rse_security_key:08X}"
-    )
-
-    # Determine game type based on scores
-    if frlg_score > rse_score:
+    if gamecode_value == 1: #FRLG
+        print ("[GameDetect] FireRed/LeafGreen detected: Game Code value was 1")
         return "FRLG", "FireRed/LeafGreen"
-    elif rse_score > frlg_score:
-        # It's RSE - now distinguish between RS and E
-        # Emerald has security key at Section 0 + 0x00AC
-        # Ruby/Sapphire has 0 or Battle Tower data at this offset
-        if rse_security_key != 0:
-            # Additional check: Emerald's key should decrypt money to valid range
-            if rse_money_offset + 4 <= len(data):
-                money_encrypted = struct.unpack(
-                    "<I", data[rse_money_offset : rse_money_offset + 4]
-                )[0]
-                money_decrypted = money_encrypted ^ rse_security_key
-
-                # If decryption gives valid money, it's likely Emerald
-                if 0 <= money_decrypted <= 999999:
-                    print(
-                        f"[GameDetect] Emerald detected: security_key={rse_security_key}, money={money_decrypted}"
-                    )
-                    return "E", "Emerald"
-                else:
-                    # Key didn't work for money, probably RS with Battle Tower data
-                    print(
-                        f"[GameDetect] Ruby/Sapphire detected: security_key field={rse_security_key} (not valid key)"
-                    )
-                    return "RS", "Ruby/Sapphire"
-        else:
-            print("[GameDetect] Ruby/Sapphire detected: security_key=0 (no encryption)")
-            return "RS", "Ruby/Sapphire"
-
+    if gamecode_value == 0: #RS, no battle tower
+        print ("[GameDetect] Ruby/Sapphire detected: Game Code value was 0")
         return "RS", "Ruby/Sapphire"
-    else:
-        # Tied - check additional heuristics
-        # Check FRLG-specific rival name field
-        rival_name_offset = section0_offset + 0x0A98
-        if rival_name_offset + 7 <= len(data):
-            rival_bytes = data[rival_name_offset : rival_name_offset + 7]
-            # Valid text has bytes in range 0xA1-0xFF or 0xFF terminator
-            valid_text_chars = sum(
-                1 for b in rival_bytes if 0xA1 <= b <= 0xFF or b == 0xFF
-            )
-            if valid_text_chars >= 3:
-                frlg_score += 1
 
-        if frlg_score > rse_score:
-            return "FRLG", "FireRed/LeafGreen"
-        elif rse_score > frlg_score:
-            # Check E vs RS as above
-            if rse_security_key != 0:
-                if rse_money_offset + 4 <= len(data):
-                    money_encrypted = struct.unpack(
-                        "<I", data[rse_money_offset : rse_money_offset + 4]
-                    )[0]
-                    money_decrypted = money_encrypted ^ rse_security_key
-                    if 0 <= money_decrypted <= 999999:
-                        return "E", "Emerald"
-            return "RS", "Ruby/Sapphire"
+    #past byte 0x890 (up till the section footer) is only used by Emerald
+    #use that to distinguish RS v. E
 
-        # Still tied - default to RSE since detection is uncertain
-        # RSE is a safer default as it doesn't use item encryption
-        print("[GameDetect] Tie-breaker: defaulting to RS (safer for item parsing)")
-        return "RS", "Ruby/Sapphire"
+    emerald_only_data = data[section0_offset + 0x890 : section0_offset + 0xF2C]
+
+    for byte in emerald_only_data : 
+        if byte != 0:
+            print("[GameDetect] Emerald detected, trainer data past 0x890.")
+            return "E", "Emerald"
+        
+    print("[GameDetect] Ruby/Sapphire detected: no trainer data past 0x890")
+    return "RS", "Ruby/Sapphire"
 
 
 def _validate_pokemon_at_offset(data, offset):
