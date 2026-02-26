@@ -455,7 +455,7 @@ class PokedexModal:
                 # Use cached parser if available
                 parser = get_cached_parser(save_path)
                 if not parser:
-                    precache_save(save_path)
+                    precache_save(save_path, game_hint=game_name)
                     parser = get_cached_parser(save_path)
 
                 if parser and parser.loaded:

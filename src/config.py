@@ -26,7 +26,14 @@ FONTS_DIR = os.path.join(BASE_DIR, "fonts")
 PARSER_DIR = os.path.join(BASE_DIR, "parser")
 
 # External (user-accessible) directories and files
-if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+if os.environ.get("SINEW_BASE_DIR"):
+    # PortMaster / handheld: launcher script tells us where everything is
+    EXT_DIR = os.environ["SINEW_BASE_DIR"]
+    # On handheld, cores/fonts/parser are alongside src/, not inside it
+    CORES_DIR = os.path.join(EXT_DIR, "cores")
+    FONTS_DIR = os.path.join(EXT_DIR, "fonts")
+    PARSER_DIR = os.path.join(EXT_DIR, "parser")
+elif getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
     appimage_path = os.environ.get("APPIMAGE")
     if appimage_path:
         # Use the directory of the AppImage
@@ -119,11 +126,47 @@ MGBA_CORE_PATH = os.path.join(CORES_DIR, get_core_filename())
 
 # ===== Save Editor Paths =====
 
-# TO DO: Properly detect game versions, then we can align filenames between roms and saves
-# Header check: Read 4 bytes at 0xAC for BPRE, BPGE, AXVE, AXPE, BPEE
-# SHA1 sums: Compare against known hashes for each version
+# GBA ROM header game codes at offset 0xAC (4 ASCII bytes)
+# These are fixed values defined by Nintendo for each game regardless of region or revision.
+ROM_HEADER_CODES = {
+    "BPRE": "FireRed",
+    "BPGE": "LeafGreen",
+    "AXVE": "Ruby",
+    "AXPE": "Sapphire",
+    "BPEE": "Emerald",
+}
 
-# For now just rely on the user to name their roms and saves correctly, and provide a fallback path if not found
+
+def read_rom_header_code(rom_path):
+    """
+    Read the 4-byte game code from the GBA ROM header at offset 0xAC.
+
+    This is the most reliable way to identify a GBA ROM - the code is fixed
+    by Nintendo and present in every legitimate dump including ROM hacks
+    (which inherit the base game's header code).
+
+    Args:
+        rom_path: Path to a .gba ROM file
+
+    Returns:
+        str: Game name (e.g. "FireRed") if recognised, None otherwise
+    """
+    try:
+        with open(rom_path, "rb") as f:
+            f.seek(0xAC)
+            code_bytes = f.read(4)
+        code = code_bytes.decode("ascii", errors="replace")
+        game = ROM_HEADER_CODES.get(code)
+        if game:
+            print(f"[ROMHeader] {os.path.basename(rom_path)}: code={code} -> {game}")
+        else:
+            print(f"[ROMHeader] {os.path.basename(rom_path)}: unrecognised code={code}")
+        return game
+    except Exception as e:
+        print(f"[ROMHeader] Could not read header from {rom_path}: {e}")
+        return None
+
+
 SAVES_PATH = SAVES_DIR  # Alias for compatibility
 
 # ROM and Save paths for each game

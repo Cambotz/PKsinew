@@ -27,6 +27,7 @@ from config import (
     SETTINGS_FILE,
     SPRITES_DIR,
     SYSTEM_DIR,
+    read_rom_header_code,
 )
 from save_data_manager import get_manager, precache_save
 from ui_components import Button
@@ -272,7 +273,11 @@ GAME_DEFINITIONS = {
 
 def find_rom_for_game(game_name, roms_dir):
     """
-    Search for a ROM file matching the game's keywords.
+    Search for a ROM file matching the given game name.
+
+    Detection order:
+      1. ROM header check (reads 4 bytes at 0xAC) - works for vanilla and ROM hacks
+      2. Filename keyword fallback - for zips or ROMs with unreadable headers
 
     Args:
         game_name: Name of the game (e.g., "FireRed")
@@ -291,32 +296,38 @@ def find_rom_for_game(game_name, roms_dir):
     if not os.path.exists(roms_dir):
         return None, None
 
-    # Scan ROM directory
+    keyword_fallback = None  # Store first keyword match in case header check finds nothing
+
     for filename in os.listdir(roms_dir):
         if not filename.lower().endswith((".gba", ".zip", ".7z")):
             continue
 
         name_lower = filename.lower()
         base_name = os.path.splitext(filename)[0]
+        rom_path = os.path.join(roms_dir, filename)
 
-        # Check exclusions first
-        excluded = False
-        for ex in exclude:
-            if ex.lower() in name_lower:
-                excluded = True
-                break
-
-        if excluded:
-            continue
-
-        # Check if any keyword matches
-        for keyword in keywords:
-            if keyword.lower() in name_lower:
-                rom_path = os.path.join(roms_dir, filename)
-                # Save file uses the ROM's base name
+        # --- Header check (only for .gba, can't read inside zips) ---
+        if filename.lower().endswith(".gba"):
+            detected = read_rom_header_code(rom_path)
+            if detected == game_name:
                 sav_path = os.path.join(SAVES_DIR, base_name + ".sav")
-                print(f"[GameScreen] Found {game_name}: {filename}")
+                print(f"[GameScreen] Header match {game_name}: {filename}")
                 return rom_path, sav_path
+
+        # --- Filename keyword fallback ---
+        if keyword_fallback is None:
+            if any(ex.lower() in name_lower for ex in exclude):
+                continue
+            for keyword in keywords:
+                if keyword.lower() in name_lower:
+                    sav_path = os.path.join(SAVES_DIR, base_name + ".sav")
+                    keyword_fallback = (rom_path, sav_path)
+                    break
+
+    # Use keyword match if header check found nothing (e.g. zip files)
+    if keyword_fallback:
+        print(f"[GameScreen] Keyword match {game_name}: {os.path.basename(keyword_fallback[0])}")
+        return keyword_fallback
 
     return None, None
 
@@ -873,7 +884,7 @@ class GameScreen:
                         from achievements_data import check_achievement_unlocked, get_achievements_for
 
                         manager = SaveDataManager()
-                        if manager.load_save(sav_path):
+                        if manager.load_save(sav_path, game_hint=current_game_name):
                             loaded_game = (
                                 manager.parser.game_code
                                 if hasattr(manager, "parser") and manager.parser
@@ -1377,7 +1388,7 @@ class GameScreen:
             actual_path = canonical_path if os.path.exists(canonical_path) else sav_path
 
             manager = SaveDataManager()
-            if not manager.load_save(actual_path):
+            if not manager.load_save(actual_path, game_hint=game_name):
                 print(f"[Achievements] Failed to load {game_name} for Sinew aggregate")
                 return None
 
@@ -2472,7 +2483,7 @@ class GameScreen:
                         screen, f"Loading {gname} save...", current_item, total_items
                     )
 
-                precache_save(sav_path)
+                precache_save(sav_path, game_hint=gname if gname != "Sinew" else None)
                 current_item += 1
 
         self._precached = True
@@ -2700,7 +2711,7 @@ class GameScreen:
 
         if sav_path and os.path.exists(sav_path):
             manager = get_manager()
-            manager.load_save(sav_path)
+            manager.load_save(sav_path, game_hint=gname if gname != "Sinew" else None)
         else:
             print(f"Save file not found: {sav_path}")
             # Clear stale data so screens show empty/default state
@@ -2718,7 +2729,7 @@ class GameScreen:
             sav_path = self.games[game_name].get("sav")
             if sav_path and os.path.exists(sav_path):
                 manager = get_manager()
-                manager.load_save(sav_path)
+                manager.load_save(sav_path, game_hint=game_name)
 
         return True
 
@@ -2739,7 +2750,7 @@ class GameScreen:
                 manager.reload()
                 print(f"[Sinew] Force reloaded save for {gname}")
             else:
-                manager.load_save(sav_path)
+                manager.load_save(sav_path, game_hint=gname)
 
     # ----- NEW: separate index change from loading -----
     def change_game(self, delta):
@@ -3199,9 +3210,8 @@ class GameScreen:
                 # Force reload save data since it was modified by emulator
                 self._force_reload_current_save()
                 # Check achievements based on updated save data
+                # (also runs _check_sinew_achievements_aggregate internally)
                 self._check_achievements_for_current_game()
-                # Also check Sinew aggregate achievements (cross-game progress)
-                self._check_sinew_achievements_aggregate()
                 # Start menu music when returning to Sinew
                 self._start_menu_music()
                 print("[Sinew] Paused - returned to Sinew menu")
@@ -3642,35 +3652,33 @@ class GameScreen:
         # events_claimed is now per-game: { "Ruby": {"eon_ticket": true}, "LeafGreen": {...} }
         # We flatten across all games to see if every ticket has been given out at least once.
         try:
-            data_path = os.path.join(SAVES_DIR, "sinew", "sinew_data.json")
-            if os.path.exists(data_path):
-                with open(data_path, "r") as f:
-                    data = json.load(f)
+            from settings import load_sinew_settings
 
-                all_claimed = data.get("events_claimed", {})
+            data = load_sinew_settings()
+            all_claimed = data.get("events_claimed", {})
 
-                # Flatten: collect every ticket key claimed across all games
-                claimed_anywhere = set()
-                for game_data in all_claimed.values():
-                    if isinstance(game_data, dict):
-                        for k, v in game_data.items():
-                            if v:
-                                claimed_anywhere.add(k)
+            # Flatten: collect every ticket key claimed across all games
+            claimed_anywhere = set()
+            for game_data in all_claimed.values():
+                if isinstance(game_data, dict):
+                    for k, v in game_data.items():
+                        if v:
+                            claimed_anywhere.add(k)
 
-                all_four = {
-                    "eon_ticket",
-                    "aurora_ticket",
-                    "mystic_ticket",
-                    "old_sea_map",
-                }
-                if all_four.issubset(claimed_anywhere):
-                    from achievements_data import get_achievements_for
+            all_four = {
+                "eon_ticket",
+                "aurora_ticket",
+                "mystic_ticket",
+                "old_sea_map",
+            }
+            if all_four.issubset(claimed_anywhere):
+                from achievements_data import get_achievements_for
 
-                    sinew_achs = get_achievements_for("Sinew")
-                    for ach in sinew_achs:
-                        if ach.get("hint") == "all_events_claimed":
-                            self._achievement_manager.unlock_achievement(ach)
-                            break
+                sinew_achs = get_achievements_for("Sinew")
+                for ach in sinew_achs:
+                    if ach.get("hint") == "all_events_claimed":
+                        self._achievement_manager.unlock_achievement(ach)
+                        break
         except Exception as e:
             print(f"[Sinew] Error checking all events: {e}")
 

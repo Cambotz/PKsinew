@@ -52,12 +52,15 @@ class Gen3SaveParser:
         if save_path:
             self.load(save_path)
 
-    def load(self, save_path=None):
+    def load(self, save_path=None, game_hint=None):
         """
         Load and parse a save file.
 
         Args:
             save_path: Path to save file (uses self.save_path if None)
+            game_hint: Game name known from ROM detection (e.g. "Emerald").
+                       When provided, bypasses save-based game detection entirely.
+                       Only omit this when loading a save with no corresponding ROM.
 
         Returns:
             bool: True if successful
@@ -81,7 +84,7 @@ class Gen3SaveParser:
             self.base_offset = find_active_save_slot(self.data)
             self.section_offsets = build_section_map(self.data, self.base_offset)
             self.game_type, self.game_name = detect_game_type(
-                self.data, self.section_offsets
+                self.data, self.section_offsets, game_hint=game_hint
             )
 
             # Check for invalid/blank save

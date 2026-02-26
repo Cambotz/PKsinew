@@ -82,9 +82,15 @@ def get_species_name(species_id):
     return _species_names.get(species_id, f"Pokemon #{species_id}")
 
 
-def precache_save(save_path):
+def precache_save(save_path, game_hint=None):
     """
     Pre-parse a save file and cache it.
+
+    Args:
+        save_path: Path to the save file
+        game_hint: Game name from ROM header detection (e.g. "Emerald").
+                   Bypasses save-based game detection when provided.
+
     Returns True if successful, False otherwise.
     """
 
@@ -96,8 +102,8 @@ def precache_save(save_path):
         return True
 
     try:
-        parser = Gen3SaveParser(save_path)
-        if parser.loaded:
+        parser = Gen3SaveParser()
+        if parser.load(save_path, game_hint=game_hint):
             _save_cache[save_path] = parser
             return True
     except Exception as e:
@@ -138,12 +144,15 @@ class SaveDataManager:
         self.current_save_path = None
         self.loaded = False
 
-    def load_save(self, save_path):
+    def load_save(self, save_path, game_hint=None):
         """
         Load a save file. Uses cache if available.
 
         Args:
             save_path: Path to .sav file
+            game_hint: Game name from ROM header detection (e.g. "Emerald").
+                       Bypasses save-based game detection when provided.
+                       Pass None only when loading a save with no corresponding ROM.
 
         Returns:
             bool: True if successful
@@ -162,8 +171,8 @@ class SaveDataManager:
                 return True
 
             # Not cached, parse fresh
-            self.parser = Gen3SaveParser(save_path)
-            self.loaded = self.parser.loaded
+            self.parser = Gen3SaveParser()
+            self.loaded = self.parser.load(save_path, game_hint=game_hint)
 
             if self.loaded:
                 self.current_save_path = save_path

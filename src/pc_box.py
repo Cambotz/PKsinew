@@ -2156,13 +2156,13 @@ class PCBox:
 
         return shiny_value < 8
 
-    def _cancel_move_mode(self):
-        """Cancel move mode and put Pokemon back"""
+    def _cancel_move_mode(self, reason="cancelled"):
+        """Clear move mode state after a move completes or is cancelled."""
         self.move_mode = False
         self.moving_pokemon = None
         self.moving_pokemon_source = None
         self.moving_sprite = None
-        print("Move cancelled")
+        print(f"[PCBox] Move mode cleared ({reason})")
 
     def _execute_sinew_move(self, dest_type, dest_box, dest_slot):
         """Execute a move within Sinew storage"""
@@ -2547,6 +2547,7 @@ class PCBox:
 
         # Store for undo BEFORE making changes
         pokemon_copy = self.moving_pokemon.copy()
+        _withdraw_success = False
 
         try:
             raw_bytes = self.moving_pokemon.get("raw_bytes")
@@ -2649,16 +2650,20 @@ class PCBox:
             # 4. Force reload destination save
             from parser.gen3_parser import Gen3SaveParser
 
-            fresh_parser = Gen3SaveParser(dest_save_path)
+            fresh_parser = Gen3SaveParser()
+            fresh_parser.load(dest_save_path, game_hint=dest.get("game"))
             self.manager.parser = fresh_parser
             self.manager.loaded = fresh_parser.loaded
             self.manager.current_save_path = dest_save_path
 
-            # 4. Refresh display
+            # Refresh display - skip_reload prevents refresh_data from creating
+            # a second parser since we just loaded one above
+            self._skip_reload = True
             self.current_box_data = []
             self.party_data = []
             self.selected_pokemon = None
             self.refresh_data()
+            self._skip_reload = False
 
             pokemon_name = self.moving_pokemon.get("nickname") or "Pokemon"
             print(
@@ -2667,6 +2672,7 @@ class PCBox:
                 flush=True,
             )
             print("[PCBox] ===== WITHDRAW DONE =====\n", file=sys.stderr, flush=True)
+            _withdraw_success = True
 
             # 5. Track achievement progress (transfer from Sinew to game)
             self._track_sinew_achievement(transfer=True)
@@ -2685,7 +2691,7 @@ class PCBox:
                 self._show_warning(f"Withdraw failed!\n{err_str[:40]}")
 
         finally:
-            self._cancel_move_mode()
+            self._cancel_move_mode(reason="withdraw complete" if _withdraw_success else "failed")
             if hasattr(self, "pending_move_dest"):
                 del self.pending_move_dest
 
@@ -2863,6 +2869,7 @@ class PCBox:
 
         # Store for undo BEFORE making changes
         pokemon_copy = self.moving_pokemon.copy()
+        _transfer_success = False
 
         try:
             raw_bytes = self.moving_pokemon.get("raw_bytes")
@@ -2981,17 +2988,21 @@ class PCBox:
             # 3. Force reload current save with fresh parser
             from parser.gen3_parser import Gen3SaveParser
 
-            fresh_parser = Gen3SaveParser(dest_save_path)
+            fresh_parser = Gen3SaveParser()
+            fresh_parser.load(dest_save_path, game_hint=dest.get("game"))
             self.manager.parser = fresh_parser
             self.manager.loaded = fresh_parser.loaded
             self.manager.current_save_path = dest_save_path
             print("[PCBox] Created fresh parser", file=sys.stderr, flush=True)
 
-            # 4. Clear UI cache and refresh
+            # 4. Clear UI cache and refresh - skip_reload prevents refresh_data
+            # from creating a second parser since we just loaded one above
+            self._skip_reload = True
             self.current_box_data = []
             self.party_data = []
             self.selected_pokemon = None
             self.refresh_data()
+            self._skip_reload = False
 
             pokemon_name = self.moving_pokemon.get("nickname") or "Pokemon"
             print(
@@ -3000,6 +3011,7 @@ class PCBox:
                 flush=True,
             )
             print("[PCBox] ===== TRANSFER DONE =====\n", file=sys.stderr, flush=True)
+            _transfer_success = True
 
             # Check for trade evolution (only when moving between different games)
             if (
@@ -3035,7 +3047,7 @@ class PCBox:
             traceback.print_exc()
 
         finally:
-            self._cancel_move_mode()
+            self._cancel_move_mode(reason="transfer complete" if _transfer_success else "failed")
             if hasattr(self, "pending_move_dest"):
                 del self.pending_move_dest
 
@@ -3289,24 +3301,33 @@ class PCBox:
             # Load from game save - ALWAYS reload from disk to catch external changes
             save_path = getattr(self.manager, "current_save_path", None)
             if save_path and os.path.exists(save_path):
-                # Force fresh load from disk
-                try:
-                    from parser.gen3_parser import Gen3SaveParser
+                # Skip if caller already loaded a fresh parser (avoids double parse)
+                if getattr(self, "_skip_reload", False):
+                    print(
+                        f"[PCBox] Skipping reload (fresh parser already set)",
+                        file=sys.stderr,
+                        flush=True,
+                    )
+                else:
+                    # Force fresh load from disk
+                    try:
+                        from parser.gen3_parser import Gen3SaveParser
 
-                    fresh_parser = Gen3SaveParser(save_path)
-                    self.manager.parser = fresh_parser
-                    self.manager.loaded = fresh_parser.loaded
-                    print(
-                        f"[PCBox] Reloaded save from disk: {save_path}",
-                        file=sys.stderr,
-                        flush=True,
-                    )
-                except Exception as e:
-                    print(
-                        f"[PCBox] Error reloading save: {e}",
-                        file=sys.stderr,
-                        flush=True,
-                    )
+                        fresh_parser = Gen3SaveParser()
+                        fresh_parser.load(save_path, game_hint=self.get_current_game() or None)
+                        self.manager.parser = fresh_parser
+                        self.manager.loaded = fresh_parser.loaded
+                        print(
+                            f"[PCBox] Reloaded save from disk: {save_path}",
+                            file=sys.stderr,
+                            flush=True,
+                        )
+                    except Exception as e:
+                        print(
+                            f"[PCBox] Error reloading save: {e}",
+                            file=sys.stderr,
+                            flush=True,
+                        )
 
             if self.manager.is_loaded():
                 # Get current box (boxes are 1-14, our index is 0-13)
@@ -3461,7 +3482,8 @@ class PCBox:
                 # Create a completely fresh parser that reads from disk
                 from parser.gen3_parser import Gen3SaveParser
 
-                fresh_parser = Gen3SaveParser(new_path)
+                fresh_parser = Gen3SaveParser()
+                fresh_parser.load(new_path, game_hint=new_game)
 
                 # Replace the manager's parser
                 self.manager.parser = fresh_parser

@@ -10,7 +10,7 @@ import os
 import pygame
 
 import ui_colors
-from config import DATA_DIR, FONT_PATH
+from config import FONT_PATH
 from controller import get_controller
 from save_data_manager import get_manager
 
@@ -251,7 +251,7 @@ class EventsScreen:
 
     def _load_claimed_events(self):
         """
-        Load which events have been claimed for the current game from sinew_data.json.
+        Load which events have been claimed for the current game from sinew_settings.json.
 
         Storage format (per-game):
             { "events_claimed": { "LeafGreen": { "aurora_ticket": true }, "Ruby": { "eon_ticket": true } } }
@@ -261,29 +261,28 @@ class EventsScreen:
             { "events_claimed": { "eon_ticket": true } }
         """
         try:
-            data_path = os.path.join(DATA_DIR, "sinew_data.json")
-            if os.path.exists(data_path):
-                with open(data_path, "r") as f:
-                    data = json.load(f)
+            from settings import load_sinew_settings
 
-                all_claimed = data.get("events_claimed", {})
+            data = load_sinew_settings()
 
-                # Detect legacy flat format: values are bools rather than dicts
-                is_legacy = bool(all_claimed) and all(
-                    isinstance(v, bool) for v in all_claimed.values()
+            all_claimed = data.get("events_claimed", {})
+
+            # Detect legacy flat format: values are bools rather than dicts
+            is_legacy = bool(all_claimed) and all(
+                isinstance(v, bool) for v in all_claimed.values()
+            )
+
+            if is_legacy:
+                # Cannot safely attribute legacy data to any specific game.
+                # Return empty — will be overwritten with per-game format on next claim.
+                print(
+                    "[Events] Legacy flat events_claimed detected — will migrate on next save"
                 )
+                return {}
 
-                if is_legacy:
-                    # Cannot safely attribute legacy data to any specific game.
-                    # Return empty — will be overwritten with per-game format on next claim.
-                    print(
-                        "[Events] Legacy flat events_claimed detected — will migrate on next save"
-                    )
-                    return {}
-
-                # Per-game format: return only this game's claimed dict
-                if self.game_name:
-                    return dict(all_claimed.get(self.game_name, {}))
+            # Per-game format: return only this game's claimed dict
+            if self.game_name:
+                return dict(all_claimed.get(self.game_name, {}))
 
         except Exception as e:
             print(f"[Events] Error loading claimed events: {e}")
@@ -292,7 +291,7 @@ class EventsScreen:
 
     def _save_claimed_events(self):
         """
-        Save claimed events for the current game to sinew_data.json.
+        Save claimed events for the current game to sinew_settings.json.
 
         Writes in per-game format:
             { "events_claimed": { "LeafGreen": { "aurora_ticket": true }, ... } }
@@ -302,13 +301,9 @@ class EventsScreen:
             return
 
         try:
-            data_path = os.path.join(DATA_DIR, "sinew_data.json")
+            from settings import load_sinew_settings, save_sinew_settings
 
-            # Load existing data
-            data = {}
-            if os.path.exists(data_path):
-                with open(data_path, "r") as f:
-                    data = json.load(f)
+            data = load_sinew_settings()
 
             existing = data.get("events_claimed", {})
 
@@ -326,9 +321,7 @@ class EventsScreen:
             existing[self.game_name] = self.claimed_events
             data["events_claimed"] = existing
 
-            os.makedirs(os.path.dirname(data_path), exist_ok=True)
-            with open(data_path, "w") as f:
-                json.dump(data, f, indent=2)
+            save_sinew_settings(data)
 
             print(
                 f"[Events] Saved claimed events for {self.game_name}: {self.claimed_events}"
@@ -388,7 +381,7 @@ class EventsScreen:
                     create_backup_first=True,
                 )
 
-                # Record this claim for this game in sinew_data.json
+                # Record this claim for this game in sinew_settings.json
                 self.claimed_events[event_key] = True
                 self._save_claimed_events()
 
