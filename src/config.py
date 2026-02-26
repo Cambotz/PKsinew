@@ -207,6 +207,24 @@ PARSER_LOCATIONS = [
     os.path.join(BASE_DIR, "parser"),
 ]
 
+# ===== Audio Defaults =====
+# Platform-tuned defaults for the pygame mixer buffer size and the internal
+# audio-queue depth used by the emulator's audio thread.  These can be
+# overridden per-user via the mGBA → Audio section in Settings.
+AUDIO_BUFFER_DEFAULT = 1024        # samples – desktop / generic
+AUDIO_BUFFER_DEFAULT_ARM = 256     # samples – Linux ARM handhelds
+AUDIO_QUEUE_DEPTH_DEFAULT = 4      # max queued chunks before dropping
+
+# Allowed slider values exposed in Settings
+AUDIO_BUFFER_OPTIONS  = [128, 256, 512, 1024, 2048, 4096]
+AUDIO_QUEUE_OPTIONS   = [2, 3, 4, 6, 8, 12, 16]
+
+# Master volume range (0–100, stored as int, applied as 0.0–1.0)
+VOLUME_DEFAULT = 80
+VOLUME_MIN = 0
+VOLUME_MAX = 100
+VOLUME_STEP = 5          # each d-pad press changes by this much
+
 # ===== Animation Settings =====
 SHOWDOWN_FRAME_MS_DEFAULT = 100
 

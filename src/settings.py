@@ -11,7 +11,20 @@ import webbrowser
 import pygame
 
 import ui_colors  # Import module for dynamic theme colors
-from config import DATA_DIR, EXT_DIR, FONT_PATH, IS_HANDHELD, POKEMON_DB_PATH, SETTINGS_FILE
+from config import (
+    DATA_DIR, EXT_DIR, FONT_PATH, IS_HANDHELD, POKEMON_DB_PATH, SETTINGS_FILE,
+    AUDIO_BUFFER_OPTIONS, AUDIO_QUEUE_OPTIONS,
+    AUDIO_BUFFER_DEFAULT, AUDIO_BUFFER_DEFAULT_ARM, AUDIO_QUEUE_DEPTH_DEFAULT,
+    VOLUME_DEFAULT, VOLUME_MIN, VOLUME_MAX, VOLUME_STEP,
+)
+
+# Use the same ARM detection as the emulator so slider defaults match
+# the actual values _init_audio will use.
+try:
+    from mgba_emulator import is_linux_arm
+    _IS_ARM_AUDIO = is_linux_arm()
+except ImportError:
+    _IS_ARM_AUDIO = IS_HANDHELD
 from controller import NavigableList, get_controller
 
 
@@ -1120,6 +1133,13 @@ class MainSetup:
             "General": [
                 # Fullscreen has no meaning on a handheld — hide it entirely
                 *([] if IS_HANDHELD else [{"name": "Fullscreen", "type": "toggle", "value": False}]),
+                {
+                    "name": "Volume",
+                    "type": "slider",
+                    "slider_index": VOLUME_DEFAULT // VOLUME_STEP,
+                    "labels": [f"{v}%" for v in range(VOLUME_MIN, VOLUME_MAX + 1, VOLUME_STEP)],
+                    "volume_values": list(range(VOLUME_MIN, VOLUME_MAX + 1, VOLUME_STEP)),
+                },
                 {"name": "Mute Menu Music", "type": "toggle", "value": False},
                 {"name": "Themes", "type": "button"},
                 {"name": "Build/Rebuild Pokemon DB", "type": "button"},
@@ -1145,9 +1165,30 @@ class MainSetup:
                     "labels": ["2x", "3x", "4x", "5x", "6x", "7x", "8x", "9x", "10x"],
                     "speed_values": [2, 3, 4, 5, 6, 7, 8, 9, 10],
                 },
+                {
+                    "name": "Mute Emulator",
+                    "type": "toggle",
+                    "value": False,
+                },
+                {
+                    "name": "Audio Buffer",
+                    "type": "slider",
+                    "slider_index": AUDIO_BUFFER_OPTIONS.index(
+                        AUDIO_BUFFER_DEFAULT_ARM if _IS_ARM_AUDIO else AUDIO_BUFFER_DEFAULT
+                    ),
+                    "labels": [str(v) for v in AUDIO_BUFFER_OPTIONS],
+                    "audio_values": AUDIO_BUFFER_OPTIONS,
+                },
+                {
+                    "name": "Queue Depth",
+                    "type": "slider",
+                    "slider_index": AUDIO_QUEUE_OPTIONS.index(AUDIO_QUEUE_DEPTH_DEFAULT),
+                    "labels": [str(v) for v in AUDIO_QUEUE_OPTIONS],
+                    "audio_values": AUDIO_QUEUE_OPTIONS,
+                },
             ],
             "Info": [
-                {"name": "Sinew Version", "type": "label", "value": "v1.3.4"},
+                {"name": "Sinew Version", "type": "label", "value": "v1.3.5"},
                 {"name": "Author", "type": "label", "value": "Cameron Penna"},
                 {"name": "Pokemon DB Status", "type": "label", "value": "Checking..."},
                 {"name": "About/Legal", "type": "button"},
@@ -1188,6 +1229,12 @@ class MainSetup:
                 opt["value"] = settings.get("mute_menu_music", False)
             elif opt["name"] == "Fullscreen":
                 opt["value"] = settings.get("fullscreen", False)
+            elif opt["name"] == "Volume":
+                saved_vol = settings.get("master_volume", VOLUME_DEFAULT)
+                vol_values = opt.get("volume_values", list(range(VOLUME_MIN, VOLUME_MAX + 1, VOLUME_STEP)))
+                # Snap to nearest step
+                closest_idx = min(range(len(vol_values)), key=lambda i: abs(vol_values[i] - saved_vol))
+                opt["slider_index"] = closest_idx
 
         # Load Input tab settings
         for opt in self.tab_options["Input"]:
@@ -1201,11 +1248,49 @@ class MainSetup:
             elif opt["name"] == "Fast-Forward Speed":
                 saved_idx = settings.get("mgba_fastforward_index", 0)
                 opt["slider_index"] = max(0, min(saved_idx, len(opt["speed_values"]) - 1))
+            elif opt["name"] == "Mute Emulator":
+                opt["value"] = settings.get("mgba_muted", False)
+            elif opt["name"] == "Audio Buffer":
+                saved_buf = settings.get("mgba_audio_buffer",
+                                         AUDIO_BUFFER_DEFAULT_ARM if _IS_ARM_AUDIO else AUDIO_BUFFER_DEFAULT)
+                if saved_buf in AUDIO_BUFFER_OPTIONS:
+                    opt["slider_index"] = AUDIO_BUFFER_OPTIONS.index(saved_buf)
+                else:
+                    opt["slider_index"] = AUDIO_BUFFER_OPTIONS.index(
+                        AUDIO_BUFFER_DEFAULT_ARM if _IS_ARM_AUDIO else AUDIO_BUFFER_DEFAULT)
+            elif opt["name"] == "Queue Depth":
+                saved_depth = settings.get("mgba_audio_queue_depth", AUDIO_QUEUE_DEPTH_DEFAULT)
+                if saved_depth in AUDIO_QUEUE_OPTIONS:
+                    opt["slider_index"] = AUDIO_QUEUE_OPTIONS.index(saved_depth)
+                else:
+                    opt["slider_index"] = AUDIO_QUEUE_OPTIONS.index(AUDIO_QUEUE_DEPTH_DEFAULT)
 
         # Load Dev tab settings
         for opt in self.tab_options["Dev"]:
             if opt["name"] == "Use External Emulator":
                 opt["value"] = settings.get("use_external_emulator", False)
+
+        # Check if emulator had to revert audio settings on last resume
+        try:
+            import builtins
+            emu = getattr(builtins, "SINEW_EMULATOR", None)
+            if emu is not None and getattr(emu, "audio_settings_reverted", False):
+                emu.audio_settings_reverted = False
+                # Re-read the (now default) values from the persisted settings
+                reverted_settings = load_sinew_settings()
+                for opt in self.tab_options.get("mGBA", []):
+                    if opt["name"] == "Audio Buffer":
+                        rb = reverted_settings.get("mgba_audio_buffer",
+                                                   AUDIO_BUFFER_DEFAULT_ARM if _IS_ARM_AUDIO else AUDIO_BUFFER_DEFAULT)
+                        vals = opt.get("audio_values", AUDIO_BUFFER_OPTIONS)
+                        opt["slider_index"] = vals.index(rb) if rb in vals else 0
+                    elif opt["name"] == "Queue Depth":
+                        rd = reverted_settings.get("mgba_audio_queue_depth", AUDIO_QUEUE_DEPTH_DEFAULT)
+                        vals = opt.get("audio_values", AUDIO_QUEUE_OPTIONS)
+                        opt["slider_index"] = vals.index(rd) if rd in vals else 0
+                print("[Settings] Audio settings were reverted to defaults by emulator")
+        except Exception:
+            pass
 
     def _update_option_nav(self):
         """Update NavigableList for current tab"""
@@ -1301,11 +1386,22 @@ class MainSetup:
             return True
         elif option["type"] == "slider":
             old_idx = option.get("slider_index", 0)
-            max_idx = len(option["speed_values"]) - 1
+            # Determine max index from whichever values list this slider uses
+            values_list = (option.get("labels")
+                           or option.get("speed_values")
+                           or option.get("audio_values")
+                           or option.get("volume_values")
+                           or [])
+            max_idx = max(len(values_list) - 1, 1)
             new_idx = max(0, min(old_idx + direction, max_idx))
             option["slider_index"] = new_idx
-            # Save the new speed index whenever it changes
-            self._save_mgba_fastforward_settings()
+            # Route to the correct save / apply based on which slider changed
+            if option["name"] == "Fast-Forward Speed":
+                self._save_mgba_fastforward_settings()
+            elif option["name"] in ("Audio Buffer", "Queue Depth"):
+                self._save_and_apply_audio_settings()
+            elif option["name"] == "Volume":
+                self._save_and_apply_volume()
             return True
         return False
 
@@ -1333,6 +1429,8 @@ class MainSetup:
         elif name == "Fast-Forward":
             self._save_mgba_fastforward_settings()
             self._apply_fastforward_to_emulator()
+        elif name == "Mute Emulator":
+            self._save_and_apply_mgba_mute(value)
 
     def _save_mgba_fastforward_settings(self):
         """Persist fast-forward toggle + speed index to sinew_settings.json."""
@@ -1377,6 +1475,110 @@ class MainSetup:
                 print(f"[Settings] Applied fast-forward to emulator: {label}")
         except Exception as e:
             print(f"[Settings] Could not apply fast-forward to emulator: {e}")
+
+    # ---- Volume (General tab) ----
+
+    def _save_and_apply_volume(self):
+        """Save master volume and apply to both Sinew music and mGBA emulator."""
+        vol_value = VOLUME_DEFAULT
+        for opt in self.tab_options.get("General", []):
+            if opt["name"] == "Volume":
+                idx = opt.get("slider_index", 0)
+                vals = opt.get("volume_values",
+                               list(range(VOLUME_MIN, VOLUME_MAX + 1, VOLUME_STEP)))
+                vol_value = vals[min(idx, len(vals) - 1)]
+                break
+
+        # Persist
+        try:
+            s = load_sinew_settings()
+            s["master_volume"] = vol_value
+            save_sinew_settings(s)
+        except Exception as e:
+            print(f"[Settings] Failed to save volume: {e}")
+
+        vol_float = max(0.0, min(1.0, vol_value / 100.0))
+
+        # Apply to Sinew menu music (uses pygame.mixer.music)
+        try:
+            if pygame.mixer.get_init():
+                pygame.mixer.music.set_volume(vol_float)
+                print(f"[Settings] Menu music volume: {vol_value}%")
+        except Exception:
+            pass
+
+        # Apply to mGBA emulator
+        try:
+            import builtins
+            emu = getattr(builtins, "SINEW_EMULATOR", None)
+            if emu is not None and hasattr(emu, "set_master_volume"):
+                emu.set_master_volume(vol_value)
+        except Exception as e:
+            print(f"[Settings] Could not apply volume to emulator: {e}")
+
+    # ---- Mute Emulator (mGBA tab) ----
+
+    def _save_and_apply_mgba_mute(self, muted):
+        """Save and apply mGBA-only mute. Does NOT affect Sinew menu music."""
+        try:
+            s = load_sinew_settings()
+            s["mgba_muted"] = muted
+            save_sinew_settings(s)
+            print(f"[Settings] mGBA mute: {'ON' if muted else 'OFF'}")
+        except Exception as e:
+            print(f"[Settings] Failed to save mGBA mute: {e}")
+
+        try:
+            import builtins
+            emu = getattr(builtins, "SINEW_EMULATOR", None)
+            if emu is not None and hasattr(emu, "set_mgba_muted"):
+                emu.set_mgba_muted(muted)
+        except Exception as e:
+            print(f"[Settings] Could not apply mGBA mute to emulator: {e}")
+
+    # ---- Audio Buffer / Queue Depth (mGBA tab) ----
+
+    def _save_and_apply_audio_settings(self):
+        """Save audio buffer / queue depth and stage them for the emulator.
+
+        Changes are NOT applied to the mixer immediately — they are staged
+        on the emulator and consumed the next time audio is initialised
+        (game launch or resume).  This avoids killing Sinew's menu music.
+        """
+        buf_value = AUDIO_BUFFER_DEFAULT_ARM if _IS_ARM_AUDIO else AUDIO_BUFFER_DEFAULT
+        depth_value = AUDIO_QUEUE_DEPTH_DEFAULT
+
+        for opt in self.tab_options.get("mGBA", []):
+            if opt["name"] == "Audio Buffer":
+                idx = opt.get("slider_index", 0)
+                vals = opt.get("audio_values", AUDIO_BUFFER_OPTIONS)
+                buf_value = vals[min(idx, len(vals) - 1)]
+            elif opt["name"] == "Queue Depth":
+                idx = opt.get("slider_index", 0)
+                vals = opt.get("audio_values", AUDIO_QUEUE_OPTIONS)
+                depth_value = vals[min(idx, len(vals) - 1)]
+
+        # Persist
+        try:
+            s = load_sinew_settings()
+            s["mgba_audio_buffer"] = buf_value
+            s["mgba_audio_queue_depth"] = depth_value
+            save_sinew_settings(s)
+            print(f"[Settings] Audio: buffer={buf_value}, queue_depth={depth_value}")
+        except Exception as e:
+            print(f"[Settings] Failed to save audio settings: {e}")
+
+        # Stage on emulator (applied on next resume / game launch)
+        try:
+            import builtins
+            emu = getattr(builtins, "SINEW_EMULATOR", None)
+            if emu is not None and hasattr(emu, "set_audio_settings"):
+                emu.set_audio_settings(buf_value, depth_value)
+                self._status_msg(f"Audio: buf={buf_value} q={depth_value}")
+            else:
+                self._status_msg(f"Saved (applied on launch)")
+        except Exception as e:
+            print(f"[Settings] Could not stage audio settings on emulator: {e}")
 
     def _activate_option(self):
         """Activate/select current option"""

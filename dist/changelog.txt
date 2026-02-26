@@ -1,3 +1,33 @@
+
+PKsinew v1.3.5
+
+New:
+- Unified Input tab (Controller + Keyboard merged)
+- Added mGBA settings tab
+- Fast-forward toggle and speed slider (2x–10x)
+- Mute toggle in mGBA settings
+- Volume slider added to General settings
+- Added audio buffer & queue depth controls
+- Automatic handheld detection and fullscreen optimization
+- Header-based ROM version detection (thanks to @FraudBatman and @JeodC for the inspiration)
+- Added loading screen when returning from emulator
+
+Improvements:
+- Improved controller auto-detection
+- Improved emulator settings synchronization
+- Major path cleanup and config centralization (thanks @JeodC )
+- Faster startup and optimized achievement checks
+
+Fixes:
+- Fixed Emerald save file detection (thanks @FraudBatman )
+- Fixed auto-detected controller configs not passing to emulator(requires testing)
+- Fixed keyboard becoming unresponsive after emulator exit
+- Fixed display surface crash on return to menu
+- Fixed save data bleeding between games
+- Fixed reward generation and event ticket storage paths
+
+======================================================================
+
 PKsinew v1.3.4
 
 This release focuses on stability, correctness, and quality-of-life improvements. 
@@ -5,7 +35,7 @@ Several edge-case bugs have been resolved, and internal systems have been refine
 
 Improvements
 
-Resolved additional hardcoded path issues (thanks Jeodc)
+Resolved additional hardcoded path issues (thanks @Jeodc)
 Improved achievement checking logic (now triggered on return to Sinew only)
 Updated Pokémon sprite rendering in PC Box info panel
 Added emulator speed slider and toggle
@@ -29,7 +59,7 @@ Reorganized project structure to properly support PyInstaller packaging.
 Improved build reliability for distributed releases.
 Establishes a stronger foundation for Windows and Linux binary support.
 
-Thanks to @Jeod for the extensive restructuring work in this release.
+Thanks to @Jeodc for the extensive restructuring work in this release.
 
 Bug Fixes
 

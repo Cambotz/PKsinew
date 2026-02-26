@@ -24,7 +24,12 @@ from ctypes import (
 import numpy as np
 import pygame
 
-from config import CORES_DIR, SAVES_DIR, SYSTEM_DIR, SETTINGS_FILE, ROMS_DIR, MGBA_CORE_PATH
+from config import (
+    CORES_DIR, SAVES_DIR, SYSTEM_DIR, SETTINGS_FILE, ROMS_DIR, MGBA_CORE_PATH,
+    AUDIO_BUFFER_DEFAULT, AUDIO_BUFFER_DEFAULT_ARM, AUDIO_QUEUE_DEPTH_DEFAULT,
+    AUDIO_BUFFER_OPTIONS, AUDIO_QUEUE_OPTIONS,
+    VOLUME_DEFAULT,
+)
 
 
 def _get_default_cores_dir():
@@ -118,13 +123,44 @@ def is_linux_arm():
 
 def get_audio_settings():
     """
-    Return (buffer_size, max_queue_depth) tuned for the current platform.
-    Linux ARM (Raspberry Pi, Powkiddy, etc.): smaller buffer to reduce latency.
-    All other platforms: larger buffer for stability.
+    Return (buffer_size, max_queue_depth) tuned for the current platform,
+    with optional user overrides from sinew_settings.json.
+
+    Priority: user override > platform default.
     """
+    import json
+
+    # Platform defaults
     if is_linux_arm():
-        return 256, 4
-    return 1024, 4
+        default_buf = AUDIO_BUFFER_DEFAULT_ARM
+    else:
+        default_buf = AUDIO_BUFFER_DEFAULT
+    default_depth = AUDIO_QUEUE_DEPTH_DEFAULT
+
+    # Try loading user overrides
+    try:
+        if os.path.exists(SETTINGS_FILE):
+            with open(SETTINGS_FILE, "r") as f:
+                data = json.load(f)
+            buf = data.get("mgba_audio_buffer", default_buf)
+            depth = data.get("mgba_audio_queue_depth", default_depth)
+            # Validate against allowed options
+            if buf not in AUDIO_BUFFER_OPTIONS:
+                buf = default_buf
+            if depth not in AUDIO_QUEUE_OPTIONS:
+                depth = default_depth
+            return int(buf), int(depth)
+    except Exception as e:
+        print(f"[MgbaEmulator] Could not load audio settings override: {e}")
+
+    return default_buf, default_depth
+
+
+def get_audio_platform_defaults():
+    """Return the platform defaults (ignoring user overrides) for fallback."""
+    if is_linux_arm():
+        return AUDIO_BUFFER_DEFAULT_ARM, AUDIO_QUEUE_DEPTH_DEFAULT
+    return AUDIO_BUFFER_DEFAULT, AUDIO_QUEUE_DEPTH_DEFAULT
 
 
 def get_core_filename():
@@ -437,6 +473,19 @@ class MgbaEmulator:
         self._audio_channel = None
         self._audio_thread = None
         self._audio_running = False
+
+        # Deferred audio setting changes (applied on next _init_audio / _reinit_audio,
+        # NOT immediately — avoids killing Sinew's menu music mixer while paused).
+        self._pending_audio_buffer = None
+        self._pending_audio_queue_depth = None
+        # Set to True if _init_audio / _reinit_audio had to fall back to defaults.
+        # Settings UI can poll this to snap sliders back.
+        self.audio_settings_reverted = False
+
+        # Volume / mute — loaded from settings, applied to channel after init
+        self._mgba_muted = False
+        self._master_volume = VOLUME_DEFAULT  # 0-100
+        self._load_volume_settings()
 
         # Input state
         self._key_state = None
@@ -1259,12 +1308,22 @@ class MgbaEmulator:
             except Exception:
                 pass
 
-            # Try to initialize mixer with multiple attempts
-            audio_buffer, _ = get_audio_settings()
+            # Consume any pending settings from the Settings UI, else use saved/defaults
+            audio_buffer, audio_queue_depth = self._consume_pending_audio_settings()
+
+            # Resize the deque to the (possibly new) queue depth
+            old_items = list(self.audio_queue)
+            self.audio_queue = deque(old_items, maxlen=audio_queue_depth)
+
             print(
-                f"[MgbaEmulator] Audio buffer size: {audio_buffer} (platform: {'linux_arm' if is_linux_arm() else 'default'})"
+                f"[MgbaEmulator] Audio init: buffer={audio_buffer}, "
+                f"queue_depth={audio_queue_depth} "
+                f"(platform: {'linux_arm' if is_linux_arm() else 'default'})"
             )
+
+            # Try to initialize mixer with multiple attempts
             max_attempts = 3
+            init_ok = False
             for attempt in range(max_attempts):
                 try:
                     # Pre-init with specific settings for reliability
@@ -1280,6 +1339,7 @@ class MgbaEmulator:
                     init_info = pygame.mixer.get_init()
                     if init_info:
                         print(f"[MgbaEmulator] Mixer initialized: {init_info}")
+                        init_ok = True
                         break
                     else:
                         print(
@@ -1291,7 +1351,30 @@ class MgbaEmulator:
                         f"[MgbaEmulator] Mixer init attempt {attempt+1}/{max_attempts} failed: {e}"
                     )
                     pygame.time.wait(100)
-            else:
+
+            if not init_ok:
+                # Try falling back to platform defaults before giving up
+                default_buf, default_depth = get_audio_platform_defaults()
+                if audio_buffer != default_buf or audio_queue_depth != default_depth:
+                    print(f"[MgbaEmulator] Falling back to platform defaults: buffer={default_buf}, depth={default_depth}")
+                    self._save_audio_settings_to_file(default_buf, default_depth)
+                    self.audio_settings_reverted = True
+                    audio_buffer = default_buf
+                    self.audio_queue = deque(maxlen=default_depth)
+                    try:
+                        pygame.mixer.pre_init(
+                            frequency=self.sample_rate, size=-16, channels=2,
+                            buffer=default_buf,
+                        )
+                        pygame.mixer.init()
+                        init_info = pygame.mixer.get_init()
+                        if init_info:
+                            print(f"[MgbaEmulator] Mixer initialized on fallback: {init_info}")
+                            init_ok = True
+                    except Exception as e2:
+                        print(f"[MgbaEmulator] Fallback mixer init also failed: {e2}")
+
+            if not init_ok:
                 print("[MgbaEmulator] WARNING: All mixer init attempts failed!")
                 return
 
@@ -1301,9 +1384,10 @@ class MgbaEmulator:
 
             # Verify channel is valid and set volume
             if self._audio_channel:
-                self._audio_channel.set_volume(1.0)
+                self._apply_channel_volume()
                 print(
-                    f"[MgbaEmulator] Audio channel reserved: {self._audio_channel}, volume: 1.0"
+                    f"[MgbaEmulator] Audio channel reserved: {self._audio_channel}, "
+                    f"volume: {self._get_effective_volume():.2f}"
                 )
             else:
                 print("[MgbaEmulator] WARNING: Failed to get audio channel!")
@@ -1316,6 +1400,13 @@ class MgbaEmulator:
             )
             self._audio_thread.start()
 
+            # Track what buffer we initialised with so _reinit_audio can
+            # detect changes made via Settings while paused.
+            self._last_audio_buffer = audio_buffer
+
+            # Log device and audio configuration
+            self._log_audio_device_info()
+
         except Exception as e:
             print(f"[MgbaEmulator] Audio init failed: {e}")
             import traceback
@@ -1323,53 +1414,40 @@ class MgbaEmulator:
             traceback.print_exc()
 
     def _audio_thread_func(self):
-        """Background thread to feed audio to pygame."""
+        """Background thread to feed audio to pygame.
+
+        IMPORTANT: This thread must NEVER call ``pygame.mixer.init()`` or
+        ``pygame.mixer.quit()``.  Mixer lifecycle is managed exclusively by
+        ``_init_audio()`` and ``_reinit_audio()`` on the main thread.
+        Touching it from here causes race conditions with Sinew's menu music.
+        """
         print("[MgbaEmulator] Audio thread started")
         error_count = 0
         chunks_played = 0
-        reinit_attempted = False
         # How many chunks to keep buffered at most before dropping stale audio.
-        # At ~32768 Hz with typical ~512-sample batches this is ~60-80ms of audio.
-        # Keeping this small prevents latency from accumulating over long sessions.
-        _, MAX_QUEUE_DEPTH = get_audio_settings()
+        MAX_QUEUE_DEPTH = self.audio_queue.maxlen or 4
 
         while self._audio_running:
             try:
-                # Skip if paused
+                # Skip if paused — Sinew owns the mixer while we're paused
                 if self.paused:
                     pygame.time.wait(10)
                     continue
 
-                # Check if mixer is still initialized
+                # If mixer is gone, just wait — _reinit_audio will fix it on resume
                 if not pygame.mixer.get_init():
-                    if not reinit_attempted:
-                        print("[MgbaEmulator] Mixer lost, attempting reinit...")
-                        reinit_attempted = True
-                        try:
-                            sample_rate = getattr(self, "sample_rate", 32768)
-                            audio_buffer, _ = get_audio_settings()
-                            pygame.mixer.init(
-                                frequency=sample_rate,
-                                size=-16,
-                                channels=2,
-                                buffer=audio_buffer,
-                            )
-                            pygame.mixer.set_num_channels(8)
-                            self._audio_channel = pygame.mixer.Channel(7)
-                            print(
-                                f"[MgbaEmulator] Mixer reinitialized: {pygame.mixer.get_init()}"
-                            )
-                        except Exception as e:
-                            print(f"[MgbaEmulator] Mixer reinit failed: {e}")
-                    pygame.time.wait(100)
+                    pygame.time.wait(50)
                     continue
-                else:
-                    reinit_attempted = False
 
                 # Check if channel is ready for more audio
                 if self._audio_channel:
-                    is_busy = self._audio_channel.get_busy()
-                    queue_status = self._audio_channel.get_queue()
+                    try:
+                        is_busy = self._audio_channel.get_busy()
+                        queue_status = self._audio_channel.get_queue()
+                    except Exception:
+                        # Channel may be invalid if mixer was recycled
+                        pygame.time.wait(10)
+                        continue
 
                     # Can accept more audio if: not busy, or busy but queue is empty
                     can_accept = (not is_busy) or (is_busy and queue_status is None)
@@ -1541,6 +1619,115 @@ class MgbaEmulator:
         self._fast_forward_multiplier = max(1, int(multiplier))
         label = "Off" if self._fast_forward_multiplier == 1 else f"{self._fast_forward_multiplier}x"
         print(f"[MgbaEmulator] Fast-forward: {label}")
+
+    # ---- Audio buffer / queue tuning ----
+
+    def set_audio_settings(self, buffer_size, queue_depth):
+        """Stage new audio buffer / queue depth for next audio init.
+
+        The values are NOT applied immediately because calling
+        ``pygame.mixer.quit()`` while Sinew's menu music is playing would
+        kill it.  Instead the values are stored and picked up the next time
+        ``_init_audio()`` or ``_reinit_audio()`` runs (i.e. on game launch
+        or resume).
+
+        Returns True always — actual failure is handled at apply-time.
+        """
+        self._pending_audio_buffer = int(buffer_size)
+        self._pending_audio_queue_depth = int(queue_depth)
+        print(
+            f"[MgbaEmulator] Audio settings staged: buffer={buffer_size}, "
+            f"queue_depth={queue_depth} (applied on next audio init)"
+        )
+        return True
+
+    def _consume_pending_audio_settings(self):
+        """If new audio params have been staged, return (buf, depth) and clear.
+        Otherwise return the current saved settings."""
+        if self._pending_audio_buffer is not None:
+            buf = self._pending_audio_buffer
+            depth = self._pending_audio_queue_depth or get_audio_settings()[1]
+            self._pending_audio_buffer = None
+            self._pending_audio_queue_depth = None
+            print(f"[MgbaEmulator] Consuming staged audio settings: buffer={buf}, depth={depth}")
+            return buf, depth
+        return get_audio_settings()
+
+    @staticmethod
+    def _save_audio_settings_to_file(buffer_size, queue_depth):
+        """Persist audio buffer/queue to sinew_settings.json."""
+        import json
+        try:
+            data = {}
+            if os.path.exists(SETTINGS_FILE):
+                with open(SETTINGS_FILE, "r") as f:
+                    data = json.load(f)
+            data["mgba_audio_buffer"] = buffer_size
+            data["mgba_audio_queue_depth"] = queue_depth
+            with open(SETTINGS_FILE, "w") as f:
+                json.dump(data, f, indent=2)
+        except Exception as e:
+            print(f"[MgbaEmulator] Failed to persist audio settings: {e}")
+
+    def _log_audio_device_info(self):
+        """Log the current audio device, buffer size and queue depth."""
+        try:
+            mixer_info = pygame.mixer.get_init()
+            freq, fmt, ch = mixer_info if mixer_info else (0, 0, 0)
+            buf, depth = get_audio_settings()
+            driver = os.environ.get("SDL_AUDIODRIVER", "auto")
+            device_name = "unknown"
+            if self._joystick:
+                device_name = self._joystick.get_name()
+            print(
+                f"[MgbaEmulator] Audio device info: driver={driver}, "
+                f"mixer=({freq}Hz, fmt={fmt}, ch={ch}), "
+                f"buffer={buf}, queue_depth={depth}, "
+                f"controller={device_name}"
+            )
+        except Exception as e:
+            print(f"[MgbaEmulator] Could not log audio device info: {e}")
+
+    # ---- Volume / mute ----
+
+    def _load_volume_settings(self):
+        """Load master volume and mGBA mute from sinew_settings.json."""
+        import json
+        try:
+            if os.path.exists(SETTINGS_FILE):
+                with open(SETTINGS_FILE, "r") as f:
+                    data = json.load(f)
+                self._master_volume = data.get("master_volume", VOLUME_DEFAULT)
+                self._mgba_muted = data.get("mgba_muted", False)
+        except Exception as e:
+            print(f"[MgbaEmulator] Could not load volume settings: {e}")
+
+    def _get_effective_volume(self):
+        """Return 0.0–1.0 for the audio channel, accounting for master + mute."""
+        if self._mgba_muted:
+            return 0.0
+        return max(0.0, min(1.0, self._master_volume / 100.0))
+
+    def set_master_volume(self, volume_int):
+        """Set master volume (0–100). Applies immediately to audio channel."""
+        self._master_volume = max(0, min(100, int(volume_int)))
+        self._apply_channel_volume()
+        print(f"[MgbaEmulator] Master volume: {self._master_volume}%")
+
+    def set_mgba_muted(self, muted):
+        """Mute/unmute emulator audio only. Applies immediately."""
+        self._mgba_muted = bool(muted)
+        self._apply_channel_volume()
+        print(f"[MgbaEmulator] mGBA mute: {'ON' if muted else 'OFF'}")
+
+    def _apply_channel_volume(self):
+        """Push the effective volume to the pygame channel."""
+        vol = self._get_effective_volume()
+        if self._audio_channel:
+            try:
+                self._audio_channel.set_volume(vol)
+            except Exception:
+                pass
 
     def _load_fast_forward_setting(self):
         """Load and apply saved fast-forward state from sinew_settings.json on startup."""
@@ -1719,10 +1906,28 @@ class MgbaEmulator:
             print("[MgbaEmulator] Resumed")
 
     def pause(self):
-        """Pause emulation."""
+        """Pause emulation.
+
+        Stops the audio thread so it cannot interfere with Sinew's mixer
+        when menu music starts.  The thread is restarted on resume().
+        """
         if not self.paused:
             self.paused = True
             self.save_sram()
+
+            # Stop audio thread — Sinew is about to own the mixer
+            self._audio_running = False
+            if self._audio_thread and self._audio_thread.is_alive():
+                try:
+                    self._audio_thread.join(timeout=0.5)
+                except Exception:
+                    pass
+            self._audio_thread = None
+
+            # Clear stale audio data
+            with self._audio_lock:
+                self.audio_queue.clear()
+
             print("[MgbaEmulator] Paused")
 
     def resume(self):
@@ -1742,8 +1947,22 @@ class MgbaEmulator:
             print(f"[MgbaEmulator] Resumed - paused now={self.paused}")
 
     def _reinit_audio(self):
-        """Ensure audio is working after pause/resume."""
+        """Ensure audio is working after pause/resume.
+
+        If the user changed audio buffer / queue depth from the Settings
+        screen while paused, those values are consumed here so the mixer
+        is reinitialised with the new params.  If the new params fail the
+        mixer, we fall back to platform defaults gracefully.
+        """
         try:
+            # Consume any pending audio setting changes
+            audio_buffer, audio_queue_depth = self._consume_pending_audio_settings()
+
+            # Resize the deque if depth changed
+            if self.audio_queue.maxlen != audio_queue_depth:
+                self.audio_queue = deque(maxlen=audio_queue_depth)
+                print(f"[MgbaEmulator] Queue depth resized to {audio_queue_depth}")
+
             # Clear stale audio data
             with self._audio_lock:
                 queue_size = len(self.audio_queue)
@@ -1752,6 +1971,9 @@ class MgbaEmulator:
                     print(
                         f"[MgbaEmulator] Cleared {queue_size} audio chunks from queue"
                     )
+
+            # Reload volume/mute in case they changed while paused
+            self._load_volume_settings()
 
             # Get expected sample rate
             sample_rate = getattr(self, "sample_rate", 32768)
@@ -1769,6 +1991,12 @@ class MgbaEmulator:
                 needs_full_reinit = True
                 print(
                     f"[MgbaEmulator] Mixer frequency mismatch: {mixer_init[0]} vs {sample_rate}"
+                )
+            # Also reinit if the user changed the buffer size
+            elif mixer_init and hasattr(self, '_last_audio_buffer') and self._last_audio_buffer != audio_buffer:
+                needs_full_reinit = True
+                print(
+                    f"[MgbaEmulator] Buffer size changed: {self._last_audio_buffer} -> {audio_buffer}"
                 )
 
             if needs_full_reinit:
@@ -1788,19 +2016,36 @@ class MgbaEmulator:
                 except Exception:
                     pass
 
-                pygame.mixer.pre_init(
-                    frequency=sample_rate,
-                    size=-16,
-                    channels=2,
-                    buffer=get_audio_settings()[0],
-                )
-                pygame.mixer.init()
+                try:
+                    pygame.mixer.pre_init(
+                        frequency=sample_rate,
+                        size=-16,
+                        channels=2,
+                        buffer=audio_buffer,
+                    )
+                    pygame.mixer.init()
+                except Exception as e:
+                    print(f"[MgbaEmulator] Mixer reinit failed with buffer={audio_buffer}: {e}")
+                    # Fallback to platform defaults
+                    default_buf, default_depth = get_audio_platform_defaults()
+                    print(f"[MgbaEmulator] Falling back to defaults: buffer={default_buf}")
+                    self._save_audio_settings_to_file(default_buf, default_depth)
+                    self.audio_settings_reverted = True
+                    audio_buffer = default_buf
+                    self.audio_queue = deque(maxlen=default_depth)
+                    pygame.mixer.pre_init(
+                        frequency=sample_rate, size=-16, channels=2,
+                        buffer=default_buf,
+                    )
+                    pygame.mixer.init()
+
+                self._last_audio_buffer = audio_buffer
                 pygame.mixer.set_num_channels(8)
                 print(f"[MgbaEmulator] Mixer reinitialized: {pygame.mixer.get_init()}")
 
                 # Get fresh channel and start new thread
                 self._audio_channel = pygame.mixer.Channel(7)
-                self._audio_channel.set_volume(1.0)
+                self._apply_channel_volume()
 
                 self._audio_running = True
                 self._audio_thread = threading.Thread(
@@ -1812,7 +2057,7 @@ class MgbaEmulator:
                 # Mixer is fine - just refresh channel reference and ensure thread is running
                 pygame.mixer.set_num_channels(8)
                 self._audio_channel = pygame.mixer.Channel(7)
-                self._audio_channel.set_volume(1.0)
+                self._apply_channel_volume()
 
                 # Make sure audio thread is running
                 if self._audio_thread is None or not self._audio_thread.is_alive():
@@ -1823,6 +2068,9 @@ class MgbaEmulator:
                     self._audio_thread.start()
                     print("[MgbaEmulator] Audio thread restarted")
                 # else thread is already running, it will resume automatically when paused=False
+
+            # Log device info after reinit
+            self._log_audio_device_info()
 
         except Exception as e:
             print(f"[MgbaEmulator] Audio reinit error: {e}")

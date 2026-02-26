@@ -2057,20 +2057,36 @@ class GameScreen:
             return
 
         try:
-            # Make sure mixer is initialized at correct frequency for GBA audio compatibility
-            if not pygame.mixer.get_init():
-                pygame.mixer.pre_init(
-                    frequency=32768, size=-16, channels=2, buffer=1024
-                )
-                pygame.mixer.init()
-                pygame.mixer.set_num_channels(8)
-                print(
-                    f"[Sinew] Mixer initialized for menu music: {pygame.mixer.get_init()}"
-                )
+            # Always reinitialise the mixer to Sinew's known-good settings.
+            # The emulator may have left the mixer configured with the user's
+            # custom buffer size (which could be unstable).  A full quit/init
+            # cycle guarantees a clean slate for menu music playback.
+            try:
+                if pygame.mixer.get_init():
+                    pygame.mixer.quit()
+                    pygame.time.wait(50)
+            except Exception:
+                pass
+
+            pygame.mixer.pre_init(
+                frequency=32768, size=-16, channels=2, buffer=1024
+            )
+            pygame.mixer.init()
+            pygame.mixer.set_num_channels(8)
+            print(
+                f"[Sinew] Mixer initialized for menu music: {pygame.mixer.get_init()}"
+            )
 
             # Use pygame.mixer.music for background music (separate from sound effects)
             pygame.mixer.music.load(self._menu_music_path)
-            pygame.mixer.music.set_volume(0.5)  # 50% volume
+            # Apply saved master volume (default 80%)
+            try:
+                from config import VOLUME_DEFAULT
+                from settings import load_sinew_settings
+                _vol = load_sinew_settings().get("master_volume", VOLUME_DEFAULT)
+                pygame.mixer.music.set_volume(max(0.0, min(1.0, _vol / 100.0)))
+            except Exception:
+                pygame.mixer.music.set_volume(0.8)
             pygame.mixer.music.play(-1)  # Loop indefinitely
             self._menu_music_playing = True
             print("[Sinew] Menu music started")
