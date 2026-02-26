@@ -11,7 +11,7 @@ import webbrowser
 import pygame
 
 import ui_colors  # Import module for dynamic theme colors
-from config import DATA_DIR, EXT_DIR, FONT_PATH, POKEMON_DB_PATH, SETTINGS_FILE
+from config import DATA_DIR, EXT_DIR, FONT_PATH, IS_HANDHELD, POKEMON_DB_PATH, SETTINGS_FILE
 from controller import NavigableList, get_controller
 
 
@@ -1118,7 +1118,8 @@ class MainSetup:
         # Options per tab
         self.tab_options = {
             "General": [
-                {"name": "Fullscreen", "type": "toggle", "value": False},
+                # Fullscreen has no meaning on a handheld — hide it entirely
+                *([] if IS_HANDHELD else [{"name": "Fullscreen", "type": "toggle", "value": False}]),
                 {"name": "Mute Menu Music", "type": "toggle", "value": False},
                 {"name": "Themes", "type": "button"},
                 {"name": "Build/Rebuild Pokemon DB", "type": "button"},

@@ -123,6 +123,22 @@ def get_core_filename():
 
 MGBA_CORE_PATH = os.path.join(CORES_DIR, get_core_filename())
 
+# ===== Platform Flags =====
+# True when running on an embedded Linux ARM handheld (PortMaster / ROCKNIX / ArkOS etc.)
+# Used to force fullscreen on startup and hide the fullscreen toggle in settings.
+def _is_handheld():
+    # PortMaster always sets SINEW_BASE_DIR in the launch script — most reliable signal
+    if os.environ.get("SINEW_BASE_DIR"):
+        return True
+    # Fallback: native Linux ARM without AppImage wrapping = handheld build
+    _sys = platform.system().lower()
+    _mach = platform.machine().lower()
+    if _sys == "linux" and _mach in ("aarch64", "arm64", "armv7l", "armv6l"):
+        return True
+    return False
+
+IS_HANDHELD = _is_handheld()
+
 
 # ===== Save Editor Paths =====
 

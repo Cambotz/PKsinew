@@ -45,6 +45,7 @@ from config import (
     DATA_DIR,
     EXT_DIR,
     FONT_PATH,
+    IS_HANDHELD,
     MGBA_CORE_PATH,
     ROMS_DIR,
     SAVES_DIR,
@@ -4294,13 +4295,18 @@ if __name__ == "__main__":
     WINDOW_WIDTH = 960
     WINDOW_HEIGHT = 640
 
-    # Load fullscreen setting
-    start_fullscreen = False
-    try:
-        settings = load_settings()
-        start_fullscreen = settings.get("fullscreen", False)
-    except Exception:
-        pass
+    # Load fullscreen setting.
+    # On handhelds there is no windowed mode — always fullscreen regardless of
+    # what's saved. On desktop, respect the user's saved preference.
+    if IS_HANDHELD:
+        start_fullscreen = True
+    else:
+        start_fullscreen = False
+        try:
+            settings = load_settings()
+            start_fullscreen = settings.get("fullscreen", False)
+        except Exception:
+            pass
 
     # Create scaler
     scaler = Scaler(
