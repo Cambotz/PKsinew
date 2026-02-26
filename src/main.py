@@ -280,7 +280,10 @@ def find_rom_for_game(game_name, roms_dir):
         return None, None
 
     if not os.path.isfile(DATA_DIR + '/games.json'):
-        print("[GameScreen] no games.json found. uh oh!")
+        print("[GameScreen] no games.json found.")
+        return None, None
+
+    if not os.path.exists(roms_dir):
         return None, None
 
     with open(DATA_DIR + '/games.json' , "r") as file:
@@ -292,9 +295,6 @@ def find_rom_for_game(game_name, roms_dir):
     for id_set in all_game_ids:
         if id_set["game"] == game_name:
             game_ids.append(id_set)
-
-    if not os.path.exists(roms_dir):
-        return None, None
 
     # Scan ROM directory
     for filename in os.listdir(roms_dir):
@@ -886,6 +886,7 @@ class GameScreen:
                 # Use canonical save path from config as source of truth
                 from config import SAVE_PATHS
                 sav_path = SAVE_PATHS.get(current_game_name, game_data.get("sav"))
+                game_type = game_data.get("type")
 
                 if sav_path and os.path.exists(sav_path):
                     try:
@@ -893,7 +894,7 @@ class GameScreen:
                         from achievements_data import check_achievement_unlocked, get_achievements_for
 
                         manager = SaveDataManager()
-                        if manager.load_save(sav_path, game_data.get("type")):
+                        if manager.load_save(sav_path, game_type):
                             loaded_game = (
                                 manager.parser.game_code
                                 if hasattr(manager, "parser") and manager.parser
