@@ -144,45 +144,104 @@ IS_HANDHELD = _is_handheld()
 
 # ===== Save Editor Paths =====
 
-# GBA ROM header game codes at offset 0xAC (4 ASCII bytes)
-# These are fixed values defined by Nintendo for each game regardless of region or revision.
-ROM_HEADER_CODES = {
-    "BPRE": "FireRed",
-    "BPGE": "LeafGreen",
-    "AXVE": "Ruby",
-    "AXPE": "Sapphire",
-    "BPEE": "Emerald",
+# GBA ROM identification
+# Detection order for .gba files:
+#   1. SHA-1 hash  -> exact vanilla dump match (all regions/revisions)
+#   2. Header code -> ROM hack fallback (hacks inherit base game header at 0xAC)
+#   3. Keyword     -> filename fallback for zips or anything else
+
+# Header codes used as fallback for ROM hacks (inherit from base game)
+_ROM_HEADER_CODES = {
+    "BPRE": "FireRed",   "BPGE": "LeafGreen",
+    "AXVE": "Ruby",      "AXPE": "Sapphire",
+    "BPEE": "Emerald",   "BPRJ": "FireRed",
+    "BPGJ": "LeafGreen", "AXVJ": "Ruby",
+    "AXPJ": "Sapphire",  "BPEJ": "Emerald",
+    "BPRD": "FireRed",   "BPGD": "LeafGreen",
+    "AXVD": "Ruby",      "AXPD": "Sapphire",
+    "BPED": "Emerald",   "BPRF": "FireRed",
+    "BPGF": "LeafGreen", "AXVF": "Ruby",
+    "AXPF": "Sapphire",  "BPEF": "Emerald",
+    "BPRI": "FireRed",   "BPGI": "LeafGreen",
+    "AXVI": "Ruby",      "AXPI": "Sapphire",
+    "BPEI": "Emerald",   "BPRS": "FireRed",
+    "BPGS": "LeafGreen", "AXVS": "Ruby",
+    "AXPS": "Sapphire",  "BPES": "Emerald",
 }
 
+# SHA-1 hash lookup - built once on first use from data/games.json
+_ROM_HASH_LOOKUP = {}  # sha1_hex -> game_name
 
-def read_rom_header_code(rom_path):
+
+def _load_rom_hashes():
+    """Load games.json and build the SHA-1 lookup dict. No-op after first call."""
+    if _ROM_HASH_LOOKUP:
+        return
+
+    hash_file = os.path.join(DATA_DIR, "games.json")
+    if not os.path.exists(hash_file):
+        print(f"[ROMDetect] games.json not found at {hash_file}")
+        return
+
+    try:
+        import json
+        with open(hash_file, "r", encoding="utf-8") as f:
+            entries = json.load(f)
+        for entry in entries:
+            sha1 = entry.get("sha1", "").lower().strip()
+            game = entry.get("game", "")
+            if sha1 and game:
+                _ROM_HASH_LOOKUP[sha1] = game
+        print(f"[ROMDetect] Loaded {len(_ROM_HASH_LOOKUP)} ROM hashes")
+    except Exception as e:
+        print(f"[ROMDetect] Failed to load games.json: {e}")
+
+
+def identify_rom(rom_path):
     """
-    Read the 4-byte game code from the GBA ROM header at offset 0xAC.
+    Identify a GBA ROM file and return the canonical game name.
 
-    This is the most reliable way to identify a GBA ROM - the code is fixed
-    by Nintendo and present in every legitimate dump including ROM hacks
-    (which inherit the base game's header code).
+    Detection order:
+      1. SHA-1 hash  — exact match against known vanilla dumps (all regions)
+      2. Header code — fallback for ROM hacks (inherit base game serial at 0xAC)
 
     Args:
         rom_path: Path to a .gba ROM file
 
     Returns:
-        str: Game name (e.g. "FireRed") if recognised, None otherwise
+        str: Game name e.g. "Emerald", or None if unrecognised
     """
+    import hashlib
+
+    basename = os.path.basename(rom_path)
+
     try:
         with open(rom_path, "rb") as f:
-            f.seek(0xAC)
-            code_bytes = f.read(4)
-        code = code_bytes.decode("ascii", errors="replace")
-        game = ROM_HEADER_CODES.get(code)
-        if game:
-            print(f"[ROMHeader] {os.path.basename(rom_path)}: code={code} -> {game}")
-        else:
-            print(f"[ROMHeader] {os.path.basename(rom_path)}: unrecognised code={code}")
-        return game
+            rom_data = f.read()
     except Exception as e:
-        print(f"[ROMHeader] Could not read header from {rom_path}: {e}")
+        print(f"[ROMDetect] Could not read {basename}: {e}")
         return None
+
+    # 1. SHA-1 hash check
+    _load_rom_hashes()
+    sha1 = hashlib.sha1(rom_data).hexdigest().lower()
+    game = _ROM_HASH_LOOKUP.get(sha1)
+    if game:
+        print(f"[ROMDetect] Hash match: {basename} -> {game} (sha1={sha1[:8]}...)")
+        return game
+
+    # 2. Header code fallback (ROM hacks keep base game serial)
+    try:
+        code = rom_data[0xAC:0xB0].decode("ascii", errors="replace")
+        game = _ROM_HEADER_CODES.get(code)
+        if game:
+            print(f"[ROMDetect] Header fallback: {basename} serial={code} -> {game} (ROM hack or unknown dump)")
+            return game
+    except Exception:
+        pass
+
+    print(f"[ROMDetect] Unrecognised ROM: {basename} (sha1={sha1[:8]}...)")
+    return None
 
 
 SAVES_PATH = SAVES_DIR  # Alias for compatibility

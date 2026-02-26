@@ -1,0 +1,356 @@
+[
+    {
+        "_comment": "ROM hash database compiled by FraudBatman. Contains SHA-1 hashes for all known vanilla Gen 3 GBA dumps across all regions and revisions.",
+        "_source": "https://github.com/FraudBatman"
+    },
+    {
+        "name": "Pocket Monsters - Emerald (Japan).gba",
+        "game": "Emerald",
+        "size": "16777216",
+        "sha1": "d7cf8f156ba9c455d164e1ea780a6bf1945465c2",
+        "serial": "BPEJ"
+    },
+    {
+        "name": "Pocket Monsters - FireRed (Japan).gba",
+        "game": "FireRed",
+        "size": "16777216",
+        "sha1": "04139887b6cd8f53269aca098295b006ddba6cfe",
+        "serial": "BPRJ"
+    },
+    {
+        "name": "Pocket Monsters - FireRed (Japan) (Rev 1).gba",
+        "game": "FireRed",
+        "size": "16777216",
+        "sha1": "7c7107b87c3ccf6e3dbceb9cf80ceeffb25a1857",
+        "serial": "BPRJ"
+    },
+    {
+        "name": "Pocket Monsters - LeafGreen (Japan).gba",
+        "game": "LeafGreen",
+        "size": "16777216",
+        "sha1": "5946f1b59e8d71cc61249661464d864185c92a5f",
+        "serial": "BPGJ"
+    },
+    {
+        "name": "Pocket Monsters - LeafGreen (Japan) (Rev 1).gba",
+        "game": "LeafGreen",
+        "size": "16777216",
+        "sha1": "de9d5a844f9bfb63a4448cccd4a2d186ecf455c3",
+        "serial": "BPGJ"
+    },
+    {
+        "name": "Pocket Monsters - Ruby (Japan) (Rev 1).gba",
+        "game": "Ruby",
+        "size": "8388608",
+        "sha1": "971e0d670a95e5b32240b2deed20405b8daddf47",
+        "serial": "AXVJ"
+    },
+    {
+        "name": "Pocket Monsters - Ruby (Japan).gba",
+        "game": "Ruby",
+        "size": "8388608",
+        "sha1": "5c5e546720300b99ae45d2aa35c646c8b8ff5c56",
+        "serial": "AXVJ"
+    },
+    {
+        "name": "Pocket Monsters - Sapphire (Japan).gba",
+        "game": "Sapphire",
+        "size": "8388608",
+        "sha1": "3233342c2f3087e6ffe6c1791cd5867db07df842",
+        "serial": "AXPJ"
+    },
+    {
+        "name": "Pocket Monsters - Sapphire (Japan) (Rev 1).gba",
+        "game": "Sapphire",
+        "size": "8388608",
+        "sha1": "01f509671445965236ac4c6b5a354fe2f1e69f13",
+        "serial": "AXPJ"
+    },
+    {
+        "name": "Pokemon - Blattgruene Edition (Germany).gba",
+        "game":"LeafGreen",
+        "size": "16777216",
+        "sha1": "0802d1fb185ee3ed48d9a22afb25e66424076dac",
+        "serial": "BPGD"
+    },
+    {
+        "name": "Pokemon - Edicion Esmeralda (Spain).gba",
+        "game":"Emerald",
+        "size": "16777216",
+        "sha1": "fe1558a3dcb0360ab558969e09b690888b846dd9",
+        "serial": "BPES"
+    },
+    {
+        "name": "Pokemon - Edicion Rojo Fuego (Spain).gba",
+        "game": "FireRed",
+        "size": "16777216",
+        "sha1": "ab8f6bfe0ccdaf41188cd015c8c74c314d02296a",
+        "serial": "BPRS"
+    },
+    {
+        "name": "Pokemon - Edicion Rubi (Spain).gba",
+        "game": "Ruby",
+        "size": "16777216",
+        "sha1": "1f49f7289253dcbfecbc4c5ba3e67aa0652ec83c",
+        "serial": "AXVS"
+    },
+    {
+        "name": "Pokemon - Edicion Rubi (Spain) (Rev 1).gba",
+        "game": "Ruby",
+        "size": "16777216",
+        "sha1": "9ac73481d7f5d150a018309bba91d185ce99fb7c",
+        "serial": "AXVS"
+    },
+    {
+        "name": "Pokemon - Edicion Verde Hoja (Spain).gba",
+        "game":"LeafGreen",
+        "size": "16777216",
+        "sha1": "f9ebee5d228cb695f18ef2ced41630a09fa9eb05",
+        "serial": "BPGS"
+    },
+    {
+        "name": "Pokemon - Edicion Zafiro (Spain).gba",
+        "game": "Sapphire",
+        "size": "16777216",
+        "sha1": "3a6489189e581c4b29914071b79207883b8c16d8",
+        "serial": "AXPS"
+    },
+    {
+        "name": "Pokemon - Edicion Zafiro (Spain) (Rev 1).gba",
+        "game": "Sapphire",
+        "size": "16777216",
+        "sha1": "0fe9ad1e602e2fafa090aee25e43d6980625173c",
+        "serial": "AXPS"
+    },
+    {
+        "name": "Pokemon - Emerald Version (USA, Europe).gba",
+        "game":"Emerald",
+        "size": "16777216",
+        "sha1": "f3ae088181bf583e55daf962a92bb46f4f1d07b7",
+        "serial": "BPEE"
+    },
+    {
+        "name": "Pokemon - Feuerrote Edition (Germany).gba",
+        "game": "FireRed",
+        "size": "16777216",
+        "sha1": "18a3758ceeef2c77b315144be2c3910d6f1f69fe",
+        "serial": "BPRD"
+    },
+    {
+        "name": "Pokemon - FireRed Version (USA, Europe).gba",
+        "game": "FireRed",
+        "size": "16777216",
+        "sha1": "41cb23d8dccc8ebd7c649cd8fbb58eeace6e2fdc",
+        "serial": "BPRE"
+    },
+    {
+        "name": "Pokemon - FireRed Version (USA, Europe) (Rev 1).gba",
+        "game": "FireRed",
+        "size": "16777216",
+        "sha1": "dd5945db9b930750cb39d00c84da8571feebf417",
+        "serial": "BPRE"
+    },
+    {
+        "name": "Pokemon - FireRed Version (USA, Europe) (Rev 1).gba",
+        "game": "FireRed",
+        "size": "16777216",
+        "sha1": "dd5945db9b930750cb39d00c84da8571feebf417",
+        "serial": "BPRE"
+    },
+    {
+        "name": "Pokemon - LeafGreen Version (USA, Europe).gba",
+        "game":"LeafGreen",
+        "size": "16777216",
+        "sha1": "574fa542ffebb14be69902d1d36f1ec0a4afd71e",
+        "serial": "BPGE"
+    },
+    {
+        "name": "Pokemon - LeafGreen Version (USA, Europe) (Rev 1).gba",
+        "game":"LeafGreen", 
+        "size": "16777216",
+        "sha1": "7862c67bdecbe21d1d69ce082ce34327e1c6ed5e",
+        "serial": "BPGE"
+    },
+    {
+        "name": "Pokemon - Rubin-Edition (Germany).gba",
+        "game": "Ruby",
+        "size": "16777216",
+        "sha1": "1c2a53332382e14dab8815e3a6dd81ad89534050",
+        "serial": "AXVD"
+    },
+    {
+        "name": "Pokemon - Rubin-Edition (Germany) (Rev 1).gba",
+        "game": "Ruby",
+        "size": "16777216",
+        "sha1": "424740be1fc67a5ddb954794443646e6aeee2c1b",
+        "serial": "AXVD"
+    },
+    {
+        "name": "Pokemon - Ruby Version (USA, Europe) (Rev 1).gba",
+        "game": "Ruby",
+        "size": "16777216",
+        "sha1": "610b96a9c9a7d03d2bafb655e7560ccff1a6d894",
+        "serial": "AXVE"
+    },
+    {
+        "name": "Pokemon - Ruby Version (USA, Europe) (Rev 2).gba",
+        "game": "Ruby",
+        "size": "16777216",
+        "sha1": "5b64eacf892920518db4ec664e62a086dd5f5bc8",
+        "serial": "AXVE"
+    },
+    {
+        "name": "Pokemon - Ruby Version (USA, Europe).gba",
+        "game": "Ruby",
+        "size": "16777216",
+        "sha1": "f28b6ffc97847e94a6c21a63cacf633ee5c8df1e",
+        "serial": "AXVE"
+    },
+    {
+        "name": "Pokemon - Saphir-Edition (Germany).gba",
+        "game": "Sapphire",
+        "size": "16777216",
+        "sha1": "5a087835009d552d4c5c1f96be3be3206e378153",
+        "serial": "AXPD"
+    },
+    {
+        "name": "Pokemon - Saphir-Edition (Germany) (Rev 1).gba",
+        "game": "Sapphire",
+        "size": "16777216",
+        "sha1": "7e6e034f9cdca6d2c4a270fdb50a94def5883d17",
+        "serial": "AXPD"
+    },
+    {
+        "name": "Pokemon - Sapphire Version (USA, Europe) (Rev 1).gba",
+        "game": "Sapphire",
+        "size": "16777216",
+        "sha1": "4722efb8cd45772ca32555b98fd3b9719f8e60a9",
+        "serial": "AXPE"
+    },
+    {
+        "name": "Pokemon - Sapphire Version (USA, Europe) (Rev 2).gba",
+        "game": "Sapphire",
+        "size": "16777216",
+        "sha1": "89b45fb172e6b55d51fc0e61989775187f6fe63c",
+        "serial": "AXPE"
+    },
+    {
+        "name": "Pokemon - Sapphire Version (USA, Europe).gba",
+        "game": "Sapphire",
+        "size": "16777216",
+        "sha1": "3ccbbd45f8553c36463f13b938e833f652b793e4",
+        "serial": "AXPE"
+    },
+    {
+        "name": "Pokemon - Sapphire Version (USA, Europe).gba",
+        "game": "Sapphire",
+        "size": "16777216",
+        "sha1": "3ccbbd45f8553c36463f13b938e833f652b793e4",
+        "serial": "AXPE"
+    },
+    {
+        "name": "Pokemon - Smaragd-Edition (Germany).gba",
+        "game":"Emerald",
+        "size": "16777216",
+        "sha1": "61c2eb2b380b1a75f0c94b767a2d4c26cd7ce4e3",
+        "serial": "BPED"
+    },
+    {
+        "name": "Pokemon - Version Emeraude (France).gba",
+        "game":"Emerald",
+        "size": "16777216",
+        "sha1": "ca666651374d89ca439007bed54d839eb7bd14d0",
+        "serial": "BPEF"
+    },
+    {
+        "name": "Pokemon - Version Rouge Feu (France).gba",
+        "game": "FireRed",
+        "size": "16777216",
+        "sha1": "fc663907256f06a3a09e2d6b967bc9af4919f111",
+        "serial": "BPRF"
+    },
+    {
+        "name": "Pokemon - Version Rubis (France).gba",
+        "game": "Ruby",
+        "size": "16777216",
+        "sha1": "a6ee94202bec0641c55d242757e84dc89336d4cb",
+        "serial": "AXVF"
+    },
+    {
+        "name": "Pokemon - Version Rubis (France) (Rev 1).gba",
+        "game": "Ruby",
+        "size": "16777216",
+        "sha1": "ba888dfba231a231cbd60fe228e894b54fb1ed79",
+        "serial": "AXVF"
+    },
+    {
+        "name": "Pokemon - Version Saphir (France).gba",
+        "game": "Sapphire",
+        "size": "16777216",
+        "sha1": "c269b5692b2d0e5800ba1ddf117fda95ac648634",
+        "serial": "AXPF"
+    },
+    {
+        "name": "Pokemon - Version Saphir (France) (Rev 1).gba",
+        "game": "Sapphire",
+        "size": "16777216",
+        "sha1": "860e93f5ea44f4278132f6c1ee5650d07b852fd8",
+        "serial": "AXPF"
+    },
+    {
+        "name": "Pokemon - Version Vert Feuille (France).gba",
+        "game": "LeafGreen",
+        "size": "16777216",
+        "sha1": "4b5758c14d0a07b70ef3ef0bd7fa5e7ce6978672",
+        "serial": "BPGF"
+    },
+    {
+        "name": "Pokemon - Versione Rosso Fuoco (Italy).gba",
+        "game": "FireRed",
+        "size": "16777216",
+        "sha1": "66a9d415205321376b4318534c0dce5f69d28362",
+        "serial": "BPRI"
+    },
+    {
+        "name": "Pokemon - Versione Rubino (Italy).gba",
+        "game": "Ruby",
+        "size": "16777216",
+        "sha1": "2b3134224392f58da00f802faa1bf4b5cf6270be",
+        "serial": "AXVI"
+    },
+    {
+        "name": "Pokemon - Versione Rubino (Italy) (Rev 1).gba",
+        "game": "Ruby",
+        "size": "16777216",
+        "sha1": "015a5d380afe316a2a6fcc561798ebff9dfb3009",
+        "serial": "AXVI"
+    },
+    {
+        "name": "Pokemon - Versione Smeraldo (Italy).gba",
+        "game":"Emerald",
+        "size": "16777216",
+        "sha1": "1692db322400c3141c5de2db38469913ceb1f4d4",
+        "serial": "BPEI"
+    },
+    {
+        "name": "Pokemon - Versione Verde Foglia (Italy).gba",
+        "game":"LeafGreen",
+        "size": "16777216",
+        "sha1": "a1dfea1493d26d1f024be8ba1de3d193fcfc651e",
+        "serial": "BPGI"
+    },
+    {
+        "name": "Pokemon - Versione Zaffiro (Italy).gba",
+        "game": "Sapphire",
+        "size": "16777216",
+        "sha1": "f729dd571fb2c09e72c5c1d68fe0a21e72713d34",
+        "serial": "AXPI"
+    },
+    {
+        "name": "Pokemon - Versione Zaffiro (Italy) (Rev 1).gba",
+        "game": "Sapphire",
+        "size": "16777216",
+        "sha1": "73edf67b9b82ff12795622dca412733755d2c0fe",
+        "serial": "AXPI"
+    }
+]

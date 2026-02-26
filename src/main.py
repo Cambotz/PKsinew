@@ -54,7 +54,7 @@ from config import (
     SETTINGS_FILE,
     SPRITES_DIR,
     SYSTEM_DIR,
-    read_rom_header_code,
+    identify_rom,
 )
 from save_data_manager import get_manager, precache_save
 from ui_components import Button
@@ -298,13 +298,43 @@ GAME_DEFINITIONS = {
 }
 
 
+# Module-level ROM scan cache: populated once per directory on first call.
+# Maps roms_dir -> {rom_path -> game_name | None}
+# Avoids re-hashing every .gba file for each of the five game lookups.
+_rom_scan_cache = {}  # roms_dir -> {rom_path -> game_name | None}
+
+
+def _build_rom_scan_cache(roms_dir):
+    """
+    Scan roms_dir once, hash every .gba, cache results.
+    No-op if already scanned. Supports multiple directories independently.
+    """
+    if roms_dir in _rom_scan_cache:
+        return
+
+    scan = {}
+
+    if not os.path.exists(roms_dir):
+        _rom_scan_cache[roms_dir] = scan
+        return
+
+    for filename in os.listdir(roms_dir):
+        if not filename.lower().endswith((".gba", ".zip", ".7z")):
+            continue
+        rom_path = os.path.join(roms_dir, filename)
+        scan[rom_path] = identify_rom(rom_path) if filename.lower().endswith(".gba") else None
+
+    _rom_scan_cache[roms_dir] = scan
+    print(f"[GameScreen] ROM scan complete: {len(scan)} files in {roms_dir}")
+
+
 def find_rom_for_game(game_name, roms_dir):
     """
     Search for a ROM file matching the given game name.
 
     Detection order:
-      1. ROM header check (reads 4 bytes at 0xAC) - works for vanilla and ROM hacks
-      2. Filename keyword fallback - for zips or ROMs with unreadable headers
+      1. ROM scan cache (hash + header) - built once per directory
+      2. Filename keyword fallback - for zips or unrecognised ROMs
 
     Args:
         game_name: Name of the game (e.g., "FireRed")
@@ -323,26 +353,24 @@ def find_rom_for_game(game_name, roms_dir):
     if not os.path.exists(roms_dir):
         return None, None
 
-    keyword_fallback = None  # Store first keyword match in case header check finds nothing
+    # Ensure directory has been scanned (no-op if already done)
+    _build_rom_scan_cache(roms_dir)
 
-    for filename in os.listdir(roms_dir):
-        if not filename.lower().endswith((".gba", ".zip", ".7z")):
-            continue
+    keyword_fallback = None
 
+    for rom_path, detected in _rom_scan_cache[roms_dir].items():
+        filename = os.path.basename(rom_path)
         name_lower = filename.lower()
         base_name = os.path.splitext(filename)[0]
-        rom_path = os.path.join(roms_dir, filename)
 
-        # --- Header check (only for .gba, can't read inside zips) ---
-        if filename.lower().endswith(".gba"):
-            detected = read_rom_header_code(rom_path)
-            if detected == game_name:
-                sav_path = os.path.join(SAVES_DIR, base_name + ".sav")
-                print(f"[GameScreen] Header match {game_name}: {filename}")
-                return rom_path, sav_path
+        # Cache hit
+        if detected == game_name:
+            sav_path = os.path.join(SAVES_DIR, base_name + ".sav")
+            print(f"[GameScreen] ROM match {game_name}: {filename}")
+            return rom_path, sav_path
 
-        # --- Filename keyword fallback ---
-        if keyword_fallback is None:
+        # Keyword fallback for zips and unrecognised .gba files
+        if keyword_fallback is None and detected is None:
             if any(ex.lower() in name_lower for ex in exclude):
                 continue
             for keyword in keywords:
@@ -351,7 +379,6 @@ def find_rom_for_game(game_name, roms_dir):
                     keyword_fallback = (rom_path, sav_path)
                     break
 
-    # Use keyword match if header check found nothing (e.g. zip files)
     if keyword_fallback:
         print(f"[GameScreen] Keyword match {game_name}: {os.path.basename(keyword_fallback[0])}")
         return keyword_fallback
