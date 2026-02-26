@@ -244,18 +244,23 @@ SINEW_MENU_ITEMS = ["Pokedex", "PC Box", "Achievements", "Settings"]
 GAME_DEFINITIONS = {
     "Ruby": {
         "title_gif": os.path.join(SPRITES_DIR, "title", "ruby.gif"),
+        "type": "RS"
     },
     "Sapphire": {
         "title_gif": os.path.join(SPRITES_DIR, "title", "sapphire.gif"),
+        "type": "RS"
     },
     "Emerald": {
         "title_gif": os.path.join(SPRITES_DIR, "title", "emerald.gif"),
+        "type": "E",
     },
     "FireRed": {
         "title_gif": os.path.join(SPRITES_DIR, "title", "firered.gif"),
+        "type": "FRLG",
     },
     "LeafGreen": {
         "title_gif": os.path.join(SPRITES_DIR, "title", "leafgreen.gif"),
+        "type": "FRLG",
     },
 }
 
@@ -405,6 +410,7 @@ def detect_games():
             "title_gif": game_def["title_gif"],
             "rom": rom_path,
             "sav": sav_path,
+            "type": game_def["type"]
         }
 
     return games
@@ -2486,7 +2492,7 @@ class GameScreen:
                         screen, f"Loading {gname} save...", current_item, total_items
                     )
 
-                precache_save(sav_path)
+                precache_save(sav_path, game_data["type"])
                 current_item += 1
 
         self._precached = True

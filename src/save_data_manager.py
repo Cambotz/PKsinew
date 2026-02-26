@@ -82,7 +82,7 @@ def get_species_name(species_id):
     return _species_names.get(species_id, f"Pokemon #{species_id}")
 
 
-def precache_save(save_path):
+def precache_save(save_path, game_type = None):
     """
     Pre-parse a save file and cache it.
     Returns True if successful, False otherwise.
@@ -98,6 +98,9 @@ def precache_save(save_path):
     try:
         parser = Gen3SaveParser(save_path)
         if parser.loaded:
+            if game_type and parser.game_type != game_type:
+                    print(f"Save type {parser.game_type} does not match game type {game_type}")
+                    return False
             _save_cache[save_path] = parser
             return True
     except Exception as e:
@@ -138,9 +141,9 @@ class SaveDataManager:
         self.current_save_path = None
         self.loaded = False
 
-    def load_save(self, save_path):
+    def load_save(self, save_path, game_type = ""):
         """
-        Load a save file. Uses cache if available.
+        Load a save file. Uses cache if available. Can also validate if save game matches its game
 
         Args:
             save_path: Path to .sav file
@@ -166,6 +169,10 @@ class SaveDataManager:
             self.loaded = self.parser.loaded
 
             if self.loaded:
+                #there's a mismatch between the game and its save. Either corrupted or improperly named.
+                if game_type and self.parser.game_type != game_type:
+                    print(f"Save type {self.parser.game_type} does not match game type {game_type}")
+                    return False
                 self.current_save_path = save_path
                 # Add to cache for future use
                 _save_cache[save_path] = self.parser
