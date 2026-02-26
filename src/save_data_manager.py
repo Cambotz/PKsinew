@@ -143,10 +143,11 @@ class SaveDataManager:
 
     def load_save(self, save_path, game_type = None):
         """
-        Load a save file. Uses cache if available. Can also validate if save game matches its game
+        Load a save file. Uses cache if available. Can also validate if save game matches its expected game type
 
         Args:
             save_path: Path to .sav file
+            game_type: the game_type of the file that should load. Will return false if they do not match
 
         Returns:
             bool: True if successful
