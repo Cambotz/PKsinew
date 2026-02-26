@@ -273,7 +273,7 @@ def get_egg_sprite_path(sprite_type="gen3"):
 # ===== Directory Creation =====
 # Create necessary directories if they don't exist
 # Other external directories (data, themes, sprites) should be included in the distribution
-for dir_path in [ROMS_DIR, SAVES_DIR, SYSTEM_DIR]:
+for dir_path in [ROMS_DIR, SAVES_DIR, SYSTEM_DIR, os.path.dirname(SETTINGS_FILE)]:
     os.makedirs(dir_path, exist_ok=True)
 
 

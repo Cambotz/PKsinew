@@ -483,6 +483,8 @@ def load_settings():
 
 def save_settings_file(data):
     """Save settings to sinew_settings.json"""
+    # Ensure the directory exists (e.g. saves/sinew/ may not exist on first run)
+    os.makedirs(os.path.dirname(SETTINGS_FILE), exist_ok=True)
     # Merge with existing settings to preserve other data
     existing = load_settings()
     existing.update(data)
