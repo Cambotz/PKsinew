@@ -29,6 +29,7 @@ a = Analysis(
         ('src/parser', 'parser'),
         ('src/DBbuilder.py', '.'),
         ('src/wallgen.py', '.'),
+        ('src/providers', 'providers')
     ],
     hiddenimports=[
         'requests', 
