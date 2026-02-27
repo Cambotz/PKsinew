@@ -26,11 +26,13 @@ class RocknixProvider(EmulatorProvider):
         if "emulator_cache" not in self.settings:
             self.settings["emulator_cache"] = {}
         self.cache = self.settings["emulator_cache"]
+        print(f"[RocknixProvider] Cache loaded: {self.cache}")
 
     def probe(self, distro_id):
-        if distro_id == "rocknix":
-            return os.path.exists("/usr/bin/runemu.sh")
-        return False
+        is_rocknix = (distro_id == "rocknix")
+        script_exists = os.path.exists("/usr/bin/runemu.sh")
+        print(f"[RocknixProvider] Probe - Distro: {distro_id} (Match: {is_rocknix}), Script: {script_exists}")
+        return is_rocknix and script_exists
 
     def get_command(self, rom_path, core="auto"):
         """
@@ -64,7 +66,7 @@ class RocknixProvider(EmulatorProvider):
 
         controller_str = f" -p1index 0 -p1guid {guid} "
 
-        return [
+        cmd = [
             "/usr/bin/runemu.sh",
             rom_path,
             "-Pgba",
@@ -72,6 +74,8 @@ class RocknixProvider(EmulatorProvider):
             f"--emulator={selected_emu}",
             f"--controllers={controller_str}"
         ]
+        
+        return cmd
 
     def _get_last_input_guid(self):
         path = "/storage/.emulationstation/es_last_input.cfg"
@@ -92,8 +96,8 @@ class RocknixProvider(EmulatorProvider):
                     if line.startswith(setting_key):
                         value = line.split('=')[1].strip()
                         return value.replace('"', '')
-        except:
-            pass
+        except Exception as e:
+            print(f"[RocknixProvider] EXCEPTION reading RA config: {e}")
         return None
 
     def get_save_dir(self, rom_path):
@@ -146,7 +150,8 @@ class RocknixProvider(EmulatorProvider):
                             for core in emu.findall('.//core'):
                                 if core.get('default') == 'true':
                                     return core.text, emu_name
-            except: continue
+            except Exception as e:
+                print(f"[RocknixProvider] EXCEPTION parsing system config: {e}")
         return "mgba", "retroarch"
 
     def _update_sinew_cache(self, key, value):

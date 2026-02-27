@@ -3074,7 +3074,7 @@ class GameScreen:
         print(f"[Dev]   Sinew save    → {sinew_edit_path}")
 
         # --- Launch ---
-        success = self.external_emu.launch(rom_path)
+        success = self.external_emu.launch(rom_path, self.controller)
         if not success:
             if sinew_edit_path != ext_sav:
                 try:
@@ -4438,6 +4438,13 @@ if __name__ == "__main__":
 
     running = True
     while running:
+    
+        # If external emulator is running we pause sinew
+        if game_screen.external_emu and game_screen.external_emu.is_running:
+            pygame.time.wait(250)
+            pygame.event.pump()
+            continue
+
         dt = clock.tick(60)
 
         events = pygame.event.get()

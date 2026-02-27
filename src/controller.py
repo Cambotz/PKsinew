@@ -1038,6 +1038,22 @@ class ControllerManager:
 
         return events
 
+    def pause(self):
+        """Releases the joystick hardware and silences input processing."""
+        print("[Controller] Pausing input for external emulator...")
+        self.connected = False
+        # Physically shut down the joystick subsystem
+        pygame.joystick.quit() 
+        # Clear states so buttons aren't 'stuck' when we return
+        self.button_states = {k: False for k in self.button_states}
+        self.dpad_states = {k: False for k in self.dpad_states}
+
+    def resume(self):
+        """Reclaims the joystick hardware."""
+        print("[Controller] Resuming input for Sinew...")
+        pygame.joystick.init()
+        self._scan_controllers()
+
 
 class NavigableList:
     """
