@@ -3297,6 +3297,16 @@ class GameScreen:
                 if self.scaler:
                     self.scaler.restore_virtual_resolution()
                 self._show_return_loading_screen("Returning to Sinew...")
+                
+                # Reload controller configuration for Sinew UI
+                # This ensures D-pad mappings are fresh after returning from emulator
+                if self.controller and hasattr(self.controller, 'refresh_controller_config'):
+                    try:
+                        self.controller.refresh_controller_config()
+                        print("[Sinew] Reloaded controller config after pausing")
+                    except Exception as e:
+                        print(f"[Sinew] Error reloading controller config: {e}")
+                
                 # Force reload save data since it was modified by emulator
                 self._force_reload_current_save()
                 # Check achievements based on updated save data

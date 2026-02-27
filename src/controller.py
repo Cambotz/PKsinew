@@ -329,6 +329,22 @@ class ControllerManager:
 
         self._store_originals_and_swap()
 
+    def refresh_controller_config(self):
+        """
+        Refresh controller configuration.
+        
+        Re-applies the controller profile to ensure D-pad and button mappings
+        are current. Useful after returning from emulator where controller state
+        might have diverged.
+        """
+        if self.active_controller and self.connected:
+            print("[Controller] Refreshing controller configuration...")
+            self._apply_profile_for_controller(self.active_controller)
+            # Also reload keyboard nav map in case settings changed
+            self._load_keyboard_config()
+        else:
+            print("[Controller] No active controller to refresh")
+
     def _store_originals_and_swap(self):
         """Store original A/B values and apply swap if pending."""
         self._original_a = self.button_map["A"][:]
