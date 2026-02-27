@@ -1,3 +1,26 @@
+PKsinew v1.3.6 
+
+NEW:
+- Groundwork for external emulator and provider support by (@JeodC)
+- Header-based save detection
+- SHA-1 ROM detection
+- Pause/Menu keyboard binding
+- Dev mode toggle for external_emulator.py
+
+Improvements:
+- Initial load optimisation
+- Controller auto-detection reliability
+- Pause/Menu combo no longer requires holding the buttons
+
+Fixes:
+- DualSense D-Pad handling
+- mGBA audio initialisation fix
+
+Technical:
+- Hash database for ROM detection built by (@Fraudbatman)
+- Consistent shebangs/docstrings applied across modules and general codebase cleanups by (@JeodC)
+
+=========================================================================
 
 PKsinew v1.3.5
 

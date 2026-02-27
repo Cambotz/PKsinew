@@ -1192,7 +1192,7 @@ class MainSetup:
                 },
             ],
             "Info": [
-                {"name": "Sinew Version", "type": "label", "value": "v1.3.5"},
+                {"name": "Sinew Version", "type": "label", "value": "v1.3.6"},
                 {"name": "Author", "type": "label", "value": "Cameron Penna"},
                 {"name": "Pokemon DB Status", "type": "label", "value": "Checking..."},
                 {"name": "About/Legal", "type": "button"},

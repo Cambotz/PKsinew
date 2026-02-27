@@ -49,7 +49,7 @@
             "Pygame — LGPL 2.1",
             "PokéAPI — MIT",
             "Python — PSF License (if bundled)",
-            "",
+            "SDL_GameControllerDB — zlib License",
             "Full license texts are included in the `licenses/` folder."
           ]
         }
