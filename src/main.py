@@ -363,9 +363,16 @@ def find_rom_for_game(game_name, roms_dir):
         name_lower = filename.lower()
         base_name = os.path.splitext(filename)[0]
 
-        # Cache hit
+        # Cache hit - ROM identified by hash/header
         if detected == game_name:
-            sav_path = os.path.join(SAVES_DIR, base_name + ".sav")
+            # Try save detection first (content-based)
+            sav_path = find_save_for_game(game_name, SAVES_DIR)
+            # Fallback to filename matching
+            if not sav_path:
+                candidate = os.path.join(SAVES_DIR, base_name + ".sav")
+                if os.path.exists(candidate):
+                    sav_path = candidate
+            
             print(f"[GameScreen] ROM match {game_name}: {filename}")
             return rom_path, sav_path
 
@@ -375,7 +382,12 @@ def find_rom_for_game(game_name, roms_dir):
                 continue
             for keyword in keywords:
                 if keyword.lower() in name_lower:
-                    sav_path = os.path.join(SAVES_DIR, base_name + ".sav")
+                    # Also try save detection for keyword matches
+                    sav_path = find_save_for_game(game_name, SAVES_DIR)
+                    if not sav_path:
+                        candidate = os.path.join(SAVES_DIR, base_name + ".sav")
+                        if os.path.exists(candidate):
+                            sav_path = candidate
                     keyword_fallback = (rom_path, sav_path)
                     break
 
@@ -388,43 +400,61 @@ def find_rom_for_game(game_name, roms_dir):
 
 def find_save_for_game(game_name, saves_dir):
     """
-    Search the saves directory for a .sav file matching the game's keywords.
-    Used as a fallback when no ROM is found, so save-only games are detected.
-
+    Search the saves directory for a .sav file matching the game.
+    
+    Detection order:
+      1. Save scan cache (game code detection) - built once for the whole saves_dir
+      2. Filename keyword fallback - for manually named saves
+    
     Args:
         game_name: Name of the game (e.g., "FireRed")
         saves_dir: Directory to search for .sav files
-
+        
     Returns:
         str or None: Path to the first matching .sav file, or None
     """
+    from config import _build_save_scan_cache, _save_scan_cache
+    
     if game_name not in GAME_DEFINITIONS:
         return None
-
+    
     game_def = GAME_DEFINITIONS[game_name]
     keywords = game_def.get("keywords", [])
     exclude = game_def.get("exclude", [])
-
+    
     if not os.path.exists(saves_dir):
         return None
-
-    for filename in os.listdir(saves_dir):
-        if not filename.lower().endswith(".sav"):
-            continue
-
+    
+    # Ensure the directory has been scanned (no-op if already done)
+    _build_save_scan_cache(saves_dir)
+    
+    keyword_fallback = None
+    
+    for save_path, detected in _save_scan_cache[saves_dir].items():
+        filename = os.path.basename(save_path)
         name_lower = filename.lower()
-
-        # Check exclusions
-        if any(ex.lower() in name_lower for ex in exclude):
-            continue
-
-        # Check keywords
-        for keyword in keywords:
-            if keyword.lower() in name_lower:
-                sav_path = os.path.join(saves_dir, filename)
-                print(f"[GameScreen] Found save-only {game_name}: {filename}")
-                return sav_path
-
+        
+        # --- Cache hit: game code detection ---
+        if detected == game_name:
+            print(f"[GameScreen] Save match {game_name}: {filename}")
+            return save_path
+        
+        # --- Keyword fallback (for manually named saves) ---
+        if keyword_fallback is None and detected is None:
+            # Check exclusions
+            if any(ex.lower() in name_lower for ex in exclude):
+                continue
+            
+            # Check keywords
+            for keyword in keywords:
+                if keyword.lower() in name_lower:
+                    keyword_fallback = save_path
+                    break
+    
+    if keyword_fallback:
+        print(f"[GameScreen] Save keyword match {game_name}: {os.path.basename(keyword_fallback)}")
+        return keyword_fallback
+    
     return None
 
 

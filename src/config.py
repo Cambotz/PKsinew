@@ -244,6 +244,140 @@ def identify_rom(rom_path):
     return None
 
 
+# ==============================================================================
+# SAVE FILE DETECTION SYSTEM
+# ==============================================================================
+
+# Game code mappings for save file detection
+# These are 4-byte game codes stored at Section 0 + 0xAC in Gen 3 saves
+_SAVE_GAME_CODES = {
+    b'BPRE': 'FireRed',    # FireRed (USA/Europe)
+    b'BPRJ': 'FireRed',    # FireRed (Japan)
+    b'BPGE': 'LeafGreen',  # LeafGreen (USA/Europe)
+    b'BPGJ': 'LeafGreen',  # LeafGreen (Japan)
+    b'AXVE': 'Ruby',       # Ruby (USA/Europe)
+    b'AXVJ': 'Ruby',       # Ruby (Japan)
+    b'AXPE': 'Sapphire',   # Sapphire (USA/Europe)
+    b'AXPJ': 'Sapphire',   # Sapphire (Japan)
+    b'BPEE': 'Emerald',    # Emerald (USA/Europe)
+    b'BPEJ': 'Emerald',    # Emerald (Japan)
+}
+
+# Save scan cache - maps saves_dir -> {save_path -> game_name | None}
+_save_scan_cache = {}
+
+
+def identify_save(save_path):
+    """
+    Identify a Gen 3 Pokemon save file by reading its game code.
+    
+    Gen 3 saves are 128KB with two save slots. Each slot contains 14 sections.
+    The game code is stored at Section 0 + 0xAC (4 bytes).
+    
+    Detection strategy:
+    1. Find active save slot (highest save index)
+    2. Locate Section 0 in active slot
+    3. Read game code at offset 0xAC
+    4. Map to canonical game name
+    
+    Args:
+        save_path: Path to a .sav file
+        
+    Returns:
+        str: Game name (e.g., "FireRed", "Emerald") or None if unrecognized
+    """
+    import struct
+    
+    basename = os.path.basename(save_path)
+    
+    try:
+        with open(save_path, 'rb') as f:
+            data = f.read()
+    except Exception as e:
+        print(f"[SaveDetect] Could not read {basename}: {e}")
+        return None
+    
+    # Gen 3 saves are exactly 128KB
+    if len(data) != 131072:
+        return None  # Not a Gen 3 save or corrupted
+    
+    # Find the active save slot by checking save index at each slot
+    # Save index is stored at offset 0x0FFC in slot A and 0xEFFC in slot B
+    try:
+        import struct
+        slot_a_index = struct.unpack('<I', data[0x0FFC:0x1000])[0]
+        slot_b_index = struct.unpack('<I', data[0xEFFC:0xF000])[0]
+        
+        # Active slot is the one with higher save index
+        active_slot_offset = 0xE000 if slot_b_index > slot_a_index else 0x0000
+        active_slot = 'B' if slot_b_index > slot_a_index else 'A'
+    except Exception as e:
+        print(f"[SaveDetect] Could not read save indices for {basename}: {e}")
+        return None
+    
+    # Find Section 0 within the active slot
+    # Each section is 4096 bytes, section ID is at offset +0xFF4
+    section_0_offset = None
+    
+    for i in range(14):  # 14 sections per save slot
+        section_offset = active_slot_offset + (i * 0x1000)
+        section_id_offset = section_offset + 0xFF4
+        
+        try:
+            section_id = struct.unpack('<H', data[section_id_offset:section_id_offset+2])[0]
+            if section_id == 0:
+                section_0_offset = section_offset
+                break
+        except Exception:
+            continue
+    
+    if section_0_offset is None:
+        return None
+    
+    # Read game code at Section 0 + 0xAC (4 bytes)
+    game_code_offset = section_0_offset + 0xAC
+    
+    try:
+        game_code = data[game_code_offset:game_code_offset+4]
+        game_name = _SAVE_GAME_CODES.get(game_code)
+        
+        if game_name:
+            print(f"[SaveDetect] Identified {basename} -> {game_name} (code={game_code.decode('ascii', errors='replace')}, slot={active_slot})")
+            return game_name
+    except Exception:
+        pass
+    
+    return None
+
+
+def _build_save_scan_cache(saves_dir):
+    """
+    Scan saves_dir once, identify every .sav file, and cache the results.
+    Subsequent calls with the same directory are a no-op.
+    
+    Args:
+        saves_dir: Directory containing .sav files
+    """
+    if saves_dir in _save_scan_cache:
+        return  # Already scanned
+    
+    scan = {}
+    
+    if not os.path.exists(saves_dir):
+        _save_scan_cache[saves_dir] = scan
+        return
+    
+    for filename in os.listdir(saves_dir):
+        if not filename.lower().endswith('.sav'):
+            continue
+        
+        save_path = os.path.join(saves_dir, filename)
+        scan[save_path] = identify_save(save_path)
+    
+    _save_scan_cache[saves_dir] = scan
+    print(f"[SaveDetect] Save scan complete: {len(scan)} files in {saves_dir}")
+
+
 SAVES_PATH = SAVES_DIR  # Alias for compatibility
 
 # ROM and Save paths for each game

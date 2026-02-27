@@ -144,6 +144,7 @@ class SaveDataManager:
     def __init__(self):
         self.parser = None
         self.current_save_path = None
+        self.current_game_hint = None  # Store game hint for reload
         self.loaded = False
 
     def load_save(self, save_path, game_hint=None):
@@ -170,6 +171,7 @@ class SaveDataManager:
                 self.parser = cached
                 self.loaded = True
                 self.current_save_path = save_path
+                self.current_game_hint = game_hint  # Store for reload
                 return True
 
             # Not cached, parse fresh
@@ -178,6 +180,7 @@ class SaveDataManager:
 
             if self.loaded:
                 self.current_save_path = save_path
+                self.current_game_hint = game_hint  # Store for reload
                 # Add to cache for future use
                 _save_cache[save_path] = self.parser
                 return True
@@ -210,11 +213,13 @@ class SaveDataManager:
         """
         self.parser = None
         self.current_save_path = None
+        self.current_game_hint = None  # Clear stored game hint
         self.loaded = False
 
     def reload(self):
         """
         Reload the current save file from disk.
+        Uses the stored game_hint from the original load for consistent detection.
         Useful after external modifications (like transfers).
 
         Returns:
@@ -228,8 +233,8 @@ class SaveDataManager:
         if self.current_save_path in _save_cache:
             del _save_cache[self.current_save_path]
 
-        # Reload
-        return self.load_save(self.current_save_path)
+        # Reload with same game_hint that was used initially
+        return self.load_save(self.current_save_path, game_hint=self.current_game_hint)
 
     # ==================== GAME INFO ====================
 
