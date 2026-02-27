@@ -453,6 +453,13 @@ class MgbaEmulator:
         os.makedirs(self.save_dir, exist_ok=True)
         os.makedirs(self.system_dir, exist_ok=True)
 
+        # Clean up any leftover temp ROM files from previous crashes
+        try:
+            from config import cleanup_temp_roms
+            cleanup_temp_roms()
+        except Exception as e:
+            print(f"[MgbaEmulator] Initial temp cleanup failed: {e}")
+
         # State
         self.loaded = False
         self.paused = False
@@ -1014,27 +1021,37 @@ class MgbaEmulator:
 
     def load_rom(self, rom_path, save_path=None):
         """
-        Load a ROM file.
+        Load a ROM file. Supports both .gba and .zip files.
 
         Args:
-            rom_path: Path to the GBA ROM
+            rom_path: Path to the GBA ROM (.gba or .zip)
             save_path: Optional path to save file (auto-derived if not provided)
         """
         if not os.path.exists(rom_path):
             raise FileNotFoundError(f"ROM not found: {rom_path}")
 
+        # Store original path for display purposes
         self.rom_path = os.path.abspath(rom_path)
+        
+        # Handle .zip files - extract to temp
+        actual_rom_path = self.rom_path
+        if rom_path.lower().endswith('.zip'):
+            from config import extract_zip_to_temp
+            actual_rom_path = extract_zip_to_temp(rom_path)
+            if actual_rom_path is None:
+                raise RuntimeError(f"Failed to extract ROM from zip: {rom_path}")
+            print(f"[MgbaEmulator] Using extracted ROM: {actual_rom_path}")
 
-        # Derive save path if not provided
+        # Derive save path from ORIGINAL filename (not extracted temp name)
         if save_path:
             self.save_path = os.path.abspath(save_path)
         else:
             rom_basename = os.path.splitext(os.path.basename(rom_path))[0]
             self.save_path = os.path.join(self.save_dir, f"{rom_basename}.sav")
 
-        # Load the ROM
+        # Load the ROM using the actual (extracted or direct) path
         game = retro_game_info(
-            path=self.rom_path.encode("utf-8"), data=None, size=0, meta=None
+            path=actual_rom_path.encode("utf-8"), data=None, size=0, meta=None
         )
 
         if not self.lib.retro_load_game(byref(game)):
@@ -2165,6 +2182,13 @@ class MgbaEmulator:
             self.lib.retro_deinit()
         except Exception as e:
             print(f"[MgbaEmulator] Deinit failed: {e}")
+
+        # Clean up temporary extracted ROM files
+        try:
+            from config import cleanup_temp_roms
+            cleanup_temp_roms()
+        except Exception as e:
+            print(f"[MgbaEmulator] Temp ROM cleanup failed: {e}")
 
         print("[MgbaEmulator] Shutdown complete")
 

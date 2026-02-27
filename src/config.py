@@ -214,10 +214,10 @@ VIDEO_DRIVER = _detect_video_driver() if IS_HANDHELD else None
 # ===== Save Editor Paths =====
 
 # GBA ROM identification
-# Detection order for .gba files:
+# Detection order for .gba and .zip files:
 #   1. SHA-1 hash  -> exact vanilla dump match (all regions/revisions)
 #   2. Header code -> ROM hack fallback (hacks inherit base game header at 0xAC)
-#   3. Keyword     -> filename fallback for zips or anything else
+#   3. Keyword     -> filename fallback for unrecognised files
 
 # Header codes used as fallback for ROM hacks (inherit from base game)
 _ROM_HEADER_CODES = {
@@ -266,16 +266,52 @@ def _load_rom_hashes():
         print(f"[ROMDetect] Failed to load games.json: {e}")
 
 
+def _extract_rom_from_zip(zip_path):
+    """
+    Extract a .gba ROM from a .zip file.
+    
+    Args:
+        zip_path: Path to .zip file
+    
+    Returns:
+        bytes: ROM data, or None if no .gba found
+    """
+    import zipfile
+    
+    try:
+        with zipfile.ZipFile(zip_path, 'r') as zf:
+            # Find first .gba file in the zip
+            gba_files = [name for name in zf.namelist() if name.lower().endswith('.gba')]
+            
+            if not gba_files:
+                print(f"[ROMDetect] No .gba file found in {os.path.basename(zip_path)}")
+                return None
+            
+            # Extract the first .gba file
+            gba_filename = gba_files[0]
+            if len(gba_files) > 1:
+                print(f"[ROMDetect] Multiple .gba files in zip, using: {gba_filename}")
+            
+            rom_data = zf.read(gba_filename)
+            print(f"[ROMDetect] Extracted {gba_filename} from {os.path.basename(zip_path)} ({len(rom_data)} bytes)")
+            return rom_data
+            
+    except Exception as e:
+        print(f"[ROMDetect] Failed to extract from {os.path.basename(zip_path)}: {e}")
+        return None
+
+
 def identify_rom(rom_path):
     """
     Identify a GBA ROM file and return the canonical game name.
+    Supports both .gba and .zip files (will extract .gba from zip).
 
     Detection order:
       1. SHA-1 hash  — exact match against known vanilla dumps (all regions)
       2. Header code — fallback for ROM hacks (inherit base game serial at 0xAC)
 
     Args:
-        rom_path: Path to a .gba ROM file
+        rom_path: Path to a .gba or .zip file
 
     Returns:
         str: Game name e.g. "Emerald", or None if unrecognised
@@ -283,10 +319,18 @@ def identify_rom(rom_path):
     import hashlib
 
     basename = os.path.basename(rom_path)
+    rom_data = None
 
     try:
-        with open(rom_path, "rb") as f:
-            rom_data = f.read()
+        # Handle .zip files
+        if rom_path.lower().endswith('.zip'):
+            rom_data = _extract_rom_from_zip(rom_path)
+            if rom_data is None:
+                return None
+        else:
+            # Regular .gba file
+            with open(rom_path, "rb") as f:
+                rom_data = f.read()
     except Exception as e:
         print(f"[ROMDetect] Could not read {basename}: {e}")
         return None
@@ -311,6 +355,62 @@ def identify_rom(rom_path):
 
     print(f"[ROMDetect] Unrecognised ROM: {basename} (sha1={sha1[:8]}...)")
     return None
+
+
+def extract_zip_to_temp(zip_path):
+    """
+    Extract .gba ROM from zip to a temporary location for emulator loading.
+    
+    Args:
+        zip_path: Path to .zip file
+    
+    Returns:
+        str: Path to extracted .gba file in temp directory, or None if failed
+    """
+    import zipfile
+    import tempfile
+    
+    try:
+        with zipfile.ZipFile(zip_path, 'r') as zf:
+            # Find first .gba file
+            gba_files = [name for name in zf.namelist() if name.lower().endswith('.gba')]
+            
+            if not gba_files:
+                print(f"[ZipExtract] No .gba file found in {os.path.basename(zip_path)}")
+                return None
+            
+            gba_filename = gba_files[0]
+            
+            # Create temp directory for extracted ROMs
+            temp_dir = os.path.join(tempfile.gettempdir(), 'sinew_roms')
+            os.makedirs(temp_dir, exist_ok=True)
+            
+            # Extract to temp with original filename
+            temp_rom_path = os.path.join(temp_dir, os.path.basename(gba_filename))
+            
+            with open(temp_rom_path, 'wb') as f:
+                f.write(zf.read(gba_filename))
+            
+            print(f"[ZipExtract] Extracted {gba_filename} to {temp_rom_path}")
+            return temp_rom_path
+            
+    except Exception as e:
+        print(f"[ZipExtract] Failed to extract {os.path.basename(zip_path)}: {e}")
+        return None
+
+
+def cleanup_temp_roms():
+    """Clean up temporary extracted ROM files"""
+    import tempfile
+    import shutil
+    
+    temp_dir = os.path.join(tempfile.gettempdir(), 'sinew_roms')
+    if os.path.exists(temp_dir):
+        try:
+            shutil.rmtree(temp_dir)
+            print(f"[ZipExtract] Cleaned up temp directory: {temp_dir}")
+        except Exception as e:
+            print(f"[ZipExtract] Failed to clean temp directory: {e}")
 
 
 # ==============================================================================

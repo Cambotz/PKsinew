@@ -306,7 +306,7 @@ _rom_scan_cache = {}  # roms_dir -> {rom_path -> game_name | None}
 
 def _build_rom_scan_cache(roms_dir):
     """
-    Scan roms_dir once, hash every .gba, cache results.
+    Scan roms_dir once, identify every .gba and .zip file, cache results.
     No-op if already scanned. Supports multiple directories independently.
     """
     if roms_dir in _rom_scan_cache:
@@ -319,10 +319,10 @@ def _build_rom_scan_cache(roms_dir):
         return
 
     for filename in os.listdir(roms_dir):
-        if not filename.lower().endswith((".gba", ".zip", ".7z")):
+        if not filename.lower().endswith((".gba", ".zip")):
             continue
         rom_path = os.path.join(roms_dir, filename)
-        scan[rom_path] = identify_rom(rom_path) if filename.lower().endswith(".gba") else None
+        scan[rom_path] = identify_rom(rom_path)  # identify_rom() now handles both .gba and .zip
 
     _rom_scan_cache[roms_dir] = scan
     print(f"[GameScreen] ROM scan complete: {len(scan)} files in {roms_dir}")
