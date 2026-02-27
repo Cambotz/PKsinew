@@ -831,23 +831,28 @@ class GameScreen:
                 "use_external_emulator", False
             )
 
-        # Instantiate ExternalEmulator once — reused for ROM scanning and launching.
+        # Instantiate ExternalEmulator only if the external emulator toggle is enabled
         # Falls back gracefully if external_emulator.py isn't present.
         self.external_emu = None
-        try:
-            from external_emulator import ExternalEmulator
+        
+        # Only initialize if the toggle is enabled
+        use_external = self.settings.get("use_external_emulator", False)
+        
+        if use_external:
+            try:
+                from external_emulator import ExternalEmulator
 
-            self.external_emu = ExternalEmulator()
-            if self.external_emu.active_provider:
+                self.external_emu = ExternalEmulator()
+                if self.external_emu.active_provider:
+                    print(
+                        f"[ExternalEmu] Provider ready: {type(self.external_emu.active_provider).__name__}"
+                    )
+                else:
+                    print("[ExternalEmu] No provider matched this environment")
+            except ImportError:
                 print(
-                    f"[ExternalEmu] Provider ready: {type(self.external_emu.active_provider).__name__}"
+                    "[ExternalEmu] external_emulator.py not found — external emulator unavailable"
                 )
-            else:
-                print("[ExternalEmu] No provider matched this environment")
-        except ImportError:
-            print(
-                "[ExternalEmu] external_emulator.py not found — external emulator unavailable"
-            )
 
         # Load pause combo setting
         self._load_pause_combo_setting()
@@ -2651,8 +2656,7 @@ class GameScreen:
         import builtins
 
         if (
-            getattr(builtins, "SINEW_DEV_MODE", False)
-            and getattr(builtins, "SINEW_USE_EXTERNAL_EMULATOR", False)
+            getattr(builtins, "SINEW_USE_EXTERNAL_EMULATOR", False)
             and self.external_emu
             and self.external_emu.active_provider
         ):
@@ -2661,7 +2665,7 @@ class GameScreen:
             ext_saves_dir = getattr(provider, "saves_dir", None)
             if ext_roms_dir or ext_saves_dir:
                 print(
-                    f"[Dev] Scanning external dirs — ROMs: {ext_roms_dir}  Saves: {ext_saves_dir}"
+                    f"[ExternalEmu] Scanning external dirs — ROMs: {ext_roms_dir}  Saves: {ext_saves_dir}"
                 )
                 for game_name in list(GAMES.keys()):
                     if game_name == "Sinew":
@@ -2971,18 +2975,16 @@ class GameScreen:
         import builtins
 
         use_external = getattr(builtins, "SINEW_USE_EXTERNAL_EMULATOR", False)
-        dev_mode = getattr(builtins, "SINEW_DEV_MODE", False)
 
         # External emulator path — only if toggle is on AND a provider is actually ready
         if (
-            dev_mode
-            and use_external
+            use_external
             and self.external_emu
             and self.external_emu.active_provider
         ):
             if self._launch_external_emulator(rom_path, sav_path):
                 return
-            print("[Dev] External emulator failed — falling back to integrated mGBA")
+            print("[ExternalEmu] External emulator failed — falling back to integrated mGBA")
 
         # Integrated mGBA path (fallback)
         if EMULATOR_AVAILABLE and MgbaEmulator:
