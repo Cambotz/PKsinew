@@ -2900,6 +2900,44 @@ class GameScreen:
             else:
                 manager.load_save(sav_path, game_hint=gname)
 
+    def _reload_settings_from_disk(self):
+        """
+        Reload all settings from disk and reapply them.
+        Called when returning from emulator to ensure settings changes 
+        made in Settings modal are applied.
+        """
+        try:
+            # Reload settings from file
+            self.settings = load_settings()
+            print("[Sinew] Reloaded settings from disk")
+            
+            # Reapply settings that affect current state
+            # 1. Menu music mute state
+            self._menu_music_muted = self.settings.get("mute_menu_music", False)
+            
+            # 2. External emulator state (update builtins)
+            import builtins
+            use_external = self.settings.get("use_external_emulator", False)
+            if hasattr(builtins, "SINEW_USE_EXTERNAL_EMULATOR"):
+                builtins.SINEW_USE_EXTERNAL_EMULATOR = use_external
+            
+            # 3. Dev mode (update builtins)
+            dev_mode = self.settings.get("dev_mode", False)
+            if hasattr(builtins, "SINEW_DEV_MODE"):
+                builtins.SINEW_DEV_MODE = dev_mode
+            
+            # 4. Controller A/B swap
+            swap_ab = self.settings.get("swap_ab", False)
+            if self.controller and hasattr(self.controller, 'set_swap_ab'):
+                self.controller.set_swap_ab(swap_ab)
+            
+            print(f"[Sinew] Applied settings: music_muted={self._menu_music_muted}, external_emu={use_external}, swap_ab={swap_ab}")
+            
+        except Exception as e:
+            print(f"[Sinew] Error reloading settings: {e}")
+            import traceback
+            traceback.print_exc()
+
     # ----- NEW: separate index change from loading -----
     def change_game(self, delta):
         """Switch to next/previous game index only"""
@@ -3193,6 +3231,9 @@ class GameScreen:
             self.scaler.restore_virtual_resolution()
         self._show_return_loading_screen("Returning to Sinew...")
 
+        # Reload settings from disk in case they were changed in Settings modal
+        self._reload_settings_from_disk()
+        
         # Reload save data in Sinew since it may have changed
         self.load_game_and_background()
 
@@ -3259,6 +3300,10 @@ class GameScreen:
                         print("[Sinew] Reloaded controller config after pausing")
                     except Exception as e:
                         print(f"[Sinew] Error reloading controller config: {e}")
+                
+                # Reload all settings from disk to pick up any changes made in Settings modal
+                # This ensures settings like menu music mute, volume, etc. are current
+                self._reload_settings_from_disk()
                 
                 # Force reload save data since it was modified by emulator
                 self._force_reload_current_save()
@@ -4059,6 +4104,8 @@ class GameScreen:
             self._ext_emu_closed_needs_reload = False
             if self.scaler:
                 self.scaler.restore_virtual_resolution()
+            # Reload settings from disk in case they were changed in Settings modal
+            self._reload_settings_from_disk()
             self.load_game_and_background()
             self._start_menu_music()
             print("[Dev] Reloaded save after external emulator closed")
