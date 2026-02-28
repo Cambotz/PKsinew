@@ -3341,7 +3341,6 @@ class GameScreen:
                 )
         
         # Clear ROM and save caches to force fresh scan of new directories
-        global _rom_scan_cache
         from config import _save_scan_cache
         _rom_scan_cache.clear()
         _save_scan_cache.clear()
