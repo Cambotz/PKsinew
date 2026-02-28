@@ -614,6 +614,7 @@ class Settings:
         db_builder_callback=None,
         scaler=None,
         reload_combo_callback=None,
+        external_emu_toggle_callback=None,
     ):
         self.width = w
         self.height = h
@@ -628,6 +629,7 @@ class Settings:
             db_builder_callback=db_builder_callback,
             scaler=scaler,
             reload_combo_callback=reload_combo_callback,
+            external_emu_toggle_callback=external_emu_toggle_callback,
         )
         self.visible = True
 
@@ -1091,6 +1093,7 @@ class MainSetup:
         db_builder_callback=None,
         scaler=None,
         reload_combo_callback=None,
+        external_emu_toggle_callback=None,
     ):
         self.width = width
         self.height = height
@@ -1102,6 +1105,7 @@ class MainSetup:
         self.db_builder_callback = db_builder_callback
         self.scaler = scaler
         self.reload_combo_callback = reload_combo_callback
+        self.external_emu_toggle_callback = external_emu_toggle_callback
         self.controller = get_controller()
 
         # Sub-screen state
@@ -1428,6 +1432,11 @@ class MainSetup:
                 status = "ON" if value else "OFF"
                 print(f"[Settings] Use External Emulator: {status}")
                 self._status_msg(f"External Emulator: {status}")
+                
+                # Trigger game re-scan in GameScreen
+                if self.external_emu_toggle_callback:
+                    self.external_emu_toggle_callback(value)
+                    
             except Exception as e:
                 print(f"[Settings] Failed to save external emulator setting: {e}")
         elif name == "Fast-Forward":

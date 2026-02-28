@@ -477,12 +477,16 @@ def find_save_for_game(game_name, saves_dir):
     return None
 
 
-def detect_games():
+def detect_games_with_dirs(roms_dir, saves_dir):
     """
-    Detect all available games by scanning the ROMs and saves directories.
+    Detect all available games by scanning the specified ROMs and saves directories.
 
     A game is included if it has a ROM, a save, or both.
     Games with neither are omitted entirely (filtered later by availability).
+
+    Args:
+        roms_dir: Directory to scan for ROM files
+        saves_dir: Directory to scan for save files
 
     Returns:
         dict: Game configurations with detected ROM/save paths
@@ -492,11 +496,11 @@ def detect_games():
     }
 
     for game_name, game_def in GAME_DEFINITIONS.items():
-        rom_path, sav_path = find_rom_for_game(game_name, ROMS_DIR)
+        rom_path, sav_path = find_rom_for_game(game_name, roms_dir)
 
         # If no ROM was found, still look for a matching save file independently
         if rom_path is None:
-            sav_path = find_save_for_game(game_name, SAVES_DIR)
+            sav_path = find_save_for_game(game_name, saves_dir)
         games[game_name] = {
             "title_gif": game_def["title_gif"],
             "rom": rom_path,
@@ -545,8 +549,8 @@ def get_game_availability(game_data):
     return GAME_UNAVAILABLE
 
 
-# Detect games on module load
-GAMES = detect_games()
+# Detect games on module load (uses default dirs)
+GAMES = detect_games_with_dirs(ROMS_DIR, SAVES_DIR)
 
 
 def load_settings():
@@ -2668,48 +2672,33 @@ class GameScreen:
         """Initialize game data and load GIFs"""
         # Re-detect games in case ROMs were added
         global GAMES
-        GAMES = detect_games()
-
-        # If external emulator mode is active, overlay ROM/save paths from the
-        # provider's known dirs so the carousel shows what the external emu has.
+        
+        # Determine which directories to scan based on external emulator state
         import builtins
-
+        use_external = getattr(builtins, "SINEW_USE_EXTERNAL_EMULATOR", False)
+        
+        roms_dir = ROMS_DIR
+        saves_dir = SAVES_DIR
+        
         if (
-            getattr(builtins, "SINEW_USE_EXTERNAL_EMULATOR", False)
+            use_external
             and self.external_emu
             and self.external_emu.active_provider
         ):
             provider = self.external_emu.active_provider
             ext_roms_dir = getattr(provider, "roms_dir", None)
             ext_saves_dir = getattr(provider, "saves_dir", None)
-            if ext_roms_dir or ext_saves_dir:
-                print(
-                    f"[ExternalEmu] Scanning external dirs — ROMs: {ext_roms_dir}  Saves: {ext_saves_dir}"
-                )
-                for game_name in list(GAMES.keys()):
-                    if game_name == "Sinew":
-                        continue
-                    if ext_roms_dir:
-                        ext_rom, _ = find_rom_for_game(game_name, ext_roms_dir)
-                        if ext_rom:
-                            GAMES[game_name]["rom"] = ext_rom
-                            print(
-                                f"[Dev] External ROM for {game_name}: {os.path.basename(ext_rom)}"
-                            )
-                    if ext_saves_dir:
-                        ext_sav = find_save_for_game(game_name, ext_saves_dir)
-                        if not ext_sav and GAMES[game_name].get("rom"):
-                            base = os.path.splitext(
-                                os.path.basename(GAMES[game_name]["rom"])
-                            )[0]
-                            candidate = os.path.join(ext_saves_dir, base + ".sav")
-                            if os.path.exists(candidate):
-                                ext_sav = candidate
-                        if ext_sav:
-                            GAMES[game_name]["sav"] = ext_sav
-                            print(
-                                f"[Dev] External save for {game_name}: {os.path.basename(ext_sav)}"
-                            )
+            
+            # Use external dirs if available, fall back to Sinew's dirs
+            if ext_roms_dir:
+                roms_dir = ext_roms_dir
+                print(f"[ExternalEmu] Scanning external ROMs: {roms_dir}")
+            if ext_saves_dir:
+                saves_dir = ext_saves_dir
+                print(f"[ExternalEmu] Scanning external saves: {saves_dir}")
+        
+        # Detect games using the appropriate directories
+        GAMES = detect_games_with_dirs(roms_dir, saves_dir)
 
         self.games = {}  # Reset so we rebuild cleanly
 
@@ -3378,6 +3367,35 @@ class GameScreen:
             )
             print("[Sinew] Reloaded pause combo in emulator")
 
+    def _on_external_emu_toggled(self, enabled):
+        """Handle external emulator toggle change (called when user toggles the setting)"""
+        # Reinitialize external emulator instance if toggled on
+        if enabled and not self.external_emu:
+            try:
+                from external_emulator import ExternalEmulator
+
+                self.external_emu = ExternalEmulator()
+                if self.external_emu.active_provider:
+                    print(
+                        f"[ExternalEmu] Provider initialized: {type(self.external_emu.active_provider).__name__}"
+                    )
+                else:
+                    print("[ExternalEmu] No provider matched this environment")
+            except ImportError:
+                print(
+                    "[ExternalEmu] external_emulator.py not found — external emulator unavailable"
+                )
+        
+        # Re-scan games with the new directories
+        self._init_games()
+        
+        # Reload current game if we're not on Sinew
+        if not self.is_on_sinew():
+            self.load_game_and_background()
+        
+        status = "ON" if enabled else "OFF"
+        print(f"[GameScreen] External emulator toggled {status}, games reloaded")
+
     def _get_pause_combo_name(self):
         """Get the name of the current pause combo (e.g., 'START+SELECT')"""
         setting = self._pause_combo_setting
@@ -3945,6 +3963,7 @@ class GameScreen:
                 db_builder_callback=self._open_db_builder,
                 scaler=self.scaler,
                 reload_combo_callback=self._reload_pause_combo_setting,
+                external_emu_toggle_callback=self._on_external_emu_toggled,
             )
         elif name == "Export" and ExportModal:
             current_game = self.get_current_game_name()
