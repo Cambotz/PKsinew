@@ -3408,7 +3408,8 @@ class GameScreen:
         # CRITICAL: Force SaveDataManager to reload from NEW save path
         # After _init_games(), self.games[gname]["sav"] has the new path
         # But SaveDataManager still has the old path cached - must force reload
-        if not self.is_on_sinew():
+        # Only do this if we have games and we're not on Sinew
+        if not self.is_on_sinew() and self.game_names and 0 <= self.current_game < len(self.game_names):
             gname = self.game_names[self.current_game]
             sav_path = self.games[gname].get("sav")
             if sav_path and os.path.exists(sav_path):
