@@ -2928,9 +2928,36 @@ class GameScreen:
             
             # 4. Controller A/B swap
             swap_ab = self.settings.get("swap_ab", False)
+            print(f"[Sinew] Reloading swap_ab setting: {swap_ab}")
             if self.controller and hasattr(self.controller, 'set_swap_ab'):
                 self.controller.set_swap_ab(swap_ab)
-                      
+                print(f"[Sinew] Called controller.set_swap_ab({swap_ab})")
+            else:
+                print(f"[Sinew] WARNING: Controller does not have set_swap_ab method!")
+            
+            # Also update emulator mapping if emulator is loaded
+            if self.emulator:
+                try:
+                    from mgba_emulator import (
+                        RETRO_DEVICE_ID_JOYPAD_A,
+                        RETRO_DEVICE_ID_JOYPAD_B,
+                    )
+                    # Gamepad button map
+                    gmap = getattr(self.emulator, "_gamepad_map", None)
+                    if gmap is not None:
+                        if not hasattr(self.emulator, "_original_a_btn"):
+                            self.emulator._original_a_btn = gmap.get(RETRO_DEVICE_ID_JOYPAD_A, 0)
+                            self.emulator._original_b_btn = gmap.get(RETRO_DEVICE_ID_JOYPAD_B, 1)
+                        if swap_ab:
+                            gmap[RETRO_DEVICE_ID_JOYPAD_A] = self.emulator._original_b_btn
+                            gmap[RETRO_DEVICE_ID_JOYPAD_B] = self.emulator._original_a_btn
+                        else:
+                            gmap[RETRO_DEVICE_ID_JOYPAD_A] = self.emulator._original_a_btn
+                            gmap[RETRO_DEVICE_ID_JOYPAD_B] = self.emulator._original_b_btn
+                        print(f"[Sinew] Updated emulator button map for swap_ab={swap_ab}")
+                except Exception as ex:
+                    print(f"[Sinew] Error updating emulator button map: {ex}")
+            
             print(f"[Sinew] Applied settings: music_muted={self._menu_music_muted}, external_emu={use_external}, swap_ab={swap_ab}")
             
         except Exception as e:
@@ -4167,23 +4194,24 @@ class GameScreen:
             if not self._pause_combo_active and not self._is_controller_combo_held() and not menu_held:
                 self._emulator_pause_combo_released = True
 
-        # Update GIF animation for current game
-        gname = self.game_names[self.current_game]
-        self._ensure_gif_loaded(gname)
-        game_data = self.games[gname]
+        # Update GIF animation for current game (if we have games)
+        if self.game_names and 0 <= self.current_game < len(self.game_names):
+            gname = self.game_names[self.current_game]
+            self._ensure_gif_loaded(gname)
+            game_data = self.games[gname]
 
-        if game_data["frames"]:
-            game_data["time_accum"] += dt
-            dur = (
-                game_data["durations"][game_data["frame_index"]]
-                if game_data["durations"]
-                else 100
-            )
-            if game_data["time_accum"] >= dur:
-                game_data["time_accum"] = 0
-                game_data["frame_index"] = (game_data["frame_index"] + 1) % len(
-                    game_data["frames"]
+            if game_data["frames"]:
+                game_data["time_accum"] += dt
+                dur = (
+                    game_data["durations"][game_data["frame_index"]]
+                    if game_data["durations"]
+                    else 100
                 )
+                if game_data["time_accum"] >= dur:
+                    game_data["time_accum"] = 0
+                    game_data["frame_index"] = (game_data["frame_index"] + 1) % len(
+                        game_data["frames"]
+                    )
 
         # Handle events
         for event in events:
