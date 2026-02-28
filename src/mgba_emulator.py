@@ -1098,14 +1098,12 @@ class MgbaEmulator:
         self.lib.retro_get_system_av_info(byref(av_info))
         self.fps = av_info.timing.fps
         
-        # mGBA libretro core reports sample rate as 65536, but actual GBA audio
-        # output is 32768 Hz. Using the reported rate causes audio issues.
-        # Force to correct GBA sample rate regardless of what core reports.
-        reported_rate = int(av_info.timing.sample_rate)
-        self.sample_rate = 32768  # Actual GBA sample rate
+        # Use the sample rate reported by mGBA core
+        # (Original working version used this approach)
+        self.sample_rate = int(av_info.timing.sample_rate)
         
         print(f"[MgbaEmulator] Loaded: {os.path.basename(rom_path)}")
-        print(f"[MgbaEmulator] FPS: {self.fps:.2f}, Sample rate: {self.sample_rate} (core reported: {reported_rate})")
+        print(f"[MgbaEmulator] FPS: {self.fps:.2f}, Sample rate: {self.sample_rate}")
 
         # Load SRAM
         self._load_sram()
@@ -1404,13 +1402,14 @@ class MgbaEmulator:
             init_ok = False
             for attempt in range(max_attempts):
                 try:
-                    # Simple, direct mixer init - let SDL handle the details
-                    pygame.mixer.init(
+                    # Pre-init with specific settings for reliability (original working approach)
+                    pygame.mixer.pre_init(
                         frequency=self.sample_rate,
                         size=-16,
-                        channels=2,  # STEREO - critical for emulator audio
+                        channels=2,
                         buffer=audio_buffer,
                     )
+                    pygame.mixer.init()
 
                     # Verify it actually initialized
                     init_info = pygame.mixer.get_init()
@@ -1478,12 +1477,13 @@ class MgbaEmulator:
                     audio_buffer = default_buf
                     self.audio_queue = deque(maxlen=default_depth)
                     try:
-                        pygame.mixer.init(
+                        pygame.mixer.pre_init(
                             frequency=self.sample_rate,
                             size=-16,
                             channels=2,
                             buffer=default_buf,
                         )
+                        pygame.mixer.init()
                         init_info = pygame.mixer.get_init()
                         if init_info:
                             print(f"[MgbaEmulator] Mixer initialized on fallback: {init_info}")
@@ -2231,12 +2231,13 @@ class MgbaEmulator:
                     pass
 
                 try:
-                    pygame.mixer.init(
+                    pygame.mixer.pre_init(
                         frequency=sample_rate,
                         size=-16,
                         channels=2,
                         buffer=audio_buffer,
                     )
+                    pygame.mixer.init()
                 except Exception as e:
                     print(f"[MgbaEmulator] Mixer reinit failed with buffer={audio_buffer}: {e}")
                     # Fallback to platform defaults
@@ -2246,12 +2247,13 @@ class MgbaEmulator:
                     self.audio_settings_reverted = True
                     audio_buffer = default_buf
                     self.audio_queue = deque(maxlen=default_depth)
-                    pygame.mixer.init(
+                    pygame.mixer.pre_init(
                         frequency=sample_rate,
                         size=-16,
                         channels=2,
                         buffer=default_buf,
                     )
+                    pygame.mixer.init()
 
                 self._last_audio_buffer = audio_buffer
                 pygame.mixer.set_num_channels(8)
