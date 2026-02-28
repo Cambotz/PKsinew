@@ -1416,43 +1416,9 @@ class MgbaEmulator:
                     if init_info:
                         print(f"[MgbaEmulator] Mixer initialized: {init_info}")
                         
-                        # DIAGNOSTIC: Log detailed audio state
+                        # Log audio init
                         freq, fmt, ch = init_info
-                        print(f"[MgbaEmulator] ╔══════════════════════════════════════════════════════")
-                        print(f"[MgbaEmulator] ║ AUDIO DIAGNOSTICS")
-                        print(f"[MgbaEmulator] ╠══════════════════════════════════════════════════════")
-                        print(f"[MgbaEmulator] ║ Mixer Frequency:  {freq} Hz {'✅ CORRECT' if freq == 32768 else '❌ WRONG (should be 32768)'}")
-                        print(f"[MgbaEmulator] ║ Sample Format:    {fmt} {'✅' if fmt == -16 else '❌'}")
-                        print(f"[MgbaEmulator] ║ Audio Channels:   {ch} {'✅ STEREO' if ch == 2 else '❌ WRONG (should be 2 for stereo)'}")
-                        print(f"[MgbaEmulator] ║ Buffer Size:      {audio_buffer} samples")
-                        print(f"[MgbaEmulator] ║ Queue Depth:      {audio_queue_depth} chunks")
-                        print(f"[MgbaEmulator] ║ SDL Audio Driver: {os.environ.get('SDL_AUDIODRIVER', 'auto')}")
-                        
-                        # Check if pygame can actually play sounds
-                        try:
-                            num_channels = pygame.mixer.get_num_channels()
-                            print(f"[MgbaEmulator] ║ Mixer Channels:   {num_channels} available")
-                        except:
-                            pass
-                        
-                        # Log platform audio info
-                        import platform
-                        print(f"[MgbaEmulator] ║ OS:               {platform.system()} {platform.release()}")
-                        
-                        # Try to detect if system audio is working
-                        try:
-                            import ctypes
-                            # Check if master volume is accessible (Windows only)
-                            if platform.system() == 'Windows':
-                                try:
-                                    # This is a rough check - not reading actual volume
-                                    print(f"[MgbaEmulator] ║ Windows Audio:    System audio APIs accessible")
-                                except:
-                                    print(f"[MgbaEmulator] ║ Windows Audio:    Cannot access system audio")
-                        except:
-                            pass
-                        
-                        print(f"[MgbaEmulator] ╚══════════════════════════════════════════════════════")
+                        print(f"[MgbaEmulator] Audio initialized: {freq}Hz, {ch}ch, buffer={audio_buffer}")
                         
                         init_ok = True
                         break
@@ -1538,15 +1504,7 @@ class MgbaEmulator:
         ``_init_audio()`` and ``_reinit_audio()`` on the main thread.
         Touching it from here causes race conditions with Sinew's menu music.
         """
-        print("[MgbaEmulator] ╔══════════════════════════════════════════════════════")
-        print("[MgbaEmulator] ║ AUDIO THREAD STARTED")
-        print("[MgbaEmulator] ╠══════════════════════════════════════════════════════")
-        print(f"[MgbaEmulator] ║ Thread ID:        {threading.get_ident()}")
-        print(f"[MgbaEmulator] ║ Mixer state:      {pygame.mixer.get_init()}")
-        print(f"[MgbaEmulator] ║ Channel assigned: {self._audio_channel}")
-        print(f"[MgbaEmulator] ║ Queue max size:   {self.audio_queue.maxlen}")
-        print(f"[MgbaEmulator] ║ Paused:           {self.paused}")
-        print("[MgbaEmulator] ╚══════════════════════════════════════════════════════")
+        print("[MgbaEmulator] Audio thread started")
         
         error_count = 0
         chunks_played = 0
@@ -1619,25 +1577,9 @@ class MgbaEmulator:
                                 
                                 sound = pygame.sndarray.make_sound(chunk)
                                 
-                                # DIAGNOSTIC: Log first successful audio chunk
-                                if chunks_played == 0:
-                                    print(f"[MgbaEmulator] ╔══════════════════════════════════════════════════════")
-                                    print(f"[MgbaEmulator] ║ FIRST AUDIO CHUNK")
-                                    print(f"[MgbaEmulator] ╠══════════════════════════════════════════════════════")
-                                    print(f"[MgbaEmulator] ║ Chunk shape:      {chunk.shape}")
-                                    print(f"[MgbaEmulator] ║ Chunk dtype:      {chunk.dtype}")
-                                    print(f"[MgbaEmulator] ║ Sound obj:        {sound}")
-                                    print(f"[MgbaEmulator] ║ Sound length:     {sound.get_length():.3f}s")
-                                    print(f"[MgbaEmulator] ║ Channel busy:     {is_busy}")
-                                    print(f"[MgbaEmulator] ║ Channel volume:   {self._audio_channel.get_volume():.2f}")
-                                    try:
-                                        # Try to get actual system volume (Windows specific)
-                                        mixer_vol = pygame.mixer.music.get_volume()
-                                        print(f"[MgbaEmulator] ║ Mixer volume:     {mixer_vol:.2f}")
-                                    except:
-                                        pass
-                                    print(f"[MgbaEmulator] ║ Audio will play:  {'YES - channel.play()' if not is_busy else 'YES - channel.queue()'}")
-                                    print(f"[MgbaEmulator] ╚══════════════════════════════════════════════════════")
+                                # Log first successful audio chunk (debug only)
+                                # if chunks_played == 0:
+                                #     print(f"[MgbaEmulator] First audio chunk: {chunk.shape}, {chunk.dtype}")
 
                                 # If channel is not busy, use play() to start it
                                 # If channel is busy but queue is empty, use queue() to line up next
@@ -1656,16 +1598,7 @@ class MgbaEmulator:
                             except Exception as e:
                                 error_count += 1
                                 if error_count < 5:
-                                    print(f"[MgbaEmulator] ╔══════════════════════════════════════════════════════")
-                                    print(f"[MgbaEmulator] ║ AUDIO PLAYBACK ERROR #{error_count}")
-                                    print(f"[MgbaEmulator] ╠══════════════════════════════════════════════════════")
-                                    print(f"[MgbaEmulator] ║ Error: {e}")
-                                    print(f"[MgbaEmulator] ║ Chunk shape: {chunk.shape if chunk is not None else 'None'}")
-                                    print(f"[MgbaEmulator] ║ Mixer state: {pygame.mixer.get_init()}")
-                                    print(f"[MgbaEmulator] ║ Channel valid: {self._audio_channel is not None}")
-                                    print(f"[MgbaEmulator] ╚══════════════════════════════════════════════════════")
-                                    import traceback
-                                    traceback.print_exc()
+                                    print(f"[MgbaEmulator] Audio playback error #{error_count}: {e}")
 
                 pygame.time.wait(1)
             except Exception as e:
