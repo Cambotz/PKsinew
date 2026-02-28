@@ -2929,9 +2929,21 @@ class GameScreen:
             # 4. Controller A/B swap
             swap_ab = self.settings.get("swap_ab", False)
             print(f"[Sinew] Reloading swap_ab setting: {swap_ab}")
+            
+            # Check controller state before applying swap
+            if self.controller:
+                current_a = getattr(self.controller, 'btn_a', None)
+                current_b = getattr(self.controller, 'btn_b', None)
+                print(f"[Sinew] Controller state BEFORE swap: A={current_a}, B={current_b}")
+            
             if self.controller and hasattr(self.controller, 'set_swap_ab'):
                 self.controller.set_swap_ab(swap_ab)
                 print(f"[Sinew] Called controller.set_swap_ab({swap_ab})")
+                
+                # Check controller state after applying swap
+                current_a = getattr(self.controller, 'btn_a', None)
+                current_b = getattr(self.controller, 'btn_b', None)
+                print(f"[Sinew] Controller state AFTER swap: A={current_a}, B={current_b}")
             else:
                 print(f"[Sinew] WARNING: Controller does not have set_swap_ab method!")
             
@@ -2954,7 +2966,7 @@ class GameScreen:
                         else:
                             gmap[RETRO_DEVICE_ID_JOYPAD_A] = self.emulator._original_a_btn
                             gmap[RETRO_DEVICE_ID_JOYPAD_B] = self.emulator._original_b_btn
-                        print(f"[Sinew] Updated emulator button map for swap_ab={swap_ab}")
+                        print(f"[Sinew] Updated emulator button map for swap_ab={swap_ab}: A->{gmap[RETRO_DEVICE_ID_JOYPAD_A]}, B->{gmap[RETRO_DEVICE_ID_JOYPAD_B]}")
                 except Exception as ex:
                     print(f"[Sinew] Error updating emulator button map: {ex}")
             
