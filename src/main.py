@@ -3322,7 +3322,7 @@ class GameScreen:
         
         if screen:
             message = "Scanning external ROMs..." if enabled else "Scanning internal ROMs..."
-            self._draw_loading_screen(screen, message, 0, 1)
+            self._draw_loading_screen(screen, message, 0, 3)
         
         # Reinitialize external emulator instance if toggled on
         if enabled and not self.external_emu:
@@ -3347,8 +3347,18 @@ class GameScreen:
         _save_scan_cache.clear()
         print("[GameScreen] Cleared ROM and save caches for directory rescan")
         
+        # Update loading screen - scanning ROMs
+        if screen:
+            message = "Scanning ROMs and saves..." if enabled else "Scanning ROMs and saves..."
+            self._draw_loading_screen(screen, message, 1, 3)
+        
         # Re-scan games with the new directories
         self._init_games()
+        
+        # Update loading screen - loading save data
+        if screen:
+            message = "Loading save data..."
+            self._draw_loading_screen(screen, message, 2, 3)
         
         # CRITICAL: Force SaveDataManager to reload from NEW save path
         # After _init_games(), self.games[gname]["sav"] has the new path
@@ -3364,7 +3374,7 @@ class GameScreen:
         
         # Show completion
         if screen:
-            self._draw_loading_screen(screen, "Done!", 1, 1)
+            self._draw_loading_screen(screen, "Done!", 3, 3)
             pygame.time.wait(200)  # Brief pause to show completion
         
         # Reload current game if we're not on Sinew
