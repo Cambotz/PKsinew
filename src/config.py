@@ -21,7 +21,7 @@ FPS = 60
 
 # ===== Directory Paths =====
 
-# Core directories (internal, read-only)
+# Core directories (internal, read-only - bundled with PyInstaller)
 BASE_DIR = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
 CORES_DIR = os.path.join(BASE_DIR, "cores")
 FONTS_DIR = os.path.join(BASE_DIR, "fonts")
@@ -29,12 +29,10 @@ PARSER_DIR = os.path.join(BASE_DIR, "parser")
 
 # External (user-accessible) directories and files
 if os.environ.get("SINEW_BASE_DIR"):
-    # PortMaster / handheld: launcher script tells us where everything is
+    # PortMaster / handheld: launcher script tells us where data/roms/saves live
     EXT_DIR = os.environ["SINEW_BASE_DIR"]
-    # On handheld, cores/fonts/parser are alongside src/, not inside it
-    CORES_DIR = os.path.join(EXT_DIR, "cores")
-    FONTS_DIR = os.path.join(EXT_DIR, "fonts")
-    PARSER_DIR = os.path.join(EXT_DIR, "parser")
+    # NOTE: cores/fonts/parser stay in BASE_DIR (PyInstaller bundle)
+    # Only data/roms/saves/system move to EXT_DIR
 elif getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
     appimage_path = os.environ.get("APPIMAGE")
     if appimage_path:
@@ -43,7 +41,15 @@ elif getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
     else:
         EXT_DIR = os.path.dirname(sys.executable)
 else:
+    # Development mode: everything in ../dist
     EXT_DIR = os.path.abspath(os.path.join(BASE_DIR, "../dist"))
+    # In dev mode, cores/fonts/parser might also be in dist
+    if os.path.exists(os.path.join(EXT_DIR, "cores")):
+        CORES_DIR = os.path.join(EXT_DIR, "cores")
+    if os.path.exists(os.path.join(EXT_DIR, "fonts")):
+        FONTS_DIR = os.path.join(EXT_DIR, "fonts")
+    if os.path.exists(os.path.join(EXT_DIR, "parser")):
+        PARSER_DIR = os.path.join(EXT_DIR, "parser")
 
 DATA_DIR = os.path.join(EXT_DIR, "data")
 ROMS_DIR = os.path.join(EXT_DIR, "roms")

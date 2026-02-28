@@ -2930,7 +2930,7 @@ class GameScreen:
             swap_ab = self.settings.get("swap_ab", False)
             if self.controller and hasattr(self.controller, 'set_swap_ab'):
                 self.controller.set_swap_ab(swap_ab)
-            
+                      
             print(f"[Sinew] Applied settings: music_muted={self._menu_music_muted}, external_emu={use_external}, swap_ab={swap_ab}")
             
         except Exception as e:
@@ -4305,6 +4305,11 @@ class GameScreen:
         # Draw emulator if active
         if self.emulator_active and self.emulator:
             self._draw_emulator(surf)
+            return
+
+        # Safety check: if no games detected yet, just draw background
+        if not self.game_names or self.current_game >= len(self.game_names):
+            surf.fill(ui_colors.COLOR_BG)
             return
 
         # Draw background (animated GIF, solid color, or Sinew logo)
