@@ -171,7 +171,8 @@ sys.stderr = LoggingPrintRedirector(_original_stderr, _stderr_logger)
 
 # Log startup
 _sinew_logger.info("=" * 60)
-_sinew_logger.info(f"Sinew starting - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+_sinew_logger.info("Sinew v1.3.6")
+_sinew_logger.info(f"Starting - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 _sinew_logger.info(f"Log file: {_log_file_path}")
 _sinew_logger.info(f"Python: {sys.version}")
 _sinew_logger.info(f"Platform: {sys.platform}")
