@@ -1101,9 +1101,9 @@ class MgbaEmulator:
         # mGBA libretro core reports sample rate as 65536, but actual GBA audio
         # output is 32768 Hz. Using the reported rate causes audio issues.
         # Force to correct GBA sample rate regardless of what core reports.
-        self.sample_rate = 32768
-        
         reported_rate = int(av_info.timing.sample_rate)
+        self.sample_rate = 32768  # Actual GBA sample rate
+        
         print(f"[MgbaEmulator] Loaded: {os.path.basename(rom_path)}")
         print(f"[MgbaEmulator] FPS: {self.fps:.2f}, Sample rate: {self.sample_rate} (core reported: {reported_rate})")
 
