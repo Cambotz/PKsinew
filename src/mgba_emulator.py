@@ -1597,6 +1597,26 @@ class MgbaEmulator:
 
                         if chunk is not None and len(chunk) > 0:
                             try:
+                                # NUCLEAR OPTION: If pygame refuses to use stereo (channels=2),
+                                # pad our stereo data to match whatever channel count it wants
+                                mixer_info = pygame.mixer.get_init()
+                                if mixer_info:
+                                    _, _, mixer_channels = mixer_info
+                                    chunk_channels = chunk.shape[1] if len(chunk.shape) > 1 else 1
+                                    
+                                    if mixer_channels != chunk_channels:
+                                        if mixer_channels > chunk_channels:
+                                            # Pad with zeros (e.g., stereo → 8 channels)
+                                            # Audio plays on first 2 channels, rest are silent
+                                            pad_channels = mixer_channels - chunk_channels
+                                            zeros = np.zeros((chunk.shape[0], pad_channels), dtype=chunk.dtype)
+                                            chunk = np.hstack([chunk, zeros])
+                                            
+                                            # Log this workaround on first occurrence
+                                            if chunks_played == 0:
+                                                print(f"[MgbaEmulator] ⚠️  AUDIO WORKAROUND: Padding {chunk_channels}-channel audio to {mixer_channels} channels")
+                                                print(f"[MgbaEmulator]     (pygame refused to initialize with stereo)")
+                                
                                 sound = pygame.sndarray.make_sound(chunk)
                                 
                                 # DIAGNOSTIC: Log first successful audio chunk
