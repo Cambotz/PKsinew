@@ -1748,17 +1748,30 @@ class MgbaEmulator:
         """Set master volume (0–100). Applies immediately to audio channel."""
         self._master_volume = max(0, min(100, int(volume_int)))
         self._apply_channel_volume()
-        print(f"[MgbaEmulator] Master volume: {self._master_volume}%")
+        paused_note = ' (paused - will apply on resume)' if self.paused else ''
+        print(f"[MgbaEmulator] Master volume: {self._master_volume}%{paused_note}")
 
     def set_mgba_muted(self, muted):
         """Mute/unmute emulator audio only. Applies immediately."""
         self._mgba_muted = bool(muted)
         self._apply_channel_volume()
-        print(f"[MgbaEmulator] mGBA mute: {'ON' if muted else 'OFF'}")
+        status = 'ON' if muted else 'OFF'
+        paused_note = ' (paused - will apply on resume)' if self.paused else ''
+        print(f"[MgbaEmulator] mGBA mute: {status}{paused_note}")
 
     def _apply_channel_volume(self):
-        """Push the effective volume to the pygame channel."""
+        """Push the effective volume to the pygame channel.
+        
+        Only applies volume if emulator is not paused and channel is valid.
+        During pause, Sinew owns the mixer and our channel may be invalid.
+        Volume will be reapplied automatically on resume via _reinit_audio().
+        """
         vol = self._get_effective_volume()
+        
+        # Skip if paused - our channel may be invalid while Sinew owns the mixer
+        if self.paused:
+            return
+            
         if self._audio_channel:
             try:
                 self._audio_channel.set_volume(vol)
