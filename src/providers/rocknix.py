@@ -20,7 +20,34 @@ class RocknixProvider(EmulatorProvider):
         
         self.retroarch_cfg = "/storage/.config/retroarch/retroarch.cfg"
         self.roms_dir = "/storage/roms/gba"
-        self.saves_dir = self.get_save_dir(self.roms_dir)
+        
+        # Determine saves directory from RetroArch settings
+        # Check if saves live with the ROMs
+        in_content_dir = self._get_retroarch_setting("savefiles_in_content_dir")
+        if in_content_dir == "true":
+            # Saves are in the same directory as ROMs
+            self.saves_dir = self.roms_dir
+        else:
+            # Get the base save directory from RetroArch config
+            base_save_dir = self._get_retroarch_setting("savefile_directory")
+            
+            # Handle default or empty values
+            if not base_save_dir or base_save_dir.lower() == "default":
+                # RetroArch default is the content dir
+                self.saves_dir = self.roms_dir
+            else:
+                # Expand home tilde if present
+                base_save_dir = os.path.expanduser(base_save_dir)
+                
+                # Check for sub-sorting by system
+                sort_by_content = self._get_retroarch_setting("sort_savefiles_by_content_enable")
+                if sort_by_content == "true":
+                    self.saves_dir = os.path.join(base_save_dir, "gba")
+                else:
+                    self.saves_dir = base_save_dir
+        
+        print(f"[RocknixProvider] ROMs dir: {self.roms_dir}")
+        print(f"[RocknixProvider] Saves dir: {self.saves_dir}")
         
         # Initialize internal cache reference
         if "emulator_cache" not in self.settings:
