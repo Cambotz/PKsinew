@@ -20,6 +20,10 @@ from config import (
     VOLUME_DEFAULT, VOLUME_MIN, VOLUME_MAX, VOLUME_STEP,
 )
 
+# Debug: Show settings path at import time
+print(f"[Settings] Using settings file: {SETTINGS_FILE}")
+print(f"[Settings] EXT_DIR: {EXT_DIR}")
+
 # Use the same ARM detection as the emulator so slider defaults match
 # the actual values _init_audio will use.
 try:
@@ -35,19 +39,32 @@ def load_sinew_settings():
     if os.path.exists(SETTINGS_FILE):
         try:
             with open(SETTINGS_FILE, "r") as f:
-                return json.load(f)
-        except Exception:
-            pass
+                settings = json.load(f)
+            print(f"[Settings] Loaded from: {SETTINGS_FILE}")
+            return settings
+        except Exception as e:
+            print(f"[Settings] Failed to load settings from {SETTINGS_FILE}: {e}")
+    else:
+        print(f"[Settings] File not found: {SETTINGS_FILE}")
     return {}
 
 
 def save_sinew_settings(data):
     """Save settings to sinew_settings.json"""
     try:
+        # Ensure the directory exists (saves/sinew/ may not exist on first run)
+        settings_dir = os.path.dirname(SETTINGS_FILE)
+        os.makedirs(settings_dir, exist_ok=True)
+        
+        # Write settings
         with open(SETTINGS_FILE, "w") as f:
             json.dump(data, f, indent=2)
+        
+        print(f"[Settings] Saved to: {SETTINGS_FILE}")
     except Exception as e:
-        print(f"[Settings] Failed to save settings: {e}")
+        print(f"[Settings] Failed to save settings to {SETTINGS_FILE}: {e}")
+        import traceback
+        traceback.print_exc()
 
 
 # Try to import button mapper
