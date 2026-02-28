@@ -2928,24 +2928,9 @@ class GameScreen:
             
             # 4. Controller A/B swap
             swap_ab = self.settings.get("swap_ab", False)
-            print(f"[Sinew] Reloading swap_ab setting: {swap_ab}")
-            
-            # Check controller state before applying swap
-            if self.controller:
-                current_a = getattr(self.controller, 'btn_a', None)
-                current_b = getattr(self.controller, 'btn_b', None)
-                print(f"[Sinew] Controller state BEFORE swap: A={current_a}, B={current_b}")
             
             if self.controller and hasattr(self.controller, 'set_swap_ab'):
                 self.controller.set_swap_ab(swap_ab)
-                print(f"[Sinew] Called controller.set_swap_ab({swap_ab})")
-                
-                # Check controller state after applying swap
-                current_a = getattr(self.controller, 'btn_a', None)
-                current_b = getattr(self.controller, 'btn_b', None)
-                print(f"[Sinew] Controller state AFTER swap: A={current_a}, B={current_b}")
-            else:
-                print(f"[Sinew] WARNING: Controller does not have set_swap_ab method!")
             
             # Also update emulator mapping if emulator is loaded
             if self.emulator:
@@ -2954,42 +2939,17 @@ class GameScreen:
                         RETRO_DEVICE_ID_JOYPAD_A,
                         RETRO_DEVICE_ID_JOYPAD_B,
                     )
-                    # Gamepad button map
                     gmap = getattr(self.emulator, "_gamepad_map", None)
                     if gmap is not None:
-                        # ALWAYS refresh the original values from current map state
-                        # This is needed because refresh_controller_config() may have reset them
-                        current_a = gmap.get(RETRO_DEVICE_ID_JOYPAD_A, 0)
-                        current_b = gmap.get(RETRO_DEVICE_ID_JOYPAD_B, 1)
-                        print(f"[Sinew] Current emulator map before swap: A={current_a}, B={current_b}")
-                        
-                        # If map currently shows swapped values (A=1, B=0), the originals are reversed
-                        if current_a == 1 and current_b == 0:
-                            # Map is currently swapped, so originals are reversed
-                            original_a = 0
-                            original_b = 1
-                        elif current_a == 0 and current_b == 1:
-                            # Map is normal, originals are normal
-                            original_a = 0
-                            original_b = 1
-                        else:
-                            # Unknown state, assume defaults
-                            original_a = 0
-                            original_b = 1
-                        
-                        # Apply swap based on setting
+                        # Apply swap based on setting - use absolute values
                         if swap_ab:
                             gmap[RETRO_DEVICE_ID_JOYPAD_A] = 1  # B button
                             gmap[RETRO_DEVICE_ID_JOYPAD_B] = 0  # A button
                         else:
                             gmap[RETRO_DEVICE_ID_JOYPAD_A] = 0  # A button
                             gmap[RETRO_DEVICE_ID_JOYPAD_B] = 1  # B button
-                        
-                        print(f"[Sinew] Updated emulator button map for swap_ab={swap_ab}: A->{gmap[RETRO_DEVICE_ID_JOYPAD_A]}, B->{gmap[RETRO_DEVICE_ID_JOYPAD_B]}")
-                except Exception as ex:
-                    print(f"[Sinew] Error updating emulator button map: {ex}")
-                    import traceback
-                    traceback.print_exc()
+                except Exception:
+                    pass
             
             print(f"[Sinew] Applied settings: music_muted={self._menu_music_muted}, external_emu={use_external}, swap_ab={swap_ab}")
             
