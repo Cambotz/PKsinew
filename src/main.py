@@ -4640,7 +4640,7 @@ if __name__ == "__main__":
         scaler.blit_scaled()
 
         # If emulator is active dim the screen
-        game_screen.dim_screen(180 if game_screen.emulator_active else 0)
+        game_screen.dim_screen(180 if game_screen.external_emu and game_screen.external_emu.is_running else 0)
 
     # Cleanup before exiting
     game_screen.cleanup()

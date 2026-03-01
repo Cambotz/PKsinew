@@ -103,7 +103,7 @@ class RocknixProvider(EmulatorProvider):
         return ["sh", "-c", emu_cmd]
 
     def _get_last_input_guid(self):
-        path = "/storage/.emulationstation/es_last_input.cfg"
+        path = os.path.expanduser("~/.emulationstation/es_last_input.cfg")
         if not os.path.exists(path):
             return None
         try:
