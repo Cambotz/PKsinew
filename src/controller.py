@@ -957,14 +957,8 @@ class ControllerManager:
 
         if self.active_controller:
             hat_dirs = self._get_dpad_from_hat()
+            axis_dirs = self._get_dpad_from_axes()
             btn_dirs = self._get_dpad_from_buttons()
-
-            # If button-based d-pad is active, ignore axes to prevent
-            # ghost directional input from analog sticks
-            if any(self.dpad_button_map.get(d) for d in ["up", "down", "left", "right"]):
-                axis_dirs = no_dirs
-            else:
-                axis_dirs = self._get_dpad_from_axes()
         else:
             hat_dirs = no_dirs
             axis_dirs = no_dirs
@@ -1125,9 +1119,6 @@ class ControllerManager:
 
         # Handle axis motion (for D-pad simulation)
         elif event.type == pygame.JOYAXISMOTION:
-            # If button-based d-pad is active, ignore axis events entirely
-            if any(self.dpad_button_map.get(d) for d in ["up", "down", "left", "right"]):
-                return events
             # Check if this axis is part of any configured d-pad axis pair
             for x_idx, y_idx in self.dpad_axis_pairs:
                 if event.axis == x_idx:
