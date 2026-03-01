@@ -1507,10 +1507,16 @@ class GameScreen:
         def _parse_game_for_cache(game_name, sav_path):
             """Parse one save file and return a contribution dict for the cache."""
             from save_data_manager import SaveDataManager
-            from config import SAVE_PATHS
-            # Always use config as source of truth for save path
-            canonical_path = SAVE_PATHS.get(game_name, sav_path)
-            actual_path = canonical_path if os.path.exists(canonical_path) else sav_path
+            # sav_path already comes from self.games[gname]["sav"] which
+            # _init_games() sets to the external directory when toggled on.
+            # Only fall back to config SAVE_PATHS if that path is missing.
+            actual_path = sav_path
+            if not actual_path or not os.path.exists(actual_path):
+                from config import SAVE_PATHS
+                actual_path = SAVE_PATHS.get(game_name, "")
+            if not actual_path or not os.path.exists(actual_path):
+                print(f"[Achievements] No save found for {game_name}")
+                return None
 
             manager = SaveDataManager()
             if not manager.load_save(actual_path, game_hint=game_name):
@@ -3417,6 +3423,12 @@ class GameScreen:
         _rom_scan_cache.clear()
         _save_scan_cache.clear()
         print("[GameScreen] Cleared ROM and save caches for directory rescan")
+        
+        # Clear achievement cache so stale save paths from the old directory
+        # don't persist — achievements will re-parse from the new paths.
+        if hasattr(self, "_sinew_game_data_cache"):
+            self._sinew_game_data_cache.clear()
+            print("[GameScreen] Cleared achievement cache for directory rescan")
         
         # Update loading screen - scanning ROMs
         if screen:
