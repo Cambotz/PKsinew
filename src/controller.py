@@ -110,30 +110,18 @@ class ControllerManager:
         self.button_held_time = {}
         self.button_repeat_ready = {}
 
-        # D-pad state (as buttons or axes)
-        self.dpad_states = {"up": False, "down": False, "left": False, "right": False}
-        self.dpad_held_time = {"up": 0, "down": 0, "left": 0, "right": 0}
-        self.dpad_repeat_ready = {
-            "up": False,
-            "down": False,
-            "left": False,
-            "right": False,
-        }
-        # Track consumed state - prevents re-triggering until physical release
-        self.dpad_consumed = {"up": False, "down": False, "left": False, "right": False}
+        directions = ["up", "down", "left", "right"]
+        self.dpad_states = dict.fromkeys(directions, False)
+        self.dpad_held_time = dict.fromkeys(directions, 0)
+        self.dpad_repeat_ready = dict.fromkeys(directions, False)
+        self.dpad_consumed = dict.fromkeys(directions, False)
         self.button_consumed = {}
 
-        # Button mapping - will be set by auto-detection or fallback
-        self.button_map = {
-            "A": [0],  # A button
-            "B": [1],  # B button
-            "X": [2],  # X button
-            "Y": [3],  # Y button
-            "L": [4],  # Left shoulder (LB)
-            "R": [5],  # Right shoulder (RB)
-            "SELECT": [6],  # Select/Back/View
-            "START": [7],  # Start/Menu
-        }
+        self.button_map = {k: [v] for k, v in zip(
+            ["A", "B", "X", "Y", "L", "R", "SELECT", "START"],
+            range(8),
+            strict=False
+        )}
 
         # Store original A/B for swap functionality
         self._original_a = [0]
@@ -145,46 +133,25 @@ class ControllerManager:
         # Diagonals are decomposed into cardinals by _get_dpad_from_hat().
         # This dict is rebuilt by ButtonMapper._update_hat_map() when
         # the user remaps d-pad directions.
-        self.hat_map = {
-            (0, 1): "up",
-            (0, -1): "down",
-            (-1, 0): "left",
-            (1, 0): "right",
-        }
+        self.hat_map = {(0, 1): "up", (0, -1): "down", (-1, 0): "left", (1, 0): "right"}
 
-        # D-pad as buttons mapping
-        # Some controllers (cheap USB pads, DirectInput mode, some Linux drivers)
-        # report d-pad directions as regular button presses instead of a hat.
-        # Map: direction -> list of button indices that mean that direction.
-        # None = not configured (d-pad isn't button-based on this controller).
-        self.dpad_button_map = {
-            "up": None,
-            "down": None,
-            "left": None,
-            "right": None,
-        }
+        self.dpad_button_map = dict.fromkeys(directions, None)
 
         # D-pad / stick axis indices
         # Some controllers use axes other than 0/1 for the left stick or d-pad.
         # These are the axis pairs we'll poll for directional input.
         # Format: list of (x_axis_index, y_axis_index) tuples to check.
-        self.dpad_axis_pairs = [(0, 1)]  # Default: left stick on axes 0,1
+        self.dpad_axis_pairs = [(0, 1)]
 
         # Keyboard navigation map for Sinew UI (separate from emulator keys).
         # Each action maps to a list of pygame key constants so multiple keys
         # (e.g. arrows AND WASD) can trigger the same direction simultaneously.
-        self.DEFAULT_KB_NAV = {
-            "up": [pygame.K_UP, pygame.K_w],
-            "down": [pygame.K_DOWN, pygame.K_s],
-            "left": [pygame.K_LEFT, pygame.K_a],
-            "right": [pygame.K_RIGHT, pygame.K_d],
-            "A": [pygame.K_RETURN, pygame.K_z],
-            "B": [pygame.K_ESCAPE, pygame.K_x],
-            "L": [pygame.K_PAGEUP, pygame.K_q],
-            "R": [pygame.K_PAGEDOWN, pygame.K_e],
-            "MENU": [pygame.K_m],
-        }
-        self.kb_nav_map = {k: list(v) for k, v in self.DEFAULT_KB_NAV.items()}
+        self.kb_nav_map = dict(zip(
+            ["up", "down", "left", "right", "A", "B", "L", "R", "MENU"],
+            [[pygame.K_UP, pygame.K_w], [pygame.K_DOWN, pygame.K_s], [pygame.K_LEFT, pygame.K_a], [pygame.K_RIGHT, pygame.K_d],
+             [pygame.K_RETURN, pygame.K_z], [pygame.K_ESCAPE, pygame.K_x], [pygame.K_PAGEUP, pygame.K_q], [pygame.K_PAGEDOWN, pygame.K_e], [pygame.K_m]],
+            strict=False
+        ))
 
         # Load keyboard nav bindings from settings (does NOT load controller
         # mapping — that's handled by auto-detection in _scan_controllers)
@@ -233,16 +200,10 @@ class ControllerManager:
     def _apply_profile_for_controller(self, joy):
         """
         Auto-detect and apply the correct button mapping for a controller.
-
-        Uses the controller_profiles module to resolve the best mapping based on:
-        1. Saved per-controller profile
-        2. Built-in known controller database
-        3. Legacy flat mapping from settings
-        4. Xbox-style default
-
-        Args:
-            joy: pygame.joystick.Joystick instance
         """
+        self.dpad_button_map = {"up": [], "down": [], "left": [], "right": []}
+        self.dpad_axis_pairs = []
+
         try:
             from controller_profiles import resolve_mapping, save_controller_profile
         except ImportError:
@@ -251,8 +212,6 @@ class ControllerManager:
             return
 
         name = joy.get_name()
-
-        # Try to get GUID (pygame 2.x)
         guid = None
         try:
             guid = joy.get_guid()
@@ -263,11 +222,15 @@ class ControllerManager:
         num_axes = joy.get_numaxes()
         num_hats = joy.get_numhats()
 
-        # Resolve the best mapping
+        # Resolve the best mapping from database or saves
         result = resolve_mapping(name, guid, num_buttons, num_axes, num_hats)
-
-        # Apply mapping
         mapping = result.get("mapping", {})
+
+        # Capture hardware
+        self._original_a = mapping.get("A", [0])
+        self._original_b = mapping.get("B", [1])
+
+        # Apply standard buttons
         for btn in ["A", "B", "X", "Y", "L", "R", "SELECT", "START"]:
             if btn in mapping:
                 val = mapping[btn]
@@ -276,7 +239,7 @@ class ControllerManager:
                 elif isinstance(val, int):
                     self.button_map[btn] = [val]
 
-        # Store profile info
+        # Store profile info for UI/Logging
         self.active_profile_id = result.get("id", "unknown")
         self.active_profile_description = result.get("description", "Unknown")
         self.active_profile_match_type = result.get("match_type", "default")
@@ -284,49 +247,49 @@ class ControllerManager:
         print(
             f"[Controller] Profile: {self.active_profile_description} "
             f"({self.active_profile_match_type}) "
-            f"A={self.button_map['A']}, B={self.button_map['B']}, "
-            f"L={self.button_map['L']}, R={self.button_map['R']}, "
-            f"SEL={self.button_map['SELECT']}, STA={self.button_map['START']}"
+            f"A={self.button_map.get('A')}, B={self.button_map.get('B')}"
         )
 
-        # Apply d-pad configuration from profile if present
+        # D-Pad Logic
         dpad_config = mapping.get("_dpad_buttons")
+        dpad_axes = mapping.get("_dpad_axes")
+
         if dpad_config and isinstance(dpad_config, dict):
+            # Profile defines D-pad as Buttons
             for direction in ["up", "down", "left", "right"]:
                 if direction in dpad_config:
                     val = dpad_config[direction]
                     if isinstance(val, list):
-                        self.dpad_button_map[direction] = [
-                            v for v in val if isinstance(v, int)
-                        ]
+                        self.dpad_button_map[direction] = [v for v in val if isinstance(v, int)]
                     elif isinstance(val, int):
                         self.dpad_button_map[direction] = [val]
-            print(f"[Controller] D-pad buttons: {self.dpad_button_map}")
+            print(f"[Controller] D-pad locked to profile buttons: {self.dpad_button_map}")
 
-        dpad_axes = mapping.get("_dpad_axes")
-        if dpad_axes and isinstance(dpad_axes, list):
+        elif dpad_axes and isinstance(dpad_axes, list):
+            # Profile defines D-pad as Axes
             self.dpad_axis_pairs = [
                 (pair[0], pair[1])
                 for pair in dpad_axes
                 if isinstance(pair, (list, tuple)) and len(pair) == 2
             ]
-            print(f"[Controller] D-pad axis pairs: {self.dpad_axis_pairs}")
+            print(f"[Controller] D-pad locked to profile axes: {self.dpad_axis_pairs}")
 
-        # Auto-detect d-pad type if the profile didn't specify
-        # and there are no hats (meaning the d-pad might be buttons or extra axes)
-        if not dpad_config and not dpad_axes:
+        elif num_hats == 0:
+            # No profile D-pad and no hardware hats -> Auto-detect
             self._auto_detect_dpad(joy)
 
-        # If this was an auto-detected profile (not saved), save it so the user
-        # doesn't lose it if they tweak it later in ButtonMapper
+        # If we guessed the D-pad, save it so it's "Locked" for next time
         if result["match_type"] in ("name", "guid", "heuristic"):
-            # Only auto-save if there isn't already a saved profile
             from controller_profiles import load_saved_profile
-
-            existing = load_saved_profile(name, guid)
-            if not existing:
+            if not load_saved_profile(name, guid):
+                if any(v is not None for v in self.dpad_button_map.values()):
+                    mapping["_dpad_buttons"] = self.dpad_button_map
+                elif self.dpad_axis_pairs:
+                    mapping["_dpad_axes"] = self.dpad_axis_pairs
+                
                 save_controller_profile(name, mapping, self.active_profile_id, guid)
 
+        # Apply swap a/b if needed
         self._store_originals_and_swap()
 
     def refresh_controller_config(self):
@@ -346,12 +309,27 @@ class ControllerManager:
             print("[Controller] No active controller to refresh")
 
     def _store_originals_and_swap(self):
-        """Store original A/B values and apply swap if pending."""
-        self._original_a = self.button_map["A"][:]
-        self._original_b = self.button_map["B"][:]
+        """Store original A/B values and apply swap based on current preference."""
+        # Only capture originals if they aren't already set 
+        # This prevents 'A' and 'B' from getting mixed up during a resume/re-init
+        if not hasattr(self, "_original_a") or not self._original_a:
+            self._original_a = self.button_map.get("A", [0])[:]
+            self._original_b = self.button_map.get("B", [1])[:]
 
-        if getattr(self, "_pending_swap_ab", False):
-            self.set_swap_ab(True)
+        # Check the preference
+        should_swap = getattr(self, "_swap_ab", False) or getattr(self, "_pending_swap_ab", False)
+
+        if should_swap:
+            # Explicitly set to the opposite of the hardware
+            self.button_map["A"] = self._original_b[:]
+            self.button_map["B"] = self._original_a[:]
+            self._swap_ab = True
+            print(f"[Controller] Applied A/B Swap: A={self.button_map['A']} B={self.button_map['B']}")
+        else:
+            # Reset to the hardware
+            self.button_map["A"] = self._original_a[:]
+            self.button_map["B"] = self._original_b[:]
+            self._swap_ab = False
 
     def _auto_detect_dpad(self, joy):
         """Auto-detect how the d-pad is reported on this controller.
@@ -409,7 +387,7 @@ class ControllerManager:
                 mapped_buttons.update(indices)
 
             # Try common d-pad button ranges
-            for base in [num_buttons - 4, 11, 12]:
+            for base in [11, 12, num_buttons - 4]:
                 candidates = list(range(base, base + 4))
                 if all(c < num_buttons for c in candidates):
                     overlap = mapped_buttons.intersection(candidates)
@@ -420,12 +398,16 @@ class ControllerManager:
                             "left": [candidates[2]],
                             "right": [candidates[3]],
                         }
+
+                        # Don't use hat if we use buttons
+                        self.dpad_axis_pairs = []
+
                         print(
                             f"[Controller] Auto-detected button d-pad: "
                             f"U={candidates[0]} D={candidates[1]} "
                             f"L={candidates[2]} R={candidates[3]}"
                         )
-                        break
+                        return
 
         # Check for axis-based d-pad on non-standard axes
         if num_axes >= 4:
@@ -485,16 +467,20 @@ class ControllerManager:
             try:
                 joy = pygame.joystick.Joystick(i)
                 joy.init()
-                self.controllers.append(joy)
-                print(f"Controller {i}: {joy.get_name()}")
-                print(f"  Buttons: {joy.get_numbuttons()}")
-                print(f"  Axes: {joy.get_numaxes()}")
-                print(f"  Hats: {joy.get_numhats()}")
-                # Try to print GUID
-                try:
-                    print(f"  GUID: {joy.get_guid()}")
-                except (AttributeError, pygame.error):
-                    pass
+                
+                # Reject devices with no buttons/axes (like your event0 haptics)
+                # Reject common system devices by name
+                name = joy.get_name().lower()
+                is_system_device = any(x in name for x in ["haptics", "pwrkey", "resin", "headset"])
+                
+                if joy.get_numbuttons() > 0 and joy.get_numaxes() > 0 and not is_system_device:
+                    self.controllers.append(joy)
+                    print(f"Validated Controller {i}: {joy.get_name()}")
+                    print(f"  Buttons: {joy.get_numbuttons()} | Axes: {joy.get_numaxes()}")
+                else:
+                    print(f"Skipping non-gamepad device {i}: {joy.get_name()}")
+                    joy.quit()
+
             except pygame.error as e:
                 print(f"Error initializing controller {i}: {e}")
 
@@ -502,8 +488,6 @@ class ControllerManager:
             self.active_controller = self.controllers[0]
             self.connected = True
             print(f"Active controller: {self.active_controller.get_name()}")
-
-            # Auto-detect and apply profile for this controller
             self._apply_profile_for_controller(self.active_controller)
         else:
             self.active_controller = None
@@ -511,7 +495,6 @@ class ControllerManager:
             self.active_profile_id = None
             self.active_profile_description = None
             self.active_profile_match_type = None
-            # Don't print "No controllers" on every scan to reduce spam
 
     def refresh_controllers(self):
         """Refresh controller list (call when hotplugging)"""
@@ -701,21 +684,8 @@ class ControllerManager:
         # keyboard-only users get full navigation support.
         kb = pygame.key.get_pressed()
 
-        for direction in ["up", "down", "left", "right"]:
-            keys_for_dir = self.kb_nav_map.get(direction, [])
-            kb_pressed = any(kb[k] for k in keys_for_dir)
-
-            was_pressed = self.dpad_states[direction]
-            # Combine with gamepad below; mark kb contribution now
-            # so the gamepad block can OR into it
-            self._kb_dpad_pressed = getattr(self, "_kb_dpad_pressed", {})
-            self._kb_dpad_pressed[direction] = kb_pressed
-
-        for action in ["A", "B", "L", "R"]:
-            keys_for_action = self.kb_nav_map.get(action, [])
-            kb_pressed = any(kb[k] for k in keys_for_action)
-            self._kb_btn_pressed = getattr(self, "_kb_btn_pressed", {})
-            self._kb_btn_pressed[action] = kb_pressed
+        self._kb_dpad_pressed = {k: any(kb[i] for i in v) for k, v in self.kb_nav_map.items() if k in self.dpad_states}
+        self._kb_btn_pressed = {k: any(kb[i] for i in v) for k, v in self.kb_nav_map.items() if k in ["A", "B", "L", "R"]}
 
         # --- Gamepad state ---
         if self.active_controller:
@@ -732,12 +702,17 @@ class ControllerManager:
         # - _get_dpad_from_hat() uses hat_map (rebuilt when user remaps)
         # - _get_dpad_from_axes() uses dpad_axis_pairs
         # - _get_dpad_from_buttons() uses dpad_button_map
-        no_dirs = {"up": False, "down": False, "left": False, "right": False}
+        no_dirs = dict.fromkeys(self.dpad_states, False)
 
         if self.active_controller:
             hat_dirs = self._get_dpad_from_hat()
-            axis_dirs = self._get_dpad_from_axes()
             btn_dirs = self._get_dpad_from_buttons()
+
+            # If button-based d-pad is active, completely ignore axes
+            if any(self.dpad_button_map.values()):
+                axis_dirs = dict.fromkeys(self.dpad_states, False)
+            else:
+                axis_dirs = self._get_dpad_from_axes()
         else:
             hat_dirs = no_dirs
             axis_dirs = no_dirs
@@ -745,35 +720,24 @@ class ControllerManager:
 
         kb_dpad = getattr(self, "_kb_dpad_pressed", {})
 
-        for direction in ["up", "down", "left", "right"]:
+        for direction in self.dpad_states:
             was_pressed = self.dpad_states[direction]
-            is_pressed = (
-                hat_dirs[direction]
-                or axis_dirs[direction]
-                or btn_dirs[direction]
-                or kb_dpad.get(direction, False)
-            )
-
+            is_pressed = hat_dirs[direction] or axis_dirs[direction] or btn_dirs[direction] or kb_dpad.get(direction, False)
             if is_pressed:
                 if not was_pressed:
                     self.dpad_held_time[direction] = 0
-                    if not self.dpad_consumed.get(direction, False):
+                    if not self.dpad_consumed[direction]:
                         self.dpad_repeat_ready[direction] = True
                 else:
                     self.dpad_held_time[direction] += dt
-                    if self.dpad_held_time[direction] >= self.REPEAT_DELAY_INITIAL:
-                        if not self.dpad_consumed.get(direction, False):
-                            repeat_time = (
-                                self.dpad_held_time[direction]
-                                - self.REPEAT_DELAY_INITIAL
-                            )
-                            if repeat_time % self.REPEAT_DELAY_SUBSEQUENT < dt:
-                                self.dpad_repeat_ready[direction] = True
+                    if self.dpad_held_time[direction] >= self.REPEAT_DELAY_INITIAL and not self.dpad_consumed[direction]:
+                        repeat_time = self.dpad_held_time[direction] - self.REPEAT_DELAY_INITIAL
+                        if repeat_time % self.REPEAT_DELAY_SUBSEQUENT < dt:
+                            self.dpad_repeat_ready[direction] = True
             else:
                 self.dpad_held_time[direction] = 0
                 self.dpad_repeat_ready[direction] = False
                 self.dpad_consumed[direction] = False
-
             self.dpad_states[direction] = is_pressed
 
         # Update button states (gamepad + keyboard)
@@ -783,21 +747,17 @@ class ControllerManager:
             gp_pressed = self._is_button_pressed(button_name)
             kb_pressed = kb_btn.get(button_name, False)
             is_pressed = gp_pressed or kb_pressed
-
             if is_pressed:
                 if not was_pressed:
                     self.button_held_time[button_name] = 0
                     if not self.button_consumed.get(button_name, False):
                         self.button_repeat_ready[button_name] = True
                 else:
-                    self.button_held_time[button_name] = (
-                        self.button_held_time.get(button_name, 0) + dt
-                    )
+                    self.button_held_time[button_name] = self.button_held_time.get(button_name, 0) + dt
             else:
                 self.button_held_time[button_name] = 0
                 self.button_repeat_ready[button_name] = False
                 self.button_consumed[button_name] = False
-
             self.button_states[button_name] = is_pressed
 
     def get_nav_keys(self):
@@ -898,6 +858,8 @@ class ControllerManager:
 
         # Handle axis motion (for D-pad simulation)
         elif event.type == pygame.JOYAXISMOTION:
+            if any(self.dpad_button_map.values()):
+                return events
             # Check if this axis is part of any configured d-pad axis pair
             for x_idx, y_idx in self.dpad_axis_pairs:
                 if event.axis == x_idx:
@@ -1049,10 +1011,11 @@ class ControllerManager:
         self.dpad_states = {k: False for k in self.dpad_states}
 
     def resume(self):
-        """Reclaims the joystick hardware."""
-        print("[Controller] Resuming input for Sinew...")
-        pygame.joystick.init()
-        self._scan_controllers()
+        """Re-init hardware and rebuild mappings."""
+        current_swap_state = getattr(self, "_swap_ab", False)
+        self._init_controllers()
+        self.set_swap_ab(current_swap_state)
+        print(f"[Controller] Resume complete. Swap restored to: {current_swap_state}")
 
 
 class NavigableList:

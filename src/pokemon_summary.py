@@ -480,9 +480,6 @@ class PokemonSummary:
         if self.manager:
             try:
                 sprite_path = self.manager.get_gen3_sprite_path(self.pokemon)
-                print(
-                    f"[DEBUG] _load_sprite: manager.get_gen3_sprite_path returned {sprite_path} for pokemon {self.pokemon}"
-                )
                 if sprite_path and os.path.exists(sprite_path):
                     self.sprite = pygame.image.load(sprite_path).convert_alpha()
                     self.sprite = pygame.transform.scale(self.sprite, (96, 96))

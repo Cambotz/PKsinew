@@ -64,3 +64,23 @@ class TemplateProvider(EmulatorProvider):
         if self.cache.get(key) != value:
             self.cache[key] = value
             save_sinew_settings(self.settings)
+
+    def on_exit(self):
+        """
+        Called after the emulator exits, either naturally or via terminate().
+        Use this to restart any input handlers (e.g. gptokeyb).
+        """
+        pass
+
+    def terminate(self, process):
+        """
+        Called when Sinew needs to forcefully close the emulator.
+        Should kill the process and call self.on_exit().
+        """
+        if process:
+            try:
+                process.terminate()
+                process.wait(timeout=2)
+            except Exception as e:
+                print(f"[TemplateProvider] Terminate error: {e}")
+        self.on_exit()

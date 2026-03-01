@@ -148,7 +148,6 @@ def apply_theme(theme_name):
                 if isinstance(value, list):
                     value = tuple(value)
                 setattr(ui_colors, key, value)
-                print(f"[ThemeManager] Set {key} = {value}")
 
         # Clear font cache if font changed
         if font_changed and hasattr(ui_colors, "clear_font_cache"):

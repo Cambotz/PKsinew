@@ -462,35 +462,39 @@ def find_save_for_game(game_name, saves_dir):
     
     # Ensure the directory has been scanned (no-op if already done)
     _build_save_scan_cache(saves_dir)
-    
-    keyword_fallback = None
+    matches = []
+    keyword_matches = []
     
     for save_path, detected in _save_scan_cache[saves_dir].items():
-        filename = os.path.basename(save_path)
-        name_lower = filename.lower()
+        name_lower = os.path.basename(save_path).lower()
         
-        # --- Cache hit: game code detection ---
+        # Collect all "Cache Hit" matches
         if detected == game_name:
-            print(f"[GameScreen] Save match {game_name}: {filename}")
-            return save_path
-        
-        # --- Keyword fallback (for manually named saves) ---
-        if keyword_fallback is None and detected is None:
-            # Check exclusions
-            if any(ex.lower() in name_lower for ex in exclude):
-                continue
+            matches.append(save_path)
+            continue
             
-            # Check keywords
-            for keyword in keywords:
-                if keyword.lower() in name_lower:
-                    keyword_fallback = save_path
-                    break
+        # Collect all "Keyword" matches (only if no cache hits found yet)
+        if not matches and detected is None:
+            if not any(ex.lower() in name_lower for ex in exclude):
+                for keyword in keywords:
+                    if keyword.lower() in name_lower:
+                        keyword_matches.append(save_path)
+                        break
+
+    # Prioritization Logic
+    final_list = matches if matches else keyword_matches
     
-    if keyword_fallback:
-        print(f"[GameScreen] Save keyword match {game_name}: {os.path.basename(keyword_fallback)}")
-        return keyword_fallback
-    
-    return None
+    if not final_list:
+        return None
+
+    # If we have multiple files (e.g., Game.sav and Game.srm)
+    # return the one that ends in .sav if it exists
+    for path in final_list:
+        if path.lower().endswith('.sav'):
+            return path
+            
+    # If no .sav was found in the matches, return the first one (likely .srm)
+    return final_list[0]
 
 
 def detect_games_with_dirs(roms_dir, saves_dir):
@@ -998,8 +1002,7 @@ class GameScreen:
             if current_game_name and current_game_name != "Sinew":
                 game_data = self.games.get(current_game_name, {})
                 # Use canonical save path from config as source of truth
-                from config import SAVE_PATHS
-                sav_path = SAVE_PATHS.get(current_game_name, game_data.get("sav"))
+                sav_path = game_data.get("sav")
 
                 if sav_path and os.path.exists(sav_path):
                     try:
@@ -3150,9 +3153,6 @@ class GameScreen:
             self._on_external_emulator_closed()
 
         threading.Thread(target=_watch, daemon=True).start()
-        self._show_notification(
-            "[ExternalEmu] Launched", f"Using {type(provider).__name__}"
-        )
         return True
 
     def _on_external_emulator_closed(self):
@@ -3330,7 +3330,7 @@ class GameScreen:
                 swap_ab = self.settings.get("swap_ab", False)
                 if swap_ab and self.controller and hasattr(self.controller, 'set_swap_ab'):
                     self.controller.set_swap_ab(True)
-                    print(f"[Sinew] Re-applied swap_ab for menu navigation after controller refresh")
+                    print("[Sinew] Re-applied swap_ab for menu navigation after controller refresh")
                 
                 # Force reload save data since it was modified by emulator
                 self._force_reload_current_save()
@@ -3941,7 +3941,8 @@ class GameScreen:
 
         if name == "Pokedex" and PokedexModal:
             # Check if database exists first
-            if not self._check_database(): return
+            if not self._check_database():
+                return
 
             try:
                 # Always collect save paths for potential combined mode
@@ -4462,6 +4463,28 @@ class GameScreen:
         if self._achievement_notification:
             self._achievement_notification.draw(surf)
 
+    def dim_screen(self, alpha=128):
+        """
+        Dim the game screen by drawing a semi-transparent black overlay.
+        If alpha is 0 or less, remove the overlay (destroy surface).
+        """
+        if not hasattr(self, '_dim_overlay'):
+            self._dim_overlay = None
+        if alpha > 0:
+            # Create or update the overlay surface
+            self._dim_overlay = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+            self._dim_overlay.fill((0, 0, 0, alpha))
+            target_surface = self.scaler.get_surface() if self.scaler else self._loading_screen
+            if target_surface:
+                target_surface.blit(self._dim_overlay, (0, 0))
+                if self.scaler:
+                    self.scaler.blit_scaled()
+                else:
+                    pygame.display.flip()
+        else:
+            # Remove the overlay surface
+            self._dim_overlay = None
+
     def cleanup(self):
         """Cleanup resources when closing the game screen"""
         if self.emulator:
@@ -4470,7 +4493,9 @@ class GameScreen:
             except Exception as e:
                 print(f"[Sinew] Cleanup error: {e}")
             self.emulator = None
-        self.emulator_active = False
+        
+        if hasattr(self, 'external_emu') and self.external_emu and self.external_emu.is_running:
+            self.external_emu.terminate()
 
 
 # For backwards compatibility - can still run standalone
@@ -4550,6 +4575,19 @@ if __name__ == "__main__":
 
     running = True
     while running:
+    
+        # If external emulator is running we pause sinew
+        if game_screen.external_emu and game_screen.external_emu.is_running:
+            pygame.time.wait(500)
+            
+            if not game_screen.external_emu.is_running:
+                pygame.display.flip()
+            continue
+
+        if IS_HANDHELD and pygame.display.get_surface() is None:
+            scaler.reinit_display()
+            controller.resume()
+
         dt = clock.tick(60)
 
         events = pygame.event.get()
@@ -4600,6 +4638,9 @@ if __name__ == "__main__":
 
         # Scale and display to window
         scaler.blit_scaled()
+
+        # If emulator is active dim the screen
+        game_screen.dim_screen(180 if game_screen.external_emu and game_screen.external_emu.is_running else 0)
 
     # Cleanup before exiting
     game_screen.cleanup()

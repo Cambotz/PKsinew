@@ -649,9 +649,6 @@ class SaveDataManager:
         else:
             sprite_path = get_sprite_path(species, shiny=shiny, sprite_type="gen3")
 
-        # Debug output
-        # print(f"[DEBUG] get_pokemon_sprite_path: {nickname} -> species={species} shiny={shiny} showdown={use_showdown} path={sprite_path} exists={os.path.exists(sprite_path)}", flush=True)
-
         if os.path.exists(sprite_path):
             return sprite_path
 

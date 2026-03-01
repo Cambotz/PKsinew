@@ -547,10 +547,10 @@ def _build_save_scan_cache(saves_dir):
     Subsequent calls with the same directory are a no-op.
     
     Args:
-        saves_dir: Directory containing .sav files
+        saves_dir: Directory containing .sav or .srm files
     """
     if saves_dir in _save_scan_cache:
-        return  # Already scanned
+        return
     
     scan = {}
     
@@ -559,14 +559,20 @@ def _build_save_scan_cache(saves_dir):
         return
     
     for filename in os.listdir(saves_dir):
-        if not filename.lower().endswith('.sav'):
+        fn_lower = filename.lower()
+        
+        if not fn_lower.endswith(('.sav', '.srm')):
+            continue
+            
+        if "pokemon" not in fn_lower:
             continue
         
         save_path = os.path.join(saves_dir, filename)
+        
         scan[save_path] = identify_save(save_path)
     
     _save_scan_cache[saves_dir] = scan
-    print(f"[SaveDetect] Save scan complete: {len(scan)} files in {saves_dir}")
+    print(f"[SaveDetect] Filtered Pokemon scan complete: {len(scan)} files in {saves_dir}")
 
 
 SAVES_PATH = SAVES_DIR  # Alias for compatibility
