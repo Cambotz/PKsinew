@@ -487,13 +487,12 @@ def find_save_for_game(game_name, saves_dir):
     if not final_list:
         return None
 
-    # If we have multiple files (e.g., Game.sav and Game.srm)
-    # return the one that ends in .sav if it exists
-    for path in final_list:
-        if path.lower().endswith('.sav'):
-            return path
-            
-    # If no .sav was found in the matches, return the first one (likely .srm)
+    # Prefer .sav > .srm > .sa1 > .sa2 (most common emulator formats first)
+    for ext in ('.sav', '.srm', '.sa1', '.sa2'):
+        for path in final_list:
+            if path.lower().endswith(ext):
+                return path
+    
     return final_list[0]
 
 
@@ -3426,6 +3425,28 @@ class GameScreen:
         
         # Re-scan games with the new directories
         self._init_games()
+        
+        # Back up external saves before Sinew starts reading/writing them.
+        # This protects the user's external emulator saves from accidental
+        # overwrites when Sinew edits are synced to the external directory.
+        if enabled and self.games:
+            from config import BACKUPS_DIR
+            import shutil
+            os.makedirs(BACKUPS_DIR, exist_ok=True)
+            for gname, gdata in self.games.items():
+                sav = gdata.get("sav")
+                if sav and os.path.exists(sav):
+                    try:
+                        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+                        bname = os.path.basename(sav)
+                        name, ext = os.path.splitext(bname)
+                        backup_path = os.path.join(
+                            BACKUPS_DIR, f"{name}_ext_backup_{ts}{ext}"
+                        )
+                        shutil.copy2(sav, backup_path)
+                        print(f"[ExternalEmu] Backed up {bname} -> {os.path.basename(backup_path)}")
+                    except Exception as e:
+                        print(f"[ExternalEmu] Backup failed for {gname}: {e}")
         
         # Update loading screen - loading save data
         if screen:

@@ -538,7 +538,10 @@ def pc_to_party_bytes(pc_bytes, level=1):
 
 def create_backup(filepath):
     """
-    Create a backup of the save file.
+    Create a backup of the save file in the dedicated backups directory.
+
+    Backups are stored in BACKUPS_DIR (saves/backups/) to keep them out of
+    save-scan results and avoid confusing the game detection system.
 
     Args:
         filepath: Path to save file
@@ -546,17 +549,19 @@ def create_backup(filepath):
     Returns:
         str: Path to backup file
     """
+    from config import BACKUPS_DIR
+
     if not os.path.exists(filepath):
         raise FileNotFoundError(f"Save file not found: {filepath}")
 
-    # Create backup with timestamp
+    # Create backup with timestamp in the dedicated backups directory
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    backup_dir = os.path.dirname(filepath)
     filename = os.path.basename(filepath)
     name, ext = os.path.splitext(filename)
 
     backup_filename = f"{name}_backup_{timestamp}{ext}"
-    backup_path = os.path.join(backup_dir, backup_filename)
+    os.makedirs(BACKUPS_DIR, exist_ok=True)
+    backup_path = os.path.join(BACKUPS_DIR, backup_filename)
 
     shutil.copy2(filepath, backup_path)
     print(f"Created backup: {backup_path}")

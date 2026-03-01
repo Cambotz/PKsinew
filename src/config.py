@@ -56,6 +56,17 @@ ROMS_DIR = os.path.join(EXT_DIR, "roms")
 SAVES_DIR = os.path.join(EXT_DIR, "saves")
 SYSTEM_DIR = os.path.join(EXT_DIR, "system")
 
+# ===== Save File Settings =====
+# Canonical set of GBA save file extensions — used everywhere saves are scanned.
+# .sav  - most emulators (mGBA, VBA, etc.)
+# .srm  - RetroArch / libretro
+# .sa1  - some flashcarts (battery save slot 1)
+# .sa2  - some flashcarts (battery save slot 2)
+SAVE_EXTENSIONS = ('.sav', '.srm', '.sa1', '.sa2')
+
+# Backups live in a subdirectory so they never pollute save-scan results
+BACKUPS_DIR = os.path.join(SAVES_DIR, "backups")
+
 # Sinew-specific save paths
 ACH_SAVE_PATH = os.path.join(SAVES_DIR, "sinew", "achievements_progress.json")
 ACH_REWARDS_PATH = os.path.join(DATA_DIR, "achievements", "rewards", "rewards.json")
@@ -488,23 +499,27 @@ def identify_save(save_path):
         print(f"[SaveDetect] Could not read {basename}: {e}")
         return None
     
-    # Gen 3 saves are exactly 128KB
-    if len(data) != 131072:
+    # Gen 3 saves are 128KB (standard) or 64KB (some flashcarts — single slot)
+    if len(data) not in (131072, 65536):
         return None  # Not a Gen 3 save or corrupted
     
-    # Find the active save slot by checking save index at each slot
-    # Save index is stored at offset 0x0FFC in slot A and 0xEFFC in slot B
-    try:
-        import struct
-        slot_a_index = struct.unpack('<I', data[0x0FFC:0x1000])[0]
-        slot_b_index = struct.unpack('<I', data[0xEFFC:0xF000])[0]
-        
-        # Active slot is the one with higher save index
-        active_slot_offset = 0xE000 if slot_b_index > slot_a_index else 0x0000
-        active_slot = 'B' if slot_b_index > slot_a_index else 'A'
-    except Exception as e:
-        print(f"[SaveDetect] Could not read save indices for {basename}: {e}")
-        return None
+    # For 64KB saves, only slot A exists (offset 0x0000)
+    if len(data) == 65536:
+        active_slot_offset = 0x0000
+        active_slot = 'A'
+    else:
+        # Find the active save slot by checking save index at each slot
+        # Save index is stored at offset 0x0FFC in slot A and 0xEFFC in slot B
+        try:
+            slot_a_index = struct.unpack('<I', data[0x0FFC:0x1000])[0]
+            slot_b_index = struct.unpack('<I', data[0xEFFC:0xF000])[0]
+            
+            # Active slot is the one with higher save index
+            active_slot_offset = 0xE000 if slot_b_index > slot_a_index else 0x0000
+            active_slot = 'B' if slot_b_index > slot_a_index else 'A'
+        except Exception as e:
+            print(f"[SaveDetect] Could not read save indices for {basename}: {e}")
+            return None
     
     # Find Section 0 within the active slot
     # Each section is 4096 bytes, section ID is at offset +0xFF4
@@ -513,6 +528,10 @@ def identify_save(save_path):
     for i in range(14):  # 14 sections per save slot
         section_offset = active_slot_offset + (i * 0x1000)
         section_id_offset = section_offset + 0xFF4
+        
+        # Bounds check for 64KB saves
+        if section_id_offset + 2 > len(data):
+            break
         
         try:
             section_id = struct.unpack('<H', data[section_id_offset:section_id_offset+2])[0]
@@ -543,11 +562,15 @@ def identify_save(save_path):
 
 def _build_save_scan_cache(saves_dir):
     """
-    Scan saves_dir once, identify every .sav file, and cache the results.
+    Scan saves_dir once, identify every save file, and cache the results.
     Subsequent calls with the same directory are a no-op.
     
+    Uses SAVE_EXTENSIONS for the extension filter. No filename keyword filter
+    is applied — identify_save() validates by reading the binary game code,
+    so non-Pokemon saves are safely rejected.
+    
     Args:
-        saves_dir: Directory containing .sav or .srm files
+        saves_dir: Directory containing save files
     """
     if saves_dir in _save_scan_cache:
         return
@@ -561,10 +584,7 @@ def _build_save_scan_cache(saves_dir):
     for filename in os.listdir(saves_dir):
         fn_lower = filename.lower()
         
-        if not fn_lower.endswith(('.sav', '.srm')):
-            continue
-            
-        if "pokemon" not in fn_lower:
+        if not fn_lower.endswith(SAVE_EXTENSIONS):
             continue
         
         save_path = os.path.join(saves_dir, filename)
@@ -572,7 +592,7 @@ def _build_save_scan_cache(saves_dir):
         scan[save_path] = identify_save(save_path)
     
     _save_scan_cache[saves_dir] = scan
-    print(f"[SaveDetect] Filtered Pokemon scan complete: {len(scan)} files in {saves_dir}")
+    print(f"[SaveDetect] Save scan complete: {len(scan)} files in {saves_dir}")
 
 
 SAVES_PATH = SAVES_DIR  # Alias for compatibility
@@ -727,7 +747,7 @@ def get_egg_sprite_path(sprite_type="gen3"):
 # ===== Directory Creation =====
 # Create necessary directories if they don't exist
 # Other external directories (data, themes, sprites) should be included in the distribution
-for dir_path in [ROMS_DIR, SAVES_DIR, SYSTEM_DIR, os.path.dirname(SETTINGS_FILE)]:
+for dir_path in [ROMS_DIR, SAVES_DIR, BACKUPS_DIR, SYSTEM_DIR, os.path.dirname(SETTINGS_FILE)]:
     os.makedirs(dir_path, exist_ok=True)
 
 

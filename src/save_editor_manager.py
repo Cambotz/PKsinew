@@ -11,7 +11,7 @@ import sys
 
 from gen3_save_parser import Gen3SaveParser
 
-from config import MGBA_PATH, PARSER_LOCATIONS, ROM_PATHS, SAVES_DIR
+from config import MGBA_PATH, PARSER_LOCATIONS, ROM_PATHS, SAVES_DIR, SAVE_EXTENSIONS
 from item_names import get_item_name
 
 # Handle parser path logic before importing
@@ -45,7 +45,7 @@ class SaveEditorManager:
 
         saves = []
         for file in os.listdir(SAVES_DIR):
-            if file.lower().endswith((".sav", ".srm", ".bin", ".sa1", ".sa2")):
+            if file.lower().endswith(SAVE_EXTENSIONS):
                 fp = os.path.join(SAVES_DIR, file)
                 size = os.path.getsize(fp)
                 with open(fp, "rb") as f:
