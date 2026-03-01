@@ -113,7 +113,8 @@ class PauseComboMixin:
                     if keys[menu_key]:
                         combo_held = True
                         print(
-                            f"[Sinew] MENU key {pygame.key.name(menu_key)} detected in _check_pause_combo_direct"
+                            f"[Sinew] MENU key {pygame.key.name(menu_key)} "
+                            f"detected in _check_pause_combo_direct"
                         )
                         break
             except Exception as e:
@@ -239,9 +240,8 @@ class PauseComboMixin:
         setting = self._pause_combo_setting
         if setting.get("type") == "custom":
             return f"Button {setting.get('button', '?')}"
-        else:
-            buttons = setting.get("buttons", ["START", "SELECT"])
-            return "+".join(buttons)
+        buttons = setting.get("buttons", ["START", "SELECT"])
+        return "+".join(buttons)
 
     def _get_pause_combo_hint_text(self, action="resume"):
         """Return a UI hint string such as 'Hold START+SELECT to resume'."""

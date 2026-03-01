@@ -159,7 +159,6 @@ class GameNavMixin:
                     if not self._achievement_manager.is_reward_claimed(events_ach_id):
                         return False
             return True
-
         else:
             # RSE: gate on 8 badges (Pokemon Champion).
             badge_count = 0

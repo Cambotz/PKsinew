@@ -8,7 +8,7 @@ Handles loading, applying, and saving theme preferences
 import json
 import os
 
-from config import FONT_PATH, FONTS_DIR, SAVES_DIR, SETTINGS_FILE, THEMES_DIR
+from config import FONT_PATH, FONTS_DIR, SETTINGS_FILE, THEMES_DIR
 
 # Default theme values (Dark theme)
 DEFAULT_THEME = {
@@ -105,7 +105,7 @@ def load_theme(theme_name):
     for filepath in possible_files:
         if os.path.exists(filepath):
             try:
-                with open(filepath, "r") as f:
+                with open(filepath, "r", encoding="utf-8") as f:
                     theme_data = json.load(f)
                 print(f"[ThemeManager] Loaded theme from: {filepath}")
                 # Resolve any relative paths in the theme
@@ -200,7 +200,7 @@ def save_theme_preference(theme_name, settings_path=None):
     # Load existing settings if present
     if os.path.exists(settings_path):
         try:
-            with open(settings_path, "r") as f:
+            with open(settings_path, "r", encoding="utf-8") as f:
                 settings = json.load(f)
         except Exception:
             pass
@@ -208,7 +208,7 @@ def save_theme_preference(theme_name, settings_path=None):
     settings["theme"] = theme_name
 
     try:
-        with open(settings_path, "w") as f:
+        with open(settings_path, "w", encoding="utf-8") as f:
             json.dump(settings, f, indent=4)
         print(f"[ThemeManager] Saved theme preference: {theme_name}")
     except Exception as e:
@@ -232,7 +232,7 @@ def load_theme_preference(settings_path=None):
 
     if os.path.exists(settings_path):
         try:
-            with open(settings_path, "r") as f:
+            with open(settings_path, "r", encoding="utf-8") as f:
                 settings = json.load(f)
                 theme_name = settings.get("theme", "Dark")
         except Exception:

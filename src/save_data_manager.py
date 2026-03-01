@@ -39,11 +39,13 @@ except ImportError:
         # print("[SaveDataManager] Using monolithic gen3_save_parser")
 
         def format_trainer_id(tid, sid, show_secret=False):
+            """Format the trainer ID as a zero-padded string, including SID when show_secret is True."""
             if show_secret:
                 return f"{tid:05d}-{sid:05d}"
             return f"{tid:05d}"
 
         def format_play_time(hours, minutes, seconds):
+            """Format hours, minutes, and seconds as an HHH:MM:SS display string."""
             return f"{hours:03d}:{minutes:02d}:{seconds:02d}"
 
     except ImportError:
@@ -185,9 +187,8 @@ class SaveDataManager:
                 # Add to cache for future use
                 _save_cache[save_path] = self.parser
                 return True
-            else:
-                print(f"Failed to parse: {save_path}")
-                return False
+            print(f"Failed to parse: {save_path}")
+            return False
 
         except Exception as e:
             print(f"Error loading save: {e}")

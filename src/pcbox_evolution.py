@@ -260,7 +260,8 @@ class PCBoxEvolutionMixin:
                 save_data, evolved_pokemon, game_type=game_type
             )
             print(
-                f"[PCBox] Updated Pokedex for evolved species #{evolution_info['evolves_to']} ({new_species_name})",
+                f"[PCBox] Updated Pokedex for evolved species "
+                f"#{evolution_info['evolves_to']} ({new_species_name})",
                 file=sys.stderr,
                 flush=True,
             )
@@ -285,7 +286,7 @@ class PCBoxEvolutionMixin:
         """
         pokemon_bytes = bytearray(pokemon_bytes)
 
-        GEN3_ENCODE = {
+        gen3_encode = {
             "A": 0xBB, "B": 0xBC, "C": 0xBD, "D": 0xBE, "E": 0xBF,
             "F": 0xC0, "G": 0xC1, "H": 0xC2, "I": 0xC3, "J": 0xC4,
             "K": 0xC5, "L": 0xC6, "M": 0xC7, "N": 0xC8, "O": 0xC9,
@@ -305,7 +306,7 @@ class PCBoxEvolutionMixin:
         encoded = []
         name_upper = new_nickname.upper()[:10]
         for char in name_upper:
-            encoded.append(GEN3_ENCODE.get(char, 0x00))
+            encoded.append(gen3_encode.get(char, 0x00))
 
         while len(encoded) < 10:
             encoded.append(0xFF)
@@ -361,9 +362,10 @@ class PCBoxEvolutionMixin:
                 f"[PCBox] Altering Cave dialog - Sinew: box_index={box} (Box {box+1}), slot={slot}"
             )
         else:
-            save_path, box, slot = location_info
+            _, box, slot = location_info
             print(
-                f"[PCBox] Altering Cave dialog - Game: box_index={box} (Box {box+1}), slot={slot}, current self.box_index={self.box_index}"
+                f"[PCBox] Altering Cave dialog - Game: box_index={box} "
+                f"(Box {box+1}), slot={slot}, current self.box_index={self.box_index}"
             )
 
     def _close_altering_cave_dialog(self):
@@ -526,13 +528,15 @@ class PCBoxEvolutionMixin:
             else:
                 save_path, box, slot = location
                 print(
-                    f"[PCBox] Game save mode: box_index={box} (will write to Box {box+1}), slot={slot}"
+                    f"[PCBox] Game save mode: box_index={box} "
+                    f"(will write to Box {box+1}), slot={slot}"
                 )
                 if SAVE_WRITER_AVAILABLE:
                     save_data = load_save_file(save_path)
                     if save_data:
                         print(
-                            f"[PCBox] Calling write_pokemon_to_pc(save_data, box={box+1}, slot={slot}, ...)"
+                            f"[PCBox] Calling write_pokemon_to_pc("
+                            f"save_data, box={box+1}, slot={slot}, ...)"
                         )
                         write_pokemon_to_pc(save_data, box + 1, slot, pks_data)
                         write_save_file(save_path, save_data)

@@ -51,11 +51,11 @@ def save_sinew_settings(data):
         # Ensure the directory exists (saves/sinew/ may not exist on first run)
         settings_dir = os.path.dirname(SETTINGS_FILE)
         os.makedirs(settings_dir, exist_ok=True)
-        
+
         # Write settings
         with open(SETTINGS_FILE, "w") as f:
             json.dump(data, f, indent=2)
-        
+
         print(f"[Settings] Saved to: {SETTINGS_FILE}")
     except Exception as e:
         print(f"[Settings] Failed to save settings to {SETTINGS_FILE}: {e}")
@@ -664,14 +664,17 @@ class Settings:
         self.visible = True
 
     def update(self, events):
+        """Delegate event handling to the inner settings screen and return True while visible."""
         self.screen.handle_events(events)
         self.visible = self.screen.visible
         return self.visible
 
     def handle_controller(self, ctrl):
+        """Delegate controller input to the inner settings screen."""
         return self.screen.handle_controller(ctrl)
 
     def draw(self, surf):
+        """Delegate the draw call to the inner settings screen."""
         self.screen.draw(surf)
 
 
@@ -867,6 +870,7 @@ class KeyboardMapper:
             self.controller.kb_filter_enabled = True
 
     def on_close(self):
+        """Save the current key bindings and close the keyboard mapper screen."""
         self._save_bindings()
         self.visible = False
         # Ensure filter is re-enabled if we were still listening
@@ -964,6 +968,7 @@ class KeyboardMapper:
         return True
 
     def update(self, events):
+        """Process events and handle listen-mode timeout; return True while visible."""
         self.handle_events(events)
         # Auto-stop listening on timeout
         if self.listening:
@@ -1170,7 +1175,8 @@ class MainSetup:
         self.tab_options = {
             "General": [
                 # Fullscreen has no meaning on a handheld — hide it entirely
-                *([] if IS_HANDHELD else [{"name": "Fullscreen", "type": "toggle", "value": False}]),
+                *([] if IS_HANDHELD else [{"name": "Fullscreen", "type": "toggle",
+                    "value": False}]),
                 {
                     "name": "Volume",
                     "type": "slider",
@@ -1269,9 +1275,11 @@ class MainSetup:
                 opt["value"] = settings.get("fullscreen", False)
             elif opt["name"] == "Volume":
                 saved_vol = settings.get("master_volume", VOLUME_DEFAULT)
-                vol_values = opt.get("volume_values", list(range(VOLUME_MIN, VOLUME_MAX + 1, VOLUME_STEP)))
+                vol_values = opt.get("volume_values", list(range(VOLUME_MIN, VOLUME_MAX + 1,
+                    VOLUME_STEP)))
                 # Snap to nearest step
-                closest_idx = min(range(len(vol_values)), key=lambda i: abs(vol_values[i] - saved_vol))
+                closest_idx = min(range(len(vol_values)),
+                    key=lambda i: abs(vol_values[i] - saved_vol))
                 opt["slider_index"] = closest_idx
 
         # Load Input tab settings
@@ -1290,7 +1298,7 @@ class MainSetup:
                 opt["value"] = settings.get("mgba_muted", False)
             elif opt["name"] == "Audio Buffer":
                 saved_buf = settings.get("mgba_audio_buffer",
-                                         AUDIO_BUFFER_DEFAULT_ARM if _IS_ARM_AUDIO else AUDIO_BUFFER_DEFAULT)
+                                         AUDIO_BUFFER_DEFAULT_ARM if _IS_ARM_AUDIO else AUDIO_BUFFER_DEFAULT)  # pylint: disable=line-too-long  # noqa: E501
                 if saved_buf in AUDIO_BUFFER_OPTIONS:
                     opt["slider_index"] = AUDIO_BUFFER_OPTIONS.index(saved_buf)
                 else:
@@ -1319,11 +1327,12 @@ class MainSetup:
                 for opt in self.tab_options.get("mGBA", []):
                     if opt["name"] == "Audio Buffer":
                         rb = reverted_settings.get("mgba_audio_buffer",
-                                                   AUDIO_BUFFER_DEFAULT_ARM if _IS_ARM_AUDIO else AUDIO_BUFFER_DEFAULT)
+                                                   AUDIO_BUFFER_DEFAULT_ARM if _IS_ARM_AUDIO else AUDIO_BUFFER_DEFAULT)  # pylint: disable=line-too-long  # noqa: E501
                         vals = opt.get("audio_values", AUDIO_BUFFER_OPTIONS)
                         opt["slider_index"] = vals.index(rb) if rb in vals else 0
                     elif opt["name"] == "Queue Depth":
-                        rd = reverted_settings.get("mgba_audio_queue_depth", AUDIO_QUEUE_DEPTH_DEFAULT)
+                        rd = reverted_settings.get("mgba_audio_queue_depth",
+                            AUDIO_QUEUE_DEPTH_DEFAULT)
                         vals = opt.get("audio_values", AUDIO_QUEUE_OPTIONS)
                         opt["slider_index"] = vals.index(rd) if rd in vals else 0
                 print("[Settings] Audio settings were reverted to defaults by emulator")
@@ -1386,12 +1395,15 @@ class MainSetup:
                 break
 
     def current_tab(self):
+        """Return the name of the currently selected settings tab."""
         return self.tabs[self.selected_tab]
 
     def current_options(self):
+        """Return the list of option dicts for the currently selected tab."""
         return self.tab_options[self.current_tab()]
 
     def on_back(self):
+        """Hide the settings screen and invoke the close callback."""
         self.visible = False
         if self.close_callback:
             self.close_callback()
@@ -1462,11 +1474,11 @@ class MainSetup:
                 status = "ON" if value else "OFF"
                 print(f"[Settings] Use External Emulator: {status}")
                 self._status_msg(f"External Emulator: {status}")
-                
+
                 # Trigger game re-scan in GameScreen
                 if self.external_emu_toggle_callback:
                     self.external_emu_toggle_callback(value)
-                    
+
             except Exception as e:
                 print(f"[Settings] Failed to save external emulator setting: {e}")
         elif name == "Fast-Forward":
@@ -1493,7 +1505,7 @@ class MainSetup:
             s["mgba_fastforward_index"] = speed_index
             s["mgba_fastforward_speed"] = speed_values[speed_index]
             save_sinew_settings(s)
-            print(f"[Settings] Fast-Forward: {'ON' if enabled else 'OFF'} @ {speed_values[speed_index]}x")
+            print(f"[Settings] Fast-Forward: {'ON' if enabled else 'OFF'} @ {speed_values[speed_index]}x")  # pylint: disable=line-too-long  # noqa: E501
         except Exception as e:
             print(f"[Settings] Failed to save fast-forward settings: {e}")
 
@@ -2147,6 +2159,7 @@ class MainSetup:
         surf.blit(hint_surf, (modal_x + 10, modal_y + modal_h - 18))
 
     def handle_controller(self, ctrl):
+        """Handle controller input, delegating to the active sub-screen if one is open."""
         # Delegate to sub-screen if active (but not on the frame it was just opened,
         # to prevent the activating button press from bleeding through)
         if self.sub_screen:
@@ -2259,7 +2272,7 @@ class MainSetup:
                                 notif = get_achievement_notification()
                                 if manager and notif:
                                     dev_ach = {
-                                        "id": "SINEW_063",  # Updated: was 062, shifted +1 after adding Legendary Birds
+                                        "id": "SINEW_063",  # was 062, +1 after Legendary Birds
                                         "name": "Dev Mode Discovered!",
                                         "desc": "Find the secret Dev Mode!",
                                         "game": "Sinew",
@@ -2278,7 +2291,7 @@ class MainSetup:
                             except Exception as e:
                                 print(f"[Settings] Dev mode achievement error: {e}")
                         elif self._dev_mode_active and self._dev_mode_counter >= 3:
-                            # In dev mode, pressing down 3 more times unlocks Debug Tester achievement AND triggers test notification
+                            # In dev mode, pressing down 3 more times unlocks Debug Tester achievement AND triggers test notification  # pylint: disable=line-too-long  # noqa: E501
                             self._dev_mode_counter = 0
                             try:
                                 from achievements import (
@@ -2292,7 +2305,7 @@ class MainSetup:
                                 # Unlock Debug Tester achievement if not already unlocked
                                 if manager and notif:
                                     debug_ach = {
-                                        "id": "SINEW_064",  # Updated: was 063, shifted +1 after adding Legendary Birds
+                                        "id": "SINEW_064",  # was 063, +1 after Legendary Birds
                                         "name": "Debug Tester!",
                                         "desc": "Trigger the debug test in Dev Mode!",
                                         "game": "Sinew",
@@ -2308,7 +2321,8 @@ class MainSetup:
                                     else:
                                         # Already unlocked - just show test notification
                                         print(
-                                            "[Settings] Debug Tester already unlocked, showing test notification"
+                                            "[Settings] Debug Tester already unlocked,"
+                                            " showing test notification"
                                         )
                                         test_ach = {
                                             "id": "test_001",
@@ -2359,6 +2373,7 @@ class MainSetup:
     # Keyboard / Pygame events
     # -------------------
     def handle_events(self, events):
+        """Handle pygame events, delegating to the active sub-screen if one is open."""
         # Delegate to sub-screen if active (but not on the frame it was just opened,
         # to prevent the activating keypress from bleeding through)
         if self.sub_screen:
@@ -2426,6 +2441,7 @@ class MainSetup:
     # Drawing
     # -------------------
     def draw(self, surf):
+        """Draw the active sub-screen, or the main settings view if no sub-screen is open."""
         # Draw sub-screen if active
         if self.sub_screen:
             self.sub_screen.draw(surf)
@@ -2666,7 +2682,8 @@ class MainSetup:
                                  pygame.Rect(bar_x, bar_y, fill_w, bar_h), border_radius=4)
             # Arrows
             surf.blit(self.font_text.render("<", True, arrows_color), (bar_x - 14, center_y - 7))
-            surf.blit(self.font_text.render(">", True, arrows_color), (bar_x + bar_width + 4, center_y - 7))
+            surf.blit(self.font_text.render(">", True, arrows_color), (bar_x + bar_width + 4,
+                center_y - 7))
             # Label
             lbl = self.font_text.render(label_text, True, ui_colors.COLOR_TEXT)
             surf.blit(lbl, lbl.get_rect(left=bar_x + bar_width + 18, centery=center_y))

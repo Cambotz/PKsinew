@@ -42,6 +42,7 @@ class Modal:
         )
 
     def update(self, events):
+        """Delegate event handling to the inner trainer info screen and return True while open."""
         self.screen.update(events)
         # Check if screen wants to close
         return not self.screen.should_close
@@ -51,6 +52,7 @@ class Modal:
         return self.screen.handle_controller(ctrl)
 
     def draw(self, surf):
+        """Render the semi-transparent background overlay and the trainer info screen to surf."""
         # Draw background overlay
         overlay = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
         overlay.fill((50, 50, 50, 180))
@@ -199,7 +201,7 @@ class TrainerInfoScreen:
                         sprite, (self.badge_size, self.badge_size)
                     )
                     badges.append(sprite)
-                except Exception as e:
+                except Exception:  # pylint: disable=broad-exception-caught
                     badges.append(None)
             else:
                 badges.append(None)
@@ -224,10 +226,10 @@ class TrainerInfoScreen:
                 sig = inspect.signature(self.sub_modal.handle_controller)
                 if len(sig.parameters) == 1:
                     # Only expects ctrl
-                    result = self.sub_modal.handle_controller(ctrl)
+                    self.sub_modal.handle_controller(ctrl)
                 else:
                     # Expects ctrl + current_time_ms
-                    result = self.sub_modal.handle_controller(
+                    self.sub_modal.handle_controller(
                         ctrl, pygame.time.get_ticks()
                     )
 
@@ -331,7 +333,10 @@ class TrainerInfoScreen:
             "gender": trainer_info["gender"],
             "money": trainer_info["money"],
             "pokedex": f"{pokedex['caught']}/386",  # Gen 3 has 386 Pokemon
-            "time": f"{play_time['hours']:03d}:{play_time['minutes']:02d}:{play_time['seconds']:02d}",
+            "time": (
+                f"{play_time['hours']:03d}:{play_time['minutes']:02d}"
+                f":{play_time['seconds']:02d}"
+            ),
         }
 
     # --------------------------------------------------------
@@ -343,10 +348,6 @@ class TrainerInfoScreen:
         if not self.manager.is_loaded():
             print("No save file loaded")
             return
-
-        import os
-
-        import pygame
 
         from party_screen import PartyScreen
 
@@ -440,6 +441,7 @@ class TrainerInfoScreen:
     # --------------------------------------------------------
 
     def update(self, events):
+        """Update the trainer info screen, passing events to the active sub-modal if open."""
         # If sub-modal is open, update it
         if self.sub_modal:
             if hasattr(self.sub_modal, "update"):
@@ -484,9 +486,8 @@ class TrainerInfoScreen:
     # --------------------------------------------------------
 
     def draw(self, surf):
-        # Fill inside the border (transparent black to show overlay behind)
-        # Don't fill solid - let the transparent overlay from Modal show through
-        pass  # The Modal already draws the background
+        """Render trainer card data, badges, buttons, and the active sub-modal to surf."""
+        # The Modal already draws the background
 
         # Load fresh trainer data each draw
         trainer = self.load_trainer_data()

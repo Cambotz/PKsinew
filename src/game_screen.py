@@ -13,7 +13,8 @@ import platform as _platform
 from datetime import datetime
 
 # On Linux ARM devices, preload the system SDL2 so pygame uses it
-if sys.platform == 'linux' and _platform.machine().lower() in ('aarch64', 'arm64', 'armv7l', 'armv6l'):
+if sys.platform == 'linux' and _platform.machine().lower() in ('aarch64', 'arm64', 'armv7l',
+    'armv6l'):
     import ctypes as _ctypes
     _sdl2_paths = [
         '/usr/lib/libSDL2-2.0.so.0',
@@ -62,30 +63,10 @@ from settings import Settings
 from db_builder_screen import DBBuilder
 from PokedexModal import PokedexModal
 from export_modal import ExportModal
-from events_screen import EventsModal, is_events_unlocked
-from mgba_emulator import MgbaEmulator, find_core_path, get_platform_core_extension
+from events_screen import EventsModal
+from mgba_emulator import MgbaEmulator, find_core_path
 
 EMULATOR_AVAILABLE = True
-
-# Game menu item labels
-GAME_MENU_ITEMS = [
-    'Launch Game',
-    'Pokedex',
-    'Trainer Info',
-    'PC Box',
-    'Achievements',
-    'Events',
-    'Settings',
-    'Export',
-]
-
-# Sinew (cross-save) menu items
-SINEW_MENU_ITEMS = [
-    'Pokedex',
-    'PC Box',
-    'Achievements',
-    'Settings',
-]
 
 from game_detection import (
     GAME_DEFINITIONS, GAME_FULL, GAME_SAVE_ONLY, GAME_UNAVAILABLE,
@@ -93,7 +74,10 @@ from game_detection import (
     detect_games_with_dirs, find_rom_for_game, find_save_for_game,
     get_game_availability,
 )
-from settings import load_sinew_settings as load_settings, save_sinew_settings_merged as save_settings_file
+from settings import (
+    load_sinew_settings as load_settings,
+    save_sinew_settings_merged as save_settings_file,
+)
 
 from game_dialogs import PlaceholderModal, DBWarningPopup
 
@@ -111,7 +95,7 @@ from db_check_mixin import DBCheckMixin
 from modal_launcher_mixin import ModalLauncherMixin
 
 
-def load_gif_frames(path, width, height):
+def load_gif_frames(path, width, height):  # noqa: F401  # kept for external callers
     """Load GIF frames scaled to specified size"""
     frames = []
     durations = []
@@ -155,7 +139,8 @@ class GameScreen(
 
     INPUT_COOLDOWN = 0.25
 
-    def __init__(self, width, height, font, back_callback=None, controller=None, scaler=None, screen=None):
+    def __init__(self, width, height, font, back_callback=None, controller=None, scaler=None,
+        screen=None):
         self.width = width
         self.height = height
         self.font = font
@@ -182,11 +167,12 @@ class GameScreen(
                 from external_emulator import ExternalEmulator
                 self.external_emu = ExternalEmulator()
                 if self.external_emu.active_provider:
-                    print(f'[ExternalEmu] Provider ready: {type(self.external_emu.active_provider).__name__}')
+                    print(f'[ExternalEmu] Provider ready: {type(
+                        self.external_emu.active_provider).__name__}')
                 else:
                     print('[ExternalEmu] No provider matched this environment')
             except ImportError:
-                print('[ExternalEmu] external_emulator.py not found \u2014 external emulator unavailable')
+                print('[ExternalEmu] external_emulator.py not found \u2014 external emulator unavailable')  # pylint: disable=line-too-long  # noqa: E501
 
         # Pause combo
         self._load_pause_combo_setting()
@@ -324,7 +310,9 @@ class GameScreen(
                 self._emulator_pause_combo_released = False
                 print("[Sinew] Resume triggered - calling emulator.resume()")
                 print(
-                    f"[Sinew] Before resume: paused={self.emulator.paused}, loaded={self.emulator.loaded}"
+                    f"[Sinew] Before resume:"
+                    f" paused={self.emulator.paused},"
+                    f" loaded={self.emulator.loaded}"
                 )
                 self._stop_menu_music()
                 self.emulator.resume()
@@ -347,7 +335,11 @@ class GameScreen(
                 except Exception:
                     pass
 
-            if not self._pause_combo_active and not self._is_controller_combo_held() and not menu_held:
+            if (
+                not self._pause_combo_active
+                and not self._is_controller_combo_held()
+                and not menu_held
+            ):
                 self._emulator_pause_combo_released = True
 
         # Update GIF animation for current game (if we have games)

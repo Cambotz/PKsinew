@@ -6,9 +6,6 @@ Allows players who have become Champion (8 badges) to obtain event items
 that unlock legendary Pokemon encounters.
 """
 
-import json
-import os
-
 import pygame
 
 import ui_colors
@@ -76,13 +73,16 @@ class EventsModal:
         )
 
     def update(self, events):
+        """Delegate event handling to the inner events screen and return True while open."""
         self.screen.update(events)
         return not self.screen.should_close
 
     def handle_controller(self, ctrl):
+        """Delegate controller input to the inner events screen."""
         return self.screen.handle_controller(ctrl)
 
     def draw(self, surf):
+        """Delegate the draw call to the inner events screen."""
         self.screen.draw(surf)
 
 
@@ -240,7 +240,8 @@ class EventsScreen:
             loaded_game = getattr(self.manager.parser, "game_name", None)
             if not self._is_compatible_save(loaded_game):
                 print(
-                    f"[Events] WARNING: Expected {self.game_name} but manager has {loaded_game} loaded - cannot check item ownership"
+                    f"[Events] WARNING: Expected {self.game_name} but"
+                    f" manager has {loaded_game} loaded - cannot check item ownership"
                 )
                 return False
 
@@ -256,7 +257,8 @@ class EventsScreen:
         Load which events have been claimed for the current game from sinew_settings.json.
 
         Storage format (per-game):
-            { "events_claimed": { "LeafGreen": { "aurora_ticket": true }, "Ruby": { "eon_ticket": true } } }
+            { "events_claimed": { "LeafGreen": { "aurora_ticket": true },
+                                   "Ruby": { "eon_ticket": true } } }
 
         Legacy flat format (pre-fix) is detected and ignored for safety — it will be
         replaced with the per-game format the next time a claim is saved.
@@ -397,9 +399,8 @@ class EventsScreen:
                 self._ownership_cache[event_key] = True
 
                 return True
-            else:
-                self._show_message(msg, (255, 100, 100))
-                return False
+            self._show_message(msg, (255, 100, 100))
+            return False
 
         except Exception as e:
             print(f"[Events] Error claiming event: {e}")

@@ -9,17 +9,10 @@ import os
 import sys
 
 import pygame
-from pygame.locals import MOUSEBUTTONDOWN
 
 from config import POKEMON_DB_PATH, SETTINGS_FILE
 from controller import NavigableList
 from ui_components import scale_surface_preserve_aspect
-
-try:
-    from save_writer import load_save_file
-    SAVE_WRITER_AVAILABLE = True
-except ImportError:
-    SAVE_WRITER_AVAILABLE = False
 
 
 class PCBoxDataMixin:
@@ -35,7 +28,7 @@ class PCBoxDataMixin:
         default = {"type": "combo", "buttons": ["START", "SELECT"]}
         try:
             if os.path.exists(SETTINGS_FILE):
-                with open(SETTINGS_FILE, "r") as f:
+                with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
                     settings = json.load(f)
                     if "pause_combo" in settings:
                         return settings["pause_combo"]
@@ -90,9 +83,8 @@ class PCBoxDataMixin:
         setting = self._pause_combo_setting
         if setting.get("type") == "custom":
             return f"Button {setting.get('button', '?')}"
-        else:
-            buttons = setting.get("buttons", ["START", "SELECT"])
-            return "+".join(buttons)
+        buttons = setting.get("buttons", ["START", "SELECT"])
+        return "+".join(buttons)
 
     def _get_running_game_name(self):
         """Get the name of the currently running/paused game"""
@@ -252,9 +244,8 @@ class PCBoxDataMixin:
             if 0 <= actual_index < len(self.current_box_data):
                 return self.current_box_data[actual_index]
             return None
-        else:
-            if 0 <= grid_index < len(self.current_box_data):
-                return self.current_box_data[grid_index]
+        if 0 <= grid_index < len(self.current_box_data):
+            return self.current_box_data[grid_index]
         return None
 
     # ------------------------------------------------------------------ #
@@ -262,6 +253,7 @@ class PCBoxDataMixin:
     # ------------------------------------------------------------------ #
 
     def prev_box(self):
+        """Navigate to the previous box."""
         max_boxes = 20 if self.sinew_mode else 14
         self.box_index = (self.box_index - 1) % max_boxes
         self.box_button.text = self.get_box_name(self.box_index)
@@ -270,6 +262,7 @@ class PCBoxDataMixin:
         self.selected_pokemon = None
 
     def next_box(self):
+        """Navigate to the next box."""
         max_boxes = 20 if self.sinew_mode else 14
         self.box_index = (self.box_index + 1) % max_boxes
         self.box_button.text = self.get_box_name(self.box_index)
@@ -383,6 +376,7 @@ class PCBoxDataMixin:
     # ------------------------------------------------------------------ #
 
     def set_sprite(self, path):
+        """Load and scale a sprite image from the given path."""
         if not path or not os.path.exists(path):
             self.current_sprite_image = None
             return
@@ -397,6 +391,7 @@ class PCBoxDataMixin:
     # ------------------------------------------------------------------ #
 
     def toggle_party_panel(self):
+        """Show or hide the party panel slide-in."""
         if self.sinew_mode:
             return
 
@@ -413,6 +408,7 @@ class PCBoxDataMixin:
     # ------------------------------------------------------------------ #
 
     def handle_mouse(self, event):
+        """Handle mouse events for buttons, party panel, and grid slots."""
         consumed = False
         for btn in [self.party_button, self.close_button]:
             btn.handle_event(event)
@@ -421,7 +417,7 @@ class PCBoxDataMixin:
 
         if self.party_panel_open:
             panel_slots = self.get_party_slot_rects()
-            if event.type == MOUSEBUTTONDOWN:
+            if event.type == pygame.MOUSEBUTTONDOWN:
                 for i, slot in enumerate(panel_slots):
                     if slot.collidepoint(event.pos):
                         if i < len(self.party_data):
@@ -443,7 +439,7 @@ class PCBoxDataMixin:
                 if btn.rect.collidepoint(pygame.mouse.get_pos()):
                     consumed = True
 
-            if event.type == MOUSEBUTTONDOWN:
+            if event.type == pygame.MOUSEBUTTONDOWN:
                 grid_rects = self.get_grid_rects()
                 for i, rect in enumerate(grid_rects):
                     if rect.collidepoint(event.pos):
@@ -464,6 +460,7 @@ class PCBoxDataMixin:
     # ------------------------------------------------------------------ #
 
     def get_party_slot_rects(self, inner_y=None, inner_height=None):
+        """Return pygame.Rect list for each party slot in the panel."""
         slot_margin = 8
         panel_rect = self.party_panel_rect
         inner_y = inner_y or panel_rect.y

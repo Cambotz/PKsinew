@@ -18,13 +18,6 @@ self._start_move_mode(), self._open_summary(), etc.).
 import builtins
 
 
-# Optional dependency
-try:
-    from save_writer import load_save_file, write_pokemon_to_pc, write_save_file, clear_pc_slot
-    _SAVE_WRITER_AVAILABLE = True
-except ImportError:
-    _SAVE_WRITER_AVAILABLE = False
-
 try:
     from pokemon_summary import PokemonSummary
     _SUMMARY_AVAILABLE = True
@@ -293,7 +286,8 @@ class PCBoxInputMixin:
             ctrl.consume_button("SELECT")
             dev_mode = getattr(builtins, "SINEW_DEV_MODE", False)
             print(
-                f"[PCBox] SELECT pressed - dev_mode={dev_mode}, selected={self.selected_pokemon is not None}"
+                f"[PCBox] SELECT pressed - dev_mode={dev_mode}, "
+                f"selected={self.selected_pokemon is not None}"
             )
             if dev_mode and self.selected_pokemon:
                 self._export_pokemon_for_achievement()
@@ -573,7 +567,8 @@ class PCBoxInputMixin:
                     actual_slot = grid_index + (self.sinew_scroll_offset * 6)
                     location = (self.box_index, actual_slot)
                     print(
-                        f"[PCBox] AC Zubat location (Sinew): box_index={self.box_index}, actual_slot={actual_slot}"
+                        f"[PCBox] AC Zubat location (Sinew): box_index={self.box_index}, "
+                        f"actual_slot={actual_slot}"
                     )
                 else:
                     # Game save: (save_path, box, slot)
@@ -590,7 +585,8 @@ class PCBoxInputMixin:
                     save_path = self._get_current_save_path()
                     location = (save_path, self.box_index, grid_index)
                     print(
-                        f"[PCBox] AC Zubat location (Game): box_index={self.box_index}, grid_index={grid_index}"
+                        f"[PCBox] AC Zubat location (Game): box_index={self.box_index}, "
+                        f"grid_index={grid_index}"
                     )
 
                 self._show_altering_cave_dialog(poke, location)
@@ -629,7 +625,7 @@ class PCBoxInputMixin:
                 # Can't place in party for now (party transfers more complex)
                 print("Cannot place Pokemon in party - use PC boxes")
                 return
-            elif poke and not poke.get("empty"):
+            if poke and not poke.get("empty"):
                 self.selected_pokemon = poke
 
                 # Check for Altering Cave Zubat (special interaction)
@@ -706,7 +702,8 @@ class PCBoxInputMixin:
             )
         elif self.selected_pokemon:
             print(
-                f"[PCBox] Summary not available for: {self.selected_pokemon.get('nickname', 'Pokemon')}"
+                f"[PCBox] Summary not available for: "
+                f"{self.selected_pokemon.get('nickname', 'Pokemon')}"
             )
 
     def _confirm_release_pokemon(self):
@@ -752,7 +749,7 @@ class PCBoxInputMixin:
                 self._show_warning("Cannot release party Pokemon here")
                 return
 
-            elif target["type"] == "sinew":
+            if target["type"] == "sinew":
                 # Release from Sinew storage
                 if self.sinew_storage:
                     box_num = target["box"]
@@ -782,7 +779,8 @@ class PCBoxInputMixin:
 
                     self.sinew_storage.clear_slot(box_num, adjusted_slot)
                     print(
-                        f"[PCBox] Released Pokemon from Sinew Box {box_num}, Slot {adjusted_slot + 1}"
+                        f"[PCBox] Released Pokemon from Sinew "
+                        f"Box {box_num}, Slot {adjusted_slot + 1}"
                     )
 
                     # Refresh display

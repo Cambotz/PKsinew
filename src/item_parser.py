@@ -157,7 +157,7 @@ class ItemParser:
             )[0]
 
             # Skip empty slots
-            if item_id == 0 or item_id == 0xFFFF:
+            if item_id in (0, 0xFFFF):
                 continue
 
             # Decrypt quantity using XOR with item encryption key

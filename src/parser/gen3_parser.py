@@ -3,8 +3,7 @@ Gen 3 Pokemon Save Parser - Main Module
 Facade class that ties all parser modules together
 """
 
-from .constants import calculate_level_from_exp, convert_species_to_national
-from .items import get_bag_summary, parse_bag, parse_money
+from .items import parse_bag, parse_money
 from .pokedex import parse_pokedex
 from .pokemon import get_box_structure, parse_party, parse_pc_boxes
 from .save_structure import (
@@ -14,7 +13,7 @@ from .save_structure import (
     get_save_info,
     validate_save,
 )
-from .trainer import format_play_time, format_trainer_id, parse_trainer_info
+from .trainer import parse_trainer_info
 
 
 class Gen3SaveParser:
@@ -211,7 +210,8 @@ class Gen3SaveParser:
             print(f"[Parser] Found {len(self._party)} party Pokemon")
             for i, poke in enumerate(self._party):
                 print(
-                    f"[Parser]   {i+1}. #{poke.get('species', 0):03d} {poke.get('nickname', '???')} Lv.{poke.get('level', 0)}"
+                    f"[Parser]   {i+1}. #{poke.get('species', 0):03d}"
+                    f" {poke.get('nickname', '???')} Lv.{poke.get('level', 0)}"
                 )
 
         return self._party

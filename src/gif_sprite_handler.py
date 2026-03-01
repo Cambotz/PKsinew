@@ -182,85 +182,16 @@ def get_sprite_cache():
 # ============================================================
 # USAGE EXAMPLES
 # ============================================================
-
-"""
-Example 1: Simple GIF sprite usage
-
-    from gif_sprite_handler import GIFSprite
-    
-    # Load a GIF sprite
-    pikachu_gif = GIFSprite("data/sprites/showdown/normal/025.gif", target_size=(96, 96))
-    
-    # In your game loop:
-    pikachu_gif.update(dt)  # dt in milliseconds
-    pikachu_gif.draw(screen, (100, 100))
-
-
-Example 2: Using the sprite cache
-
-    from gif_sprite_handler import get_sprite_cache
-    
-    cache = get_sprite_cache()
-    
-    # Get showdown sprite (GIF)
-    gif_sprite = cache.get_gif_sprite("data/sprites/showdown/normal/025.gif", size=(96, 96))
-    
-    # Get gen3 sprite (PNG)
-    png_sprite = cache.get_png_sprite("data/sprites/gen3/normal/025.png", size=(32, 32))
-    
-    # In game loop:
-    if gif_sprite:
-        gif_sprite.update(dt)
-        gif_sprite.draw(screen, rect)
-    
-    if png_sprite:
-        screen.blit(png_sprite, (x, y))
-
-
-Example 3: Integrating with PC Box screen
-
-    class PCBox:
-        def __init__(self, ...):
-            # ... existing code ...
-            self.sprite_cache = get_sprite_cache()
-            self.current_gif = None
-        
-        def draw(self, surf):
-            # ... existing code ...
-            
-            # For main sprite display (showdown GIF)
-            if self.selected_pokemon and not self.selected_pokemon.get('empty'):
-                sprite_path = self.manager.get_showdown_sprite_path(self.selected_pokemon)
-                if sprite_path:
-                    # Get or load GIF sprite
-                    gif_sprite = self.sprite_cache.get_gif_sprite(
-                        sprite_path, 
-                        size=(self.sprite_area.width - 4, self.sprite_area.height - 4)
-                    )
-                    
-                    if gif_sprite and gif_sprite.loaded:
-                        # Update animation
-                        gif_sprite.update(dt)  # You'll need to pass dt
-                        
-                        # Draw animated sprite
-                        gif_sprite.draw(surf, self.sprite_area)
-
-
-Example 4: Grid sprites (PNG)
-
-    # In draw_grid method
-    for i, rect in enumerate(rects):
-        poke = self.get_pokemon_at_grid_slot(i)
-        
-        if poke and not poke.get('empty') and not poke.get('egg'):
-            sprite_path = self.manager.get_gen3_sprite_path(poke)
-            if sprite_path:
-                sprite = self.sprite_cache.get_png_sprite(
-                    sprite_path,
-                    size=(int(rect.width * 0.8), int(rect.height * 0.8))
-                )
-                
-                if sprite:
-                    sprite_rect = sprite.get_rect(center=rect.center)
-                    surf.blit(sprite, sprite_rect)
-"""
+# Example 1: Simple GIF sprite usage
+#
+#   from gif_sprite_handler import GIFSprite
+#   pikachu_gif = GIFSprite("data/sprites/showdown/normal/025.gif", target_size=(96, 96))
+#   pikachu_gif.update(dt)
+#   pikachu_gif.draw(screen, (100, 100))
+#
+# Example 2: Using the sprite cache
+#
+#   from gif_sprite_handler import get_sprite_cache
+#   cache = get_sprite_cache()
+#   gif_sprite = cache.get_gif_sprite("data/sprites/showdown/normal/025.gif", size=(96, 96))
+#   png_sprite = cache.get_png_sprite("data/sprites/gen3/normal/025.png", size=(32, 32))

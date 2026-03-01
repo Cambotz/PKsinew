@@ -12,15 +12,17 @@ Each achievement is a dict:
     "id": "RUBY_001",
     "name": "First Steps",
     "desc": "Start your Ruby adventure",
-    "category": "Story" / "Dex" / "Gyms" / "Legendaries" / "Trainer" / "Exploration" / "Items" / "Stats" / "Misc",
+    "category": "Story" / "Dex" / "Gyms" / "Legendaries" / "Trainer" / "Exploration" / "Items" / "Stats" / "Misc",  # pylint: disable=line-too-long  # noqa: E501
     "game": "Ruby" / "Sinew",
     "hint": "short hint of how to check (for authoring check_achievement_unlocked)"
-    "reward": {"type": "theme", "value": "Theme Name.json"} or {"type": "pokemon", "value": "Mew.pks"}
+    "reward": {"type": "theme", "value": "Theme Name.json"} or {"type": "pokemon",
+        "value": "Mew.pks"}
     # unlocked boolean is not stored here - runtime state
 }
 
 Use get_achievements_for(game) to retrieve the list.
-Use check_achievement_unlocked(achievement, save) as a template to implement checks against your parsed save data.
+Use check_achievement_unlocked(achievement,
+    save) as a template to implement checks against your parsed save data.
 """
 
 from typing import Dict, List
@@ -288,7 +290,7 @@ def get_achievement_name_by_id(ach_id: str) -> str:
                 # Return a generic description
                 if suffix == "_021":
                     return "First Badge (any game)"
-                elif suffix == "_044":
+                if suffix == "_044":
                     return "First Level 50 (any game)"
             return f"Achievement {suffix}"
 
@@ -1120,7 +1122,8 @@ def _generate_sinew_achievements(start_idx: int = 1) -> List[Dict]:
         )
         idx += 1
 
-    # 10 Global Trainer / Progress milestones (using trackable data, avoiding duplicates with Gyms/Story)
+    # 10 Global Trainer / Progress milestones
+    # (using trackable data, avoiding duplicates with Gyms/Story)
     trainers = [
         (
             "Quad Champion",
@@ -1646,8 +1649,7 @@ def check_achievement_unlocked(
 
     for p in all_pokemon:
         level = p.get("level", 0)
-        if level > max_level:
-            max_level = level
+        max_level = max(max_level, level)
         if level >= 30:
             pokemon_over_30 += 1
         if level >= 50:
@@ -1742,13 +1744,15 @@ def check_achievement_unlocked(
             if len(owned_list) > 0:
                 # Show whether found or not
                 print(
-                    f"[Achievements] Legendary check: species {species_id} in owned_list ({len(owned_list)} species)? {result}"
+                    f"[Achievements] Legendary check: species {species_id} in owned_list ({len(
+                        owned_list)} species)? {result}"
                 )
                 if not result and species_id in [150, 151, 380, 381, 382, 383, 384]:
                     # Show what type owned_list contains
                     sample = owned_list[:5] if len(owned_list) >= 5 else owned_list
                     print(
-                        f"[Achievements]   owned_list sample: {sample} (types: {[type(x).__name__ for x in sample]})"
+                        f"[Achievements]   owned_list sample: {sample} (types: {[type(
+                            x).__name__ for x in sample]})"
                     )
             return result
         except Exception as e:
@@ -1787,7 +1791,8 @@ def check_achievement_unlocked(
 
         # Debug output
         print(
-            f"[Achievements] Sevii check: national_dex={has_national_dex}, rainbow_pass={has_rainbow_pass}"
+            f"[Achievements] Sevii check:"
+            f" national_dex={has_national_dex}, rainbow_pass={has_rainbow_pass}"
         )
 
         return has_national_dex and has_rainbow_pass
@@ -1843,5 +1848,5 @@ if __name__ == "__main__":
     # Show counts
     total = sum(len(v) for v in GAME_ACHIEVEMENTS.values())
     print(f"Generated achievements: {total}")
-    for k in GAME_ACHIEVEMENTS:
-        print(k, len(GAME_ACHIEVEMENTS[k]))
+    for k, v in GAME_ACHIEVEMENTS.items():
+        print(k, len(v))

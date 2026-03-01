@@ -154,6 +154,7 @@ class LoggingPrintRedirector:
         return False
 
     def write(self, text):
+        """Buffer incoming text and emit each complete line to the logger, suppressing noisy patterns."""
         # Buffer text and process complete lines
         self.buffer += text
         while "\n" in self.buffer:
@@ -169,6 +170,7 @@ class LoggingPrintRedirector:
                 self.logger.info(line.rstrip())
 
     def flush(self):
+        """Flush any remaining buffered text to the logger and the original stdout stream."""
         if self.original_stdout:
             self.original_stdout.flush()
         # Flush any remaining buffer
@@ -207,11 +209,11 @@ def init_redirectors(version="1.3.6"):
 
     # Log startup banner
     sinew_logger.info("=" * 60)
-    sinew_logger.info(f"Sinew {version}")
-    sinew_logger.info(f"Starting - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    sinew_logger.info(f"Log file: {log_file_path}")
-    sinew_logger.info(f"Python: {sys.version}")
-    sinew_logger.info(f"Platform: {sys.platform}")
+    sinew_logger.info("Sinew %s", version)
+    sinew_logger.info("Starting - %s", datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+    sinew_logger.info("Log file: %s", log_file_path)
+    sinew_logger.info("Python: %s", sys.version)
+    sinew_logger.info("Platform: %s", sys.platform)
     sinew_logger.info("=" * 60)
 
     return log_file_path

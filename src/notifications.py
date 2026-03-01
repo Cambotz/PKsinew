@@ -152,8 +152,7 @@ class NotificationsMixin:
             self._notification_timer -= dt
             if self._notification_y < self._notification_target_y:
                 self._notification_y += dt * 0.5
-                if self._notification_y > self._notification_target_y:
-                    self._notification_y = self._notification_target_y
+                self._notification_y = min(self._notification_y, self._notification_target_y)
 
     def _draw_notification(self, surf):
         """Draw the slide-down notification box if one is active."""

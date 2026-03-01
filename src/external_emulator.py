@@ -24,25 +24,30 @@ class EmulatorProvider(ABC):
     @property
     @abstractmethod
     def supported_os(self):
+        """Return a list of OS name strings this provider supports (e.g. ['linux'])."""
         pass
 
     @abstractmethod
     def get_command(self, rom_path, core="auto"):
+        """Return the shell command list used to launch the emulator for the given ROM path."""
         pass
 
     @abstractmethod
     def probe(self, distro_id):
+        """Return True if this provider is available and active on the current system."""
         pass
-        
+
     @abstractmethod
     def terminate(self, process):
+        """Terminate the given emulator subprocess."""
         pass
 
     @abstractmethod
     def on_exit(self):
+        """Called by the exit-watcher thread when the emulator process ends cleanly."""
         pass
 
-# --- Import providers ---    
+# --- Import providers ---
 from providers import *
 
 # --- Main ExternalEmulator Controller ---
@@ -54,22 +59,22 @@ class ExternalEmulator:
         self.is_running = False
         self.current_os = platform.system().lower()
         self.distro_id = self._get_linux_distro() if self.current_os == "linux" else None
-        
+
         # Load settings
         current_settings = load_sinew_settings()
-        
+
         # Register Providers
         import providers
         self.providers = [
-            cls(current_settings) 
+            cls(current_settings)
             for name, cls in inspect.getmembers(providers, inspect.isclass)
-            if issubclass(cls, EmulatorProvider) 
+            if issubclass(cls, EmulatorProvider)
             and cls is not EmulatorProvider
             and getattr(cls, 'active', False)
         ]
-        
+
         self._detect_environment()
-        
+
     def _get_linux_distro(self):
         if os.path.exists("/etc/os-release"):
             with open("/etc/os-release", "r") as f:
@@ -92,6 +97,7 @@ class ExternalEmulator:
                     break
 
     def launch(self, rom_path, controller_manager, core="auto"):
+        """Launch the emulator via the active provider; pauses input and returns True on success."""
         if not self.active_provider:
             print("[ExternalEmu] No provider found. Launch aborted.")
             return False
@@ -140,6 +146,7 @@ class ExternalEmulator:
             return False
 
     def check_status(self):
+        """Return True if the emulator subprocess is still running, False if it has exited."""
         if self.process is None:
             return False
         status = self.process.poll()
@@ -148,8 +155,9 @@ class ExternalEmulator:
             self.process = None
             return False
         return True
-        
+
     def terminate(self):
+        """Terminate the currently active emulator process via the active provider."""
         if self.process and self.active_provider:
             print(f"[ExternalEmu] Delegating termination to {type(self.active_provider).__name__}")
             self._exit_handled = True

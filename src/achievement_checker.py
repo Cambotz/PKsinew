@@ -111,7 +111,10 @@ class AchievementCheckerMixin:
                 if sav_path and os.path.exists(sav_path):
                     try:
                         from save_data_manager import SaveDataManager
-                        from achievements_data import check_achievement_unlocked, get_achievements_for
+                        from achievements_data import (
+                            check_achievement_unlocked,
+                            get_achievements_for,
+                        )
 
                         manager = SaveDataManager()
                         if manager.load_save(sav_path, game_hint=current_game_name):
@@ -120,7 +123,7 @@ class AchievementCheckerMixin:
                                 if hasattr(manager, "parser") and manager.parser
                                 else "unknown"
                             )
-                            print(f"[Achievements] {current_game_name} loaded - game_code: {loaded_game}")
+                            print(f"[Achievements] {current_game_name} loaded - game_code: {loaded_game}")  # pylint: disable=line-too-long  # noqa: E501
 
                             pokedex_data = (
                                 manager.get_pokedex_count()
@@ -132,7 +135,7 @@ class AchievementCheckerMixin:
                             if party:
                                 for p in party:
                                     if p and not p.get("empty"):
-                                        print(f"[Achievements] Startup {current_game_name} party[0]: level={p.get('level', 'NO LEVEL')}, species={p.get('species', '?')}")
+                                        print(f"[Achievements] Startup {current_game_name} party[0]: level={p.get('level', 'NO LEVEL')}, species={p.get('species', '?')}")  # pylint: disable=line-too-long  # noqa: E501
                                         break
 
                             pc_pokemon = []
@@ -146,9 +149,9 @@ class AchievementCheckerMixin:
                                                     pc_pokemon.append(p)
                                 if pc_pokemon:
                                     first = pc_pokemon[0]
-                                    print(f"[Achievements] Startup {current_game_name} first PC Pokemon level: {first.get('level', 'NO LEVEL KEY')}")
+                                    print(f"[Achievements] Startup {current_game_name} first PC Pokemon level: {first.get('level', 'NO LEVEL KEY')}")  # pylint: disable=line-too-long  # noqa: E501
                             except Exception as e:
-                                print(f"[Achievements] Startup {current_game_name} PC load error: {e}")
+                                print(f"[Achievements] Startup {current_game_name} PC load error: {e}")  # pylint: disable=line-too-long  # noqa: E501
 
                             owned_list = []
                             try:
@@ -160,16 +163,20 @@ class AchievementCheckerMixin:
 
                             playtime_hours = 0
                             try:
-                                playtime = manager.get_play_time() if hasattr(manager, "get_play_time") else {}
-                                playtime_hours = (playtime.get("hours", 0) or 0) + ((playtime.get("minutes", 0) or 0) / 60.0)
+                                playtime = manager.get_play_time() if hasattr(manager,
+                                    "get_play_time") else {}
+                                playtime_hours = (playtime.get("hours",
+                                    0) or 0) + ((playtime.get("minutes", 0) or 0) / 60.0)
                             except Exception:
                                 pass
 
                             ach_save_data = {
                                 "dex_caught": pokedex_data.get("caught", 0),
                                 "dex_seen": pokedex_data.get("seen", 0),
-                                "badges": manager.get_badge_count() if hasattr(manager, "get_badge_count") else 0,
-                                "money": manager.get_money() if hasattr(manager, "get_money") else 0,
+                                "badges": manager.get_badge_count() if hasattr(manager,
+                                    "get_badge_count") else 0,
+                                "money": manager.get_money() if hasattr(manager,
+                                    "get_money") else 0,
                                 "party": party,
                                 "pc_pokemon": pc_pokemon,
                                 "owned_list": owned_list,
@@ -180,7 +187,8 @@ class AchievementCheckerMixin:
                             pc_count = len([p for p in pc_pokemon if p and not p.get("empty")])
                             party_count = len([p for p in party if p and not p.get("empty")])
 
-                            all_pokemon = [p for p in party + pc_pokemon if p and not p.get("empty")]
+                            all_pokemon = [p for p in party + pc_pokemon if p
+                                and not p.get("empty")]
                             max_level = max((p.get("level", 0) for p in all_pokemon), default=0)
                             pokemon_over_30 = sum(1 for p in all_pokemon if p.get("level", 0) >= 30)
                             pokemon_over_50 = sum(1 for p in all_pokemon if p.get("level", 0) >= 50)
@@ -188,29 +196,40 @@ class AchievementCheckerMixin:
                             pokemon_at_100 = sum(1 for p in all_pokemon if p.get("level", 0) >= 100)
                             shiny_count = sum(1 for p in all_pokemon if is_pokemon_shiny(p))
 
-                            print(f"[Achievements] Startup {current_game_name}: dex={ach_save_data['dex_caught']}, badges={ach_save_data['badges']}, pc={pc_count}, party={party_count}, max_lv={max_level}")
+                            print(f"[Achievements] Startup {current_game_name}: dex={ach_save_data['dex_caught']}, badges={ach_save_data['badges']}, pc={pc_count}, party={party_count}, max_lv={max_level}")  # pylint: disable=line-too-long  # noqa: E501
 
                             # Log any legendaries found
-                            legendary_ids = [144,145,146,150,151,377,378,379,380,381,382,383,384,385,386]
+                            legendary_ids = [144,145,146,150,151,377,378,379,380,381,382,383,384,385,386]  # pylint: disable=line-too-long  # noqa: E501
                             found_legendaries = [s for s in legendary_ids if s in owned_list]
                             if found_legendaries:
-                                print(f"[Achievements] Startup {current_game_name} has legendaries: {found_legendaries}")
+                                print(f"[Achievements] Startup {current_game_name} has legendaries: {found_legendaries}")  # pylint: disable=line-too-long  # noqa: E501
 
                             # Update per-game tracking
                             self._achievement_manager.set_current_game(current_game_name)
-                            self._achievement_manager.update_tracking("dex_count", ach_save_data["dex_caught"])
-                            self._achievement_manager.update_tracking("dex_seen", ach_save_data["dex_seen"])
-                            self._achievement_manager.update_tracking("badges", ach_save_data["badges"])
-                            self._achievement_manager.update_tracking("money", ach_save_data["money"])
-                            self._achievement_manager.update_tracking("playtime_hours", playtime_hours)
+                            self._achievement_manager.update_tracking("dex_count",
+                                ach_save_data["dex_caught"])
+                            self._achievement_manager.update_tracking("dex_seen",
+                                ach_save_data["dex_seen"])
+                            self._achievement_manager.update_tracking("badges",
+                                ach_save_data["badges"])
+                            self._achievement_manager.update_tracking("money",
+                                ach_save_data["money"])
+                            self._achievement_manager.update_tracking("playtime_hours",
+                                playtime_hours)
                             self._achievement_manager.update_tracking("party_size", party_count)
                             self._achievement_manager.update_tracking("pc_pokemon", pc_count)
-                            self._achievement_manager.update_tracking("total_pokemon", pc_count + party_count)
-                            self._achievement_manager.update_tracking("any_pokemon_level", max_level)
-                            self._achievement_manager.update_tracking("pokemon_over_30", pokemon_over_30)
-                            self._achievement_manager.update_tracking("pokemon_over_50", pokemon_over_50)
-                            self._achievement_manager.update_tracking("pokemon_over_70", pokemon_over_70)
-                            self._achievement_manager.update_tracking("pokemon_at_100", pokemon_at_100)
+                            self._achievement_manager.update_tracking("total_pokemon",
+                                pc_count + party_count)
+                            self._achievement_manager.update_tracking("any_pokemon_level",
+                                max_level)
+                            self._achievement_manager.update_tracking("pokemon_over_30",
+                                pokemon_over_30)
+                            self._achievement_manager.update_tracking("pokemon_over_50",
+                                pokemon_over_50)
+                            self._achievement_manager.update_tracking("pokemon_over_70",
+                                pokemon_over_70)
+                            self._achievement_manager.update_tracking("pokemon_at_100",
+                                pokemon_at_100)
                             self._achievement_manager.update_tracking("shiny_count", shiny_count)
                             self._achievement_manager.update_tracking("owned_set", set(owned_list))
 
@@ -226,15 +245,17 @@ class AchievementCheckerMixin:
                                             "reward_claimed": False,
                                         }
                                         self._achievement_manager.stats["total_unlocked"] = (
-                                            self._achievement_manager.stats.get("total_unlocked", 0) + 1
+                                            self._achievement_manager.stats.get("total_unlocked",
+                                                0) + 1
                                         )
                                         self._achievement_manager.stats["total_points"] = (
-                                            self._achievement_manager.stats.get("total_points", 0) + ach.get("points", 0)
+                                            self._achievement_manager.stats.get("total_points",
+                                                0) + ach.get("points", 0)
                                         )
                                         unlocked_count += 1
 
                             if unlocked_count > 0:
-                                print(f"[Achievements] Startup: {current_game_name} - {unlocked_count} achievements unlocked")
+                                print(f"[Achievements] Startup: {current_game_name} - {unlocked_count} achievements unlocked")  # pylint: disable=line-too-long  # noqa: E501
 
                     except Exception as e:
                         print(f"[Achievements] Startup error for {current_game_name}: {e}")
@@ -248,7 +269,8 @@ class AchievementCheckerMixin:
             # Re-validate and save
             revoked = self._achievement_manager.revalidate_achievements()
             if revoked:
-                print(f"[Achievements] Revoked {len(revoked)} incorrectly unlocked achievements on startup")
+                print(f"[Achievements] Revoked {len(
+                    revoked)} incorrectly unlocked achievements on startup")
 
             self._achievement_manager._save_progress()
 
@@ -309,7 +331,8 @@ class AchievementCheckerMixin:
                 if pc_pokemon:
                     first = pc_pokemon[0]
                     print(
-                        f"[Achievements] First PC Pokemon keys: {list(first.keys()) if isinstance(first, dict) else type(first)}"
+                        f"[Achievements] First PC Pokemon keys: {list(first.keys()) if isinstance(
+                            first, dict) else type(first)}"
                     )
             except Exception as e:
                 print(f"[Achievements] Error getting PC Pokemon: {e}")
@@ -363,7 +386,7 @@ class AchievementCheckerMixin:
                             manager.parser.data, "FRLG"
                         )
                         print(
-                            f"[Achievements] {game_name} Sevii prereqs: nat_dex={ach_save_data['has_national_dex']}, rainbow_pass={ach_save_data['has_rainbow_pass']}"
+                            f"[Achievements] {game_name} Sevii prereqs: nat_dex={ach_save_data['has_national_dex']}, rainbow_pass={ach_save_data['has_rainbow_pass']}"  # pylint: disable=line-too-long  # noqa: E501
                         )
                     except Exception as e:
                         print(f"[Achievements] Error checking FRLG Sevii prereqs: {e}")
@@ -419,17 +442,24 @@ class AchievementCheckerMixin:
                     shiny_count += 1
 
             print(
-                f"[Achievements] Checking {game_name}: badges={ach_save_data['badges']}, dex={ach_save_data['dex_caught']}, money={ach_save_data['money']}, party={party_count}, pc={pc_count}, playtime={playtime_h:.1f}h, owned={len(owned_list)} species"
+                f"[Achievements] Checking {game_name}:"
+                f" badges={ach_save_data['badges']},"
+                f" dex={ach_save_data['dex_caught']}, money={ach_save_data['money']},"
+                f" party={party_count}, pc={pc_count},"
+                f" playtime={playtime_h:.1f}h, owned={len(owned_list)} species"
             )
 
-            legendaries = [144, 145, 146, 150, 151, 377, 378, 379, 380, 381, 382, 383, 384, 385, 386]
+            legendaries = [144, 145, 146, 150, 151, 377, 378, 379, 380, 381, 382, 383, 384, 385,
+                386]
             found_legendaries = [s for s in legendaries if s in owned_list]
             if found_legendaries:
                 print(
                     f"[Achievements] {game_name} has legendaries in owned_list: {found_legendaries}"
                 )
             print(
-                f"[Achievements] {game_name} Pokemon: total={total_pokemon}, max_lv={max_level}, lv50+={pokemon_over_50}, lv100={pokemon_at_100}, shiny={shiny_count}"
+                f"[Achievements] {game_name} Pokemon: total={total_pokemon},"
+                f" max_lv={max_level}, lv50+={pokemon_over_50},"
+                f" lv100={pokemon_at_100}, shiny={shiny_count}"
             )
 
             self._achievement_manager.set_current_game(game_name)
@@ -518,7 +548,8 @@ class AchievementCheckerMixin:
             pc_pokemon = []
             pc_count_raw = 0
             try:
-                pc_count_raw = manager.get_pc_pokemon_count() if hasattr(manager, "get_pc_pokemon_count") else 0
+                pc_count_raw = manager.get_pc_pokemon_count() if hasattr(manager,
+                    "get_pc_pokemon_count") else 0
                 for box_num in range(1, 15):
                     if hasattr(manager, "get_box"):
                         box = manager.get_box(box_num)
@@ -531,12 +562,14 @@ class AchievementCheckerMixin:
             level100 = sum(1 for p in all_pokemon if p.get("level", 0) >= 100)
             level50plus = sum(1 for p in all_pokemon if p.get("level", 0) >= 50)
             shiny_count = sum(1 for p in all_pokemon if is_pokemon_shiny(p))
-            eeveelutions = {p.get("species") for p in all_pokemon if p.get("species") in EEVEELUTION_SPECIES}
+            eeveelutions = {p.get("species") for p in all_pokemon if p.get(
+                "species") in EEVEELUTION_SPECIES}
 
             dex_caught = 0
             owned_set = set()
             try:
-                dex_data = manager.get_pokedex_count() if hasattr(manager, "get_pokedex_count") else {"caught": 0}
+                dex_data = manager.get_pokedex_count() if hasattr(manager,
+                    "get_pokedex_count") else {"caught": 0}
                 dex_caught = dex_data.get("caught", 0)
                 if hasattr(manager, "get_pokedex_data"):
                     owned_set = set(manager.get_pokedex_data().get("owned_list", []))
@@ -559,7 +592,10 @@ class AchievementCheckerMixin:
             is_frlg = game_name in ["FireRed", "LeafGreen"]
             regional_size = 151 if is_frlg else 202
 
-            print(f"[Achievements] Sinew cache: {game_name} - {badges} badges, {dex_caught} dex, {len(all_pokemon)} pokemon")
+            print(
+                f"[Achievements] Sinew cache: {game_name} -"
+                f" {badges} badges, {dex_caught} dex, {len(all_pokemon)} pokemon"
+            )
 
             return {
                 "badges": badges,
@@ -662,7 +698,7 @@ class AchievementCheckerMixin:
 
                                     if is_pokemon_shiny(pokemon):
                                         total_shiny_pokemon += 1
-                                        print(f"[Achievements] Found shiny in Sinew: species {species} in box {box_num}")
+                                        print(f"[Achievements] Found shiny in Sinew: species {species} in box {box_num}")  # pylint: disable=line-too-long  # noqa: E501
                                     if species:
                                         combined_pokedex.add(species)
 
@@ -690,17 +726,25 @@ class AchievementCheckerMixin:
                 pass
 
             print(
-                f"[Achievements] Sinew aggregate: badges={total_badges}, champions={games_with_champion}, dex={len(combined_pokedex)}, money={total_money}, playtime={total_playtime:.1f}h"
+                f"[Achievements] Sinew aggregate:"
+                f" badges={total_badges}, champions={games_with_champion},"
+                f" dex={len(combined_pokedex)}, money={total_money},"
+                f" playtime={total_playtime:.1f}h"
             )
             print(
-                f"[Achievements] Pokemon stats: pc={total_pc_pokemon}, shiny={total_shiny_pokemon}, lv100={total_level100}, lv50+={total_level50plus}"
+                f"[Achievements] Pokemon stats: pc={total_pc_pokemon},"
+                f" shiny={total_shiny_pokemon},"
+                f" lv100={total_level100}, lv50+={total_level50plus}"
             )
             print(
-                f"[Achievements] Special: starters={starter_lines_owned}/6, eeveelutions={len(owned_eeveelutions)}/5, dev_mode={dev_mode_activated}, full_dex={games_with_full_dex}"
+                f"[Achievements] Special: starters={starter_lines_owned}/6,"
+                f" eeveelutions={len(owned_eeveelutions)}/5,"
+                f" dev_mode={dev_mode_activated}, full_dex={games_with_full_dex}"
             )
 
             # Debug: show if legendaries are in combined_pokedex
-            legendaries = [150, 151, 380, 381, 382, 383, 384, 385, 386, 144, 145, 146, 377, 378, 379]
+            legendaries = [150, 151, 380, 381, 382, 383, 384, 385, 386, 144, 145, 146, 377, 378,
+                379]
             found_legendaries = [s for s in legendaries if s in combined_pokedex]
             if found_legendaries:
                 print(f"[Achievements] Legendaries in combined_pokedex: {found_legendaries}")
@@ -715,15 +759,18 @@ class AchievementCheckerMixin:
             self._achievement_manager.update_tracking("global_playtime", total_playtime)
             self._achievement_manager.update_tracking("global_champions", games_with_champion)
             self._achievement_manager.update_tracking("games_with_badges", games_with_badges)
-            self._achievement_manager.update_tracking("games_with_4plus_badges", games_with_4plus_badges)
+            self._achievement_manager.update_tracking("games_with_4plus_badges",
+                games_with_4plus_badges)
             self._achievement_manager.update_tracking("games_with_full_dex", games_with_full_dex)
             self._achievement_manager.update_tracking("global_pc_pokemon", total_pc_pokemon)
             self._achievement_manager.update_tracking("global_shiny_pokemon", total_shiny_pokemon)
             self._achievement_manager.update_tracking("global_level100_pokemon", total_level100)
-            self._achievement_manager.update_tracking("global_level50plus_pokemon", total_level50plus)
+            self._achievement_manager.update_tracking("global_level50plus_pokemon",
+                total_level50plus)
             self._achievement_manager.update_tracking("global_full_parties", games_with_full_party)
             self._achievement_manager.update_tracking("global_starters", starter_lines_owned)
-            self._achievement_manager.update_tracking("global_eeveelutions", len(owned_eeveelutions))
+            self._achievement_manager.update_tracking("global_eeveelutions",
+                len(owned_eeveelutions))
             self._achievement_manager.update_tracking("dev_mode_activated", dev_mode_activated)
 
             # Check Sinew progression achievements
@@ -783,7 +830,7 @@ class AchievementCheckerMixin:
                         required = int(hint.split(">=")[1].strip().split()[0])
                         if games_with_full_dex >= required:
                             unlocked = True
-                            print(f"[Achievements] Regional dex achievement: {games_with_full_dex}/{required}")
+                            print(f"[Achievements] Regional dex achievement: {games_with_full_dex}/{required}")  # pylint: disable=line-too-long  # noqa: E501
                     except Exception:
                         pass
 
@@ -809,7 +856,8 @@ class AchievementCheckerMixin:
                         if len(combined_pokedex) >= required:
                             unlocked = True
                             if required == 386:
-                                print(f"[Achievements] DIRTY DEX COMPLETE! {len(combined_pokedex)}/386 unique species across all saves!")
+                                print(f"[Achievements] DIRTY DEX COMPLETE! {len(
+                                    combined_pokedex)}/386 unique species across all saves!")
                     except Exception:
                         pass
 
@@ -818,10 +866,13 @@ class AchievementCheckerMixin:
                         species_id = int(hint.split("owns_species_")[1].split("_")[0])
                         if species_id in combined_pokedex:
                             unlocked = True
-                            print(f"[Achievements] Legendary unlocked: {ach['name']} (species {species_id} found in combined pokedex)")
+                            print(
+                                f"[Achievements] Legendary unlocked: {ach['name']}"
+                                f" (species {species_id} found in combined pokedex)"
+                            )
                         else:
                             if species_id in [150, 151, 380, 381, 382, 383, 384, 385, 386]:
-                                print(f"[Achievements] Legendary NOT in pokedex: species {species_id} ({ach['name']})")
+                                print(f"[Achievements] Legendary NOT in pokedex: species {species_id} ({ach['name']})")  # pylint: disable=line-too-long  # noqa: E501
                     except Exception as e:
                         print(f"[Achievements] Error checking legendary {hint}: {e}")
 
@@ -830,14 +881,22 @@ class AchievementCheckerMixin:
                         unlocked = True
                         print("[Achievements] Latias/Latios unlocked!")
                     else:
-                        print(f"[Achievements] Latias/Latios check: 380 in pokedex={380 in combined_pokedex}, 381 in pokedex={381 in combined_pokedex}")
+                        print(f"[Achievements] Latias/Latios check: 380 in pokedex={380 in combined_pokedex}, 381 in pokedex={381 in combined_pokedex}")  # pylint: disable=line-too-long  # noqa: E501
 
                 if "owns_regi_trio" in hint:
-                    if 377 in combined_pokedex and 378 in combined_pokedex and 379 in combined_pokedex:
+                    if (
+                        377 in combined_pokedex
+                        and 378 in combined_pokedex
+                        and 379 in combined_pokedex
+                    ):
                         unlocked = True
 
                 if "owns_weather_trio" in hint:
-                    if 382 in combined_pokedex and 383 in combined_pokedex and 384 in combined_pokedex:
+                    if (
+                        382 in combined_pokedex
+                        and 383 in combined_pokedex
+                        and 384 in combined_pokedex
+                    ):
                         unlocked = True
 
                 if "global_pc_pokemon >=" in hint:
@@ -910,7 +969,8 @@ class AchievementCheckerMixin:
             # Force check any Sinew achievements that might have been missed
             force_unlocked = self._achievement_manager.force_check_by_tracking("Sinew")
             if force_unlocked:
-                print(f"[Achievements] Force unlocked {len(force_unlocked)} Sinew achievements by tracking!")
+                print(f"[Achievements] Force unlocked {len(
+                    force_unlocked)} Sinew achievements by tracking!")
 
         except Exception as e:
             print(f"[Achievements] Error checking Sinew achievements: {e}")
@@ -997,14 +1057,17 @@ class AchievementCheckerMixin:
                             if is_pokemon_shiny(poke):
                                 total_shinies += 1
                                 print(
-                                    f"[Achievements] Sinew storage shiny: species {poke.get('species', 0)} in box {box_num}"
+                                    f"[Achievements] Sinew storage shiny: species {poke.get(
+                                        'species', 0)} in box {box_num}"
                                 )
 
             transfer_count = self._achievement_manager.get_stat("sinew_transfers", 0)
             evolution_count = self._achievement_manager.get_stat("sinew_evolutions", 0)
 
             print(
-                f"[Achievements] Sinew storage: {total_pokemon} Pokemon, {total_shinies} shiny, {transfer_count} transfers, {evolution_count} evolutions"
+                f"[Achievements] Sinew storage:"
+                f" {total_pokemon} Pokemon, {total_shinies} shiny,"
+                f" {transfer_count} transfers, {evolution_count} evolutions"
             )
 
             self._achievement_manager.set_current_game("Sinew")

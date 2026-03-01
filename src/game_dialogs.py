@@ -25,20 +25,23 @@ class PlaceholderModal:
         )
 
     def update(self, events):
+        """Process pygame events and delegate to the back button."""
         for event in events:
             self.back_button.handle_event(event)
-        return True
 
     def draw(self, surf):
+        """Render the placeholder modal background, title, and back button to surf."""
         surf.fill(ui_colors.COLOR_BG)
         txt = self.font.render(self.title, True, ui_colors.COLOR_TEXT)
         surf.blit(txt, (16, 16))
         self.back_button.draw(surf, self.font)
 
     def handle_mouse(self, event):
+        """Handle a mouse button event by forwarding it to the back button."""
         return self.back_button.handle_event(event)
 
     def handle_controller(self, ctrl):
+        """Invoke the close callback and consume the B button press."""
         if ctrl.is_button_just_pressed("B"):
             ctrl.consume_button("B")
             self.close_callback()
@@ -96,6 +99,7 @@ class DBWarningPopup:
         return 0, 0
 
     def update(self, events):
+        """Process keyboard and mouse events for the DB warning popup; returns visibility flag."""
         current_time = pygame.time.get_ticks()
         offset_x, offset_y = self._get_screen_offset()
 
@@ -133,6 +137,7 @@ class DBWarningPopup:
         return self.visible
 
     def handle_controller(self, ctrl):
+        """Handle controller D-pad and button input for the DB warning popup."""
         if not ctrl:
             return
 
@@ -185,6 +190,7 @@ class DBWarningPopup:
         return rects
 
     def draw(self, surf):
+        """Render the DB warning popup title, message, and action buttons to surf."""
         # Semi-transparent background
         surf.fill(ui_colors.COLOR_BG)
 

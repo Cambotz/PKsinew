@@ -48,10 +48,9 @@ def find_active_save_slot(data):
             if (save_index_a - save_index_b) > 0x80000000:
                 return 0xE000  # B wrapped around, B is newer
             return 0x0000  # A is newer
-        else:
-            if (save_index_b - save_index_a) > 0x80000000:
-                return 0x0000  # A wrapped around, A is newer
-            return 0xE000  # B is newer
+        if (save_index_b - save_index_a) > 0x80000000:
+            return 0x0000  # A wrapped around, A is newer
+        return 0xE000  # B is newer
 
     except Exception:
         return 0x0000  # Default to slot A
@@ -126,7 +125,8 @@ def build_section_map(data, base_offset):
                 section_offsets[section_id] = section_offset
             else:
                 print(
-                    f"[SectionMap] Warning: Invalid section ID {section_id} at index {section_index}"
+                    f"[SectionMap] Warning: Invalid section ID"
+                    f" {section_id} at index {section_index}"
                 )
         except Exception as e:
             print(f"[SectionMap] Error reading section {section_index}: {e}")
@@ -269,7 +269,7 @@ def _validate_pokemon_at_offset(data, offset):
         personality = struct.unpack("<I", data[offset : offset + 4])[0]
         ot_id = struct.unpack("<I", data[offset + 4 : offset + 8])[0]
 
-        if personality == 0 or personality == 0xFFFFFFFF:
+        if personality in (0, 0xFFFFFFFF):
             return False
 
         # Decrypt the data

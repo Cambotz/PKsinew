@@ -263,7 +263,7 @@ ALL_LOCATIONS.update(EMERALD_LOCATIONS)
 ALL_LOCATIONS.update(SPECIAL_LOCATIONS)
 
 
-def get_location_name(location_id, game_type="RSE"):
+def get_location_name(location_id, game_type="RSE"):  # pylint: disable=unused-argument
     """
     Get location name from ID.
 

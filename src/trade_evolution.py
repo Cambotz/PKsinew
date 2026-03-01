@@ -159,7 +159,7 @@ def can_evolve_by_trade(species_id, held_item_id=0):
             "consumes_item": False,
             "item_name": None,
         }
-    elif required_item == held_item_id:
+    if required_item == held_item_id:
         # Has correct item - can evolve
         return {
             "evolves_to": evo_data["evolves_to"],
@@ -213,7 +213,8 @@ def apply_evolution(pokemon_data, evolution_info):
         if current_nickname.upper() == old_species_name.upper():
             pokemon_data["nickname"] = new_species_name.upper()
             print(
-                f"[TradeEvolution] Updated pokemon_data nickname: {current_nickname} -> {new_species_name.upper()}"
+                f"[TradeEvolution] Updated pokemon_data nickname: "
+                f"{current_nickname} -> {new_species_name.upper()}"
             )
 
     # Remove held item if it was consumed
@@ -439,7 +440,8 @@ def evolve_raw_pokemon_bytes(
     - 30-31: Padding (2 bytes)
     - 32-79: Encrypted data (48 bytes) - 4 substructures of 12 bytes each
 
-    Substructure G (Growth): Species (2), Item (2), Experience (4), PP Bonuses (1), Friendship (1), Unknown (2)
+    Substructure G (Growth): Species (2), Item (2), Experience (4),
+    PP Bonuses (1), Friendship (1), Unknown (2)
 
     Args:
         raw_bytes: Original 80-byte Pokemon data
@@ -469,7 +471,8 @@ def evolve_raw_pokemon_bytes(
             new_nickname_bytes = _encode_nickname(new_species_name.upper())
             data[8:18] = new_nickname_bytes
             print(
-                f"[TradeEvolution] Updated nickname: {current_nickname} -> {new_species_name.upper()}"
+                f"[TradeEvolution] Updated nickname: "
+                f"{current_nickname} -> {new_species_name.upper()}"
             )
 
     # Get substructure order

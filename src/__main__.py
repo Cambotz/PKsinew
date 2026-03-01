@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 
 """
-__main__.py — Standalone entry point for PKsinew. Imports GameScreen from game_screen.py and runs the game loop.
+__main__.py — Standalone entry point for PKsinew. Imports GameScreen from game_screen.py
+    and runs the game loop.
 """
 
 import os
@@ -19,10 +20,11 @@ from controller import get_controller
 from scaler import Scaler
 from config import FONT_PATH, IS_HANDHELD
 from settings import load_sinew_settings as load_settings
-from game_screen import GameScreen, load_gif_frames
+from game_screen import GameScreen
 
 
 def run():
+    """Initialize pygame, apply theme, build the scaled game window, and start the main event loop."""
     pygame.init()
 
     try:
@@ -99,10 +101,10 @@ def run():
             if event.type == pygame.QUIT:
                 running = False
                 break
-            elif event.type == pygame.VIDEORESIZE:
+            if event.type == pygame.VIDEORESIZE:
                 scaler.handle_resize(event.w, event.h)
                 break
-            elif event.type == pygame.KEYDOWN:
+            if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_F11:
                     scaler.toggle_fullscreen()
                 elif event.key == pygame.K_RETURN and (event.mod & pygame.KMOD_ALT):
@@ -128,7 +130,8 @@ def run():
         game_screen.draw(screen)
         scaler.blit_scaled()
 
-        game_screen.dim_screen(180 if (game_screen.external_emu and game_screen.external_emu.is_running) else 0)
+        game_screen.dim_screen(180 if (game_screen.external_emu
+            and game_screen.external_emu.is_running) else 0)
 
     game_screen.cleanup()
     pygame.quit()

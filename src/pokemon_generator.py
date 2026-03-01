@@ -1778,7 +1778,8 @@ class PokemonGenerator:
                     for r in data.get("rewards", []):
                         key = r.get("achievement") or r.get("species", "")
                         self.recipes[key] = r
-                    print(f"[PokemonGenerator] Loaded {len(self.recipes)} recipes from {ACH_REWARDS_PATH}")
+                    print(f"[PokemonGenerator] Loaded {len(
+                        self.recipes)} recipes from {ACH_REWARDS_PATH}")
                     return
 
         except Exception as e:
@@ -2026,7 +2027,8 @@ class PokemonGenerator:
         misc[0] = 0  # Pokerus
         misc[1] = location_id  # Met location
 
-        # Origins info (2 bytes): met level (7 bits), game (4 bits), ball (4 bits), OT gender (1 bit)
+        # Origins info (2 bytes): met level (7 bits), game (4 bits),
+        # ball (4 bits), OT gender (1 bit)
         met_level = min(level, 100)
         game_of_origin = 1  # Emerald
         ot_gender = 0  # Male trainer

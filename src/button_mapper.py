@@ -1285,12 +1285,15 @@ class ButtonMapperModal:
         self.visible = True
 
     def update(self, events):
+        """Delegate event updates to the inner button mapper screen."""
         result = self.mapper.update(events)
         self.visible = self.mapper.visible
         return result
 
     def handle_controller(self, ctrl):
+        """Delegate controller input to the inner button mapper screen."""
         return self.mapper.handle_controller(ctrl)
 
     def draw(self, surf):
+        """Delegate the draw call to the inner button mapper screen."""
         self.mapper.draw(surf)

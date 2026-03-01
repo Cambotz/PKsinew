@@ -148,7 +148,7 @@ def find_rom_for_game(game_name, roms_dir, saves_dir):
 
         # Cache hit - ROM identified by hash/header
         if detected and detected[0] == game_name:
-            game, priority = detected
+            _, priority = detected
 
             # If this is better priority than what we have, use it
             if priority < best_priority:

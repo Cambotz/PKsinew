@@ -434,7 +434,7 @@ class MgbaEmulator:
         # Force SDL to use stereo audio (2 channels)
         # This prevents pygame from defaulting to 8 channels on some systems
         os.environ.setdefault('SDL_AUDIO_CHANNELS', '2')
-        
+
         # Use config defaults if not specified
         if cores_dir is None:
             cores_dir = _get_default_cores_dir()
@@ -496,7 +496,7 @@ class MgbaEmulator:
         # Set to True if _init_audio / _reinit_audio had to fall back to defaults.
         # Settings UI can poll this to snap sliders back.
         self.audio_settings_reverted = False
-        
+
         # DIAGNOSTIC: Periodic audio state logging
         self._last_audio_diagnostic_time = 0
         self._diagnostic_interval = 5.0  # seconds
@@ -717,7 +717,7 @@ class MgbaEmulator:
 
         # Start from defaults
         self._kb_map = dict(DEFAULT_KB)
-        
+
         # Default MENU key
         self._menu_keys = [pygame.K_m]
 
@@ -742,7 +742,7 @@ class MgbaEmulator:
 
                 if saved:
                     print(f"[MgbaEmulator] Loaded keyboard map from {config_file}")
-                
+
                 # Load MENU key from navigation map
                 nav_map = settings_data.get("keyboard_nav_map", {})
                 if "MENU" in nav_map:
@@ -835,7 +835,7 @@ class MgbaEmulator:
 
         # Track if we've logged the first batch
         _audio_batch_count = [0]
-        
+
         def audio_batch(ptr, frames):
             try:
                 frames = int(frames)
@@ -843,7 +843,7 @@ class MgbaEmulator:
                     return 0
                 arr = np.ctypeslib.as_array(ptr, shape=(frames * 2,)).copy()
                 arr = arr.reshape(-1, 2)
-                
+
                 # DIAGNOSTIC: Log first audio batch from mGBA core
                 if _audio_batch_count[0] == 0:
                     print(f"[MgbaEmulator] ╔══════════════════════════════════════════════════════")
@@ -853,13 +853,14 @@ class MgbaEmulator:
                     print(f"[MgbaEmulator] ║ Array shape:      {arr.shape}")
                     print(f"[MgbaEmulator] ║ Array dtype:      {arr.dtype}")
                     print(f"[MgbaEmulator] ║ Sample range:     [{arr.min()}, {arr.max()}]")
-                    print(f"[MgbaEmulator] ║ Queue size:       {len(self.audio_queue)}/{self.audio_queue.maxlen}")
+                    print(f"[MgbaEmulator] ║ Queue size:       {len(
+                        self.audio_queue)}/{self.audio_queue.maxlen}")
                     print(f"[MgbaEmulator] ║ mGBA is generating audio ✅")
                     print(f"[MgbaEmulator] ╚══════════════════════════════════════════════════════")
-                
+
                 _audio_batch_count[0] += 1
                 self._audio_batches_received += 1
-                
+
                 with self._audio_lock:
                     self.audio_queue.append(arr)
                 return frames
@@ -1068,7 +1069,7 @@ class MgbaEmulator:
 
         # Store original path for display purposes
         self.rom_path = os.path.abspath(rom_path)
-        
+
         # Handle .zip files - extract to temp
         actual_rom_path = self.rom_path
         if rom_path.lower().endswith('.zip'):
@@ -1097,11 +1098,11 @@ class MgbaEmulator:
         av_info = retro_system_av_info()
         self.lib.retro_get_system_av_info(byref(av_info))
         self.fps = av_info.timing.fps
-        
+
         # Use the sample rate reported by mGBA core
         # (Original working version used this approach)
         self.sample_rate = int(av_info.timing.sample_rate)
-        
+
         print(f"[MgbaEmulator] Loaded: {os.path.basename(rom_path)}")
         print(f"[MgbaEmulator] FPS: {self.fps:.2f}, Sample rate: {self.sample_rate}")
 
@@ -1415,16 +1416,20 @@ class MgbaEmulator:
                     init_info = pygame.mixer.get_init()
                     if init_info:
                         print(f"[MgbaEmulator] Mixer initialized: {init_info}")
-                        
+
                         # Log audio init
                         freq, fmt, ch = init_info
-                        print(f"[MgbaEmulator] Audio initialized: {freq}Hz, {ch}ch, buffer={audio_buffer}")
-                        
+                        print(
+                            f"[MgbaEmulator] Audio initialized:"
+                            f" {freq}Hz, {ch}ch, buffer={audio_buffer}"
+                        )
+
                         init_ok = True
                         break
                     else:
                         print(
-                            f"[MgbaEmulator] Mixer init returned None, attempt {attempt+1}/{max_attempts}"
+                            f"[MgbaEmulator] Mixer init returned None,"
+                            f" attempt {attempt+1}/{max_attempts}"
                         )
                         pygame.time.wait(100)
                 except Exception as e:
@@ -1437,7 +1442,10 @@ class MgbaEmulator:
                 # Try falling back to platform defaults before giving up
                 default_buf, default_depth = get_audio_platform_defaults()
                 if audio_buffer != default_buf or audio_queue_depth != default_depth:
-                    print(f"[MgbaEmulator] Falling back to platform defaults: buffer={default_buf}, depth={default_depth}")
+                    print(
+                        f"[MgbaEmulator] Falling back to platform defaults:"
+                        f" buffer={default_buf}, depth={default_depth}"
+                    )
                     self._save_audio_settings_to_file(default_buf, default_depth)
                     self.audio_settings_reverted = True
                     audio_buffer = default_buf
@@ -1505,7 +1513,7 @@ class MgbaEmulator:
         Touching it from here causes race conditions with Sinew's menu music.
         """
         print("[MgbaEmulator] Audio thread started")
-        
+
         error_count = 0
         chunks_played = 0
         # How many chunks to keep buffered at most before dropping stale audio.
@@ -1548,7 +1556,7 @@ class MgbaEmulator:
                                 for _ in range(dropped):
                                     self.audio_queue.popleft()
                                 print(
-                                    f"[MgbaEmulator] Audio latency correction: dropped {dropped} stale chunks"
+                                    f"[MgbaEmulator] Audio latency correction: dropped {dropped} stale chunks"  # pylint: disable=line-too-long  # noqa: E501
                                 )
                             if self.audio_queue:
                                 chunk = self.audio_queue.popleft()
@@ -1561,25 +1569,30 @@ class MgbaEmulator:
                                 if mixer_info:
                                     _, _, mixer_channels = mixer_info
                                     chunk_channels = chunk.shape[1] if len(chunk.shape) > 1 else 1
-                                    
+
                                     if mixer_channels != chunk_channels:
                                         if mixer_channels > chunk_channels:
                                             # Pad with zeros (e.g., stereo → 8 channels)
                                             # Audio plays on first 2 channels, rest are silent
                                             pad_channels = mixer_channels - chunk_channels
-                                            zeros = np.zeros((chunk.shape[0], pad_channels), dtype=chunk.dtype)
+                                            zeros = np.zeros((chunk.shape[0], pad_channels),
+                                                dtype=chunk.dtype)
                                             chunk = np.hstack([chunk, zeros])
-                                            
+
                                             # Log this workaround on first occurrence
                                             if chunks_played == 0:
-                                                print(f"[MgbaEmulator] ⚠️  AUDIO WORKAROUND: Padding {chunk_channels}-channel audio to {mixer_channels} channels")
-                                                print(f"[MgbaEmulator]     (pygame refused to initialize with stereo)")
-                                
+                                                print(f"[MgbaEmulator] ⚠️  AUDIO WORKAROUND: Padding {chunk_channels}-channel audio to {mixer_channels} channels")  # pylint: disable=line-too-long  # noqa: E501
+                                                print(
+                                                    f"[MgbaEmulator]     "
+                                                    "(pygame refused to initialize with stereo)"
+                                                )
+
                                 sound = pygame.sndarray.make_sound(chunk)
-                                
+
                                 # Log first successful audio chunk (debug only)
                                 # if chunks_played == 0:
-                                #     print(f"[MgbaEmulator] First audio chunk: {chunk.shape}, {chunk.dtype}")
+                                #     print(f"[MgbaEmulator] First audio chunk:"
+                                #           f" {chunk.shape}, {chunk.dtype}")
 
                                 # If channel is not busy, use play() to start it
                                 # If channel is busy but queue is empty, use queue() to line up next
@@ -1589,16 +1602,17 @@ class MgbaEmulator:
                                     self._audio_channel.queue(sound)
 
                                 chunks_played += 1
-                                
+
                                 # Log milestone chunks
                                 if chunks_played in [10, 100, 1000]:
-                                    print(f"[MgbaEmulator] Audio thread: {chunks_played} chunks played successfully")
-                                
+                                    print(f"[MgbaEmulator] Audio thread: {chunks_played} chunks played successfully")  # pylint: disable=line-too-long  # noqa: E501
+
                                 error_count = 0  # Reset on success
                             except Exception as e:
                                 error_count += 1
                                 if error_count < 5:
-                                    print(f"[MgbaEmulator] Audio playback error #{error_count}: {e}")
+                                    print(
+                                        f"[MgbaEmulator] Audio playback error #{error_count}: {e}")
 
                 pygame.time.wait(1)
             except Exception as e:
@@ -1643,7 +1657,8 @@ class MgbaEmulator:
                         "[MgbaEmulator] Warning: Save file appears blank (no valid slots)"
                     )
                     print(
-                        "[MgbaEmulator] You can start a new game, existing save won't be overwritten"
+                        "[MgbaEmulator] You can start a new game,"
+                        " existing save won't be overwritten"
                     )
                     return False
 
@@ -1656,7 +1671,9 @@ class MgbaEmulator:
                 if slot_b_valid:
                     slot_info.append("B")
                 print(
-                    f"[MgbaEmulator] Loaded save: {os.path.basename(self.save_path)} ({copy_size} bytes, valid slots: {','.join(slot_info)})"
+                    f"[MgbaEmulator] Loaded save:"
+                    f" {os.path.basename(self.save_path)}"
+                    f" ({copy_size} bytes, valid slots: {','.join(slot_info)})"
                 )
 
                 # Reset core to re-read save
@@ -1703,7 +1720,8 @@ class MgbaEmulator:
 
             if not slot_a_valid and not slot_b_valid:
                 print(
-                    f"[MgbaEmulator] BLOCKED: Would write blank save (no valid slots) to {os.path.basename(self.save_path)}"
+                    f"[MgbaEmulator] BLOCKED: Would write blank save"
+                    f" (no valid slots) to {os.path.basename(self.save_path)}"
                 )
                 return False
 
@@ -1728,7 +1746,7 @@ class MgbaEmulator:
             self._last_audio_diagnostic_time = current_time
             thread_alive = self._audio_thread and self._audio_thread.is_alive()
             queue_size = len(self.audio_queue)
-            print(f"[MgbaEmulator] ▶ Audio Status: thread={'RUNNING ✅' if thread_alive else 'STOPPED ❌'}, "
+            print(f"[MgbaEmulator] ▶ Audio Status: thread={'RUNNING ✅' if thread_alive else 'STOPPED ❌'}, "  # pylint: disable=line-too-long  # noqa: E501
                   f"batches_received={self._audio_batches_received}, "
                   f"queue={queue_size}/{self.audio_queue.maxlen}, "
                   f"channel={'OK' if self._audio_channel else 'NONE'}, "
@@ -1851,17 +1869,17 @@ class MgbaEmulator:
 
     def _apply_channel_volume(self):
         """Push the effective volume to the pygame channel.
-        
+
         Only applies volume if emulator is not paused and channel is valid.
         During pause, Sinew owns the mixer and our channel may be invalid.
         Volume will be reapplied automatically on resume via _reinit_audio().
         """
         vol = self._get_effective_volume()
-        
+
         # Skip if paused - our channel may be invalid while Sinew owns the mixer
         if self.paused:
             return
-            
+
         if self._audio_channel:
             try:
                 self._audio_channel.set_volume(vol)
@@ -2140,10 +2158,11 @@ class MgbaEmulator:
                     f"[MgbaEmulator] Mixer frequency mismatch: {mixer_init[0]} vs {sample_rate}"
                 )
             # Also reinit if the user changed the buffer size
-            elif mixer_init and hasattr(self, '_last_audio_buffer') and self._last_audio_buffer != audio_buffer:
+            elif mixer_init and hasattr(self,
+                '_last_audio_buffer') and self._last_audio_buffer != audio_buffer:
                 needs_full_reinit = True
                 print(
-                    f"[MgbaEmulator] Buffer size changed: {self._last_audio_buffer} -> {audio_buffer}"
+                    f"[MgbaEmulator] Buffer size changed: {self._last_audio_buffer} -> {audio_buffer}"  # pylint: disable=line-too-long  # noqa: E501
                 )
 
             if needs_full_reinit:

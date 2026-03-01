@@ -36,6 +36,7 @@ SESSION.headers.update({"User-Agent": "Sinew-PokeFetcher/1.0 (+https://example)"
 # Download helper — ONLY downloads if file does NOT already exist
 # -------------------------------------------------------------------
 def download_file(url: Optional[str], dest_path: str, timeout: float = 10.0) -> bool:
+    """Download a file from url to dest_path; skip if the file already exists. Returns True on success."""
     if not url or os.path.exists(dest_path):
         return False
     try:
@@ -51,6 +52,7 @@ def download_file(url: Optional[str], dest_path: str, timeout: float = 10.0) -> 
 
 # extract first english flavor text from species object
 def get_english_description(species_data: Dict) -> Optional[str]:
+    """Extract and return the first English flavor-text entry from a PokeAPI species object."""
     for entry in species_data.get("flavor_text_entries", []):
         if entry.get("language", {}).get("name") == "en":
             text = entry.get("flavor_text", "")
@@ -60,6 +62,7 @@ def get_english_description(species_data: Dict) -> Optional[str]:
 
 # recursion for evolution parsing
 def parse_evolution_chain(chain_node: Dict) -> List[Dict]:
+    """Recursively parse a PokeAPI evolution-chain node into a flat list of species dicts."""
     results = []
     species = chain_node.get("species", {})
     name = species.get("name")
@@ -78,8 +81,7 @@ def parse_evolution_chain(chain_node: Dict) -> List[Dict]:
             extended.append(tail)
         if len(extended) == 1:
             return [*results, *extended[0][1:]]
-        else:
-            return [{"base": results[0], "branches": extended}]
+        return [{"base": results[0], "branches": extended}]
     return results
 
 

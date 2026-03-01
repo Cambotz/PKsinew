@@ -597,8 +597,7 @@ def get_pokemon_ability_name(species_id, ability_bit):
 
     if ability_bit and abilities[1] is not None:
         return get_ability_name(abilities[1])
-    else:
-        return get_ability_name(abilities[0])
+    return get_ability_name(abilities[0])
 
 
 def get_pokemon_ability_id(species_id, ability_bit):
@@ -616,5 +615,4 @@ def get_pokemon_ability_id(species_id, ability_bit):
 
     if ability_bit and abilities[1] is not None:
         return abilities[1]
-    else:
-        return abilities[0]
+    return abilities[0]

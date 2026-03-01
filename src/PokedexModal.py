@@ -294,6 +294,7 @@ class PokedexModal:
     # Layout & resizing
     # -----------------------
     def calculate_layout(self):
+        """Compute and cache all panel rectangles and layout positions for the Pokédex modal."""
         PADDING = 8
         RIGHT_PAD = 40
         BOTTOM_PAD = 40
@@ -370,6 +371,7 @@ class PokedexModal:
         self.visible_items = max(1, self.list_rect.height // self.item_height)
 
     def center_left_columns_vertically(self):
+        """Vertically align the stats column and sprite column within the left panel."""
         top = min(self.stats_rect.top, self.sprite_rect.top)
         bottom = max(self.stats_rect.bottom, self.sprite_rect.bottom)
         combined_height = bottom - top
@@ -417,6 +419,7 @@ class PokedexModal:
         )
 
     def get_sprite(self, index):
+        """Return the cached sprite surface for the given Pokédex index, loading it if needed."""
         return self.sprite_cache[index] if 0 <= index < self.total else None
 
     def _load_pokedex_data(self):
@@ -478,7 +481,8 @@ class PokedexModal:
                         self.per_game_owned[game_name] = set(owned_list)
                         self.per_game_seen[game_name] = set(seen_list)
                         print(
-                            f"[PokedexModal] {game_name}: {len(seen_list)} seen, {len(owned_list)} owned"
+                            f"[PokedexModal] {game_name}:"
+                            f" {len(seen_list)} seen, {len(owned_list)} owned"
                         )
             except Exception as e:
                 print(f"[PokedexModal] Error loading {save_path}: {e}")
@@ -642,12 +646,14 @@ class PokedexModal:
         return "Hoenn", 1, 202
 
     def update_game_button_text(self):
+        """Refresh the game filter button label to reflect the currently selected game."""
         self.game_button.text = self.get_current_game()
 
     # -----------------------
     # Mouse input handling
     # -----------------------
     def handle_event(self, event):
+        """Handle mouse button events for list scrolling and button clicks in the Pokédex modal."""
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             if self.left_game_arrow.rect.collidepoint(event.pos):
                 self.change_game(-1)
@@ -660,6 +666,7 @@ class PokedexModal:
     # Controller handling
     # -----------------------
     def handle_controller(self, ctrl=None):
+        """Handle controller D-pad navigation, shoulder buttons, and A/B selection."""
         if ctrl is None:
             return False
         consumed = False
@@ -761,6 +768,7 @@ class PokedexModal:
     # Selection and scrolling
     # -----------------------
     def move_selection(self, delta):
+        """Move the selected Pokédex entry by delta steps and update the scroll offset."""
         self.selected_index = max(0, min(self.total - 1, self.selected_index + delta))
         self.update_scroll()
 
@@ -787,6 +795,7 @@ class PokedexModal:
                 return
 
     def update_scroll(self):
+        """Recalculate the scroll offset to keep the selected entry within the visible window."""
         self.visible_items = max(1, self.list_rect.height // self.item_height)
         center_slot = self.visible_items // 2
         scroll = self.selected_index - center_slot
@@ -799,6 +808,7 @@ class PokedexModal:
     def draw_text(
         self, surf, text, pos, align="topleft", font=None, color=ui_colors.COLOR_TEXT
     ):
+        """Render text onto surf at pos with optional font, colour, and alignment arguments."""
         f = font or self.font
         rtext = f.render(str(text), True, color)
         rect = rtext.get_rect()
@@ -807,6 +817,7 @@ class PokedexModal:
         return rect
 
     def render(self, surf):
+        """Draw the complete Pokédex modal including list, sprite panel, and stats panel."""
         surf.fill(ui_colors.COLOR_BG)
 
         # Draw top buttons
@@ -1283,4 +1294,5 @@ class PokedexModal:
         return lines
 
     def draw(self, surf):
+        """Public draw entry point; delegates to render()."""
         self.render(surf)

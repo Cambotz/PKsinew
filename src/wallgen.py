@@ -31,6 +31,7 @@ os.makedirs(OUT_DIR, exist_ok=True)
 
 # ----------------- BACKGROUNDS -----------------
 def vertical_gradient(top, bottom):
+    """Create a vertical RGBA gradient image blending from top colour to bottom colour."""
     img = Image.new("RGBA", (WIDTH, HEIGHT))
     draw = ImageDraw.Draw(img)
     for y in range(HEIGHT):
@@ -41,6 +42,7 @@ def vertical_gradient(top, bottom):
 
 
 def draw_grid(img, cols=20, rows=14, thickness=2, color=(255, 255, 255, 40)):
+    """Draw a semi-transparent grid overlay onto the image in-place."""
     overlay = Image.new("RGBA", img.size, (0, 0, 0, 0))
     draw = ImageDraw.Draw(overlay)
     col_w = WIDTH / cols
@@ -55,6 +57,7 @@ def draw_grid(img, cols=20, rows=14, thickness=2, color=(255, 255, 255, 40)):
 
 
 def draw_scanlines(img):
+    """Apply a horizontal scanline effect overlay onto the image in-place."""
     overlay = Image.new("RGBA", img.size, (0, 0, 0, 0))
     draw = ImageDraw.Draw(overlay)
     for y in range(0, HEIGHT, 2):
@@ -63,6 +66,7 @@ def draw_scanlines(img):
 
 
 def draw_vignette(img):
+    """Apply a radial vignette darkening overlay onto the image in-place."""
     vignette = Image.new("L", (WIDTH, HEIGHT), 0)
     draw = ImageDraw.Draw(vignette)
     cx, cy = WIDTH / 2, HEIGHT / 2
@@ -83,6 +87,7 @@ def draw_vignette(img):
 
 
 def draw_border(img, thickness=6, color=(255, 255, 255, 90)):
+    """Draw a solid border around the image edges in-place."""
     overlay = Image.new("RGBA", img.size, (0, 0, 0, 0))
     draw = ImageDraw.Draw(overlay)
     draw.rectangle((0, 0, WIDTH, thickness), fill=color)
@@ -94,6 +99,7 @@ def draw_border(img, thickness=6, color=(255, 255, 255, 90)):
 
 # ----------------- LOGO / TEXT -----------------
 def overlay_scanlines(img, x, y, w, h, opacity=50):
+    """Overlay horizontal scanlines on a sub-region of the image at (x, y) with given size."""
     overlay = Image.new("RGBA", (w, h), (0, 0, 0, 0))
     draw = ImageDraw.Draw(overlay)
     for ly in range(0, h, 2):
@@ -102,9 +108,10 @@ def overlay_scanlines(img, x, y, w, h, opacity=50):
 
 
 def paste_logo_or_text(bg, name):
+    """Paste the Sinew logo or a game title as outlined white text onto the background."""
     if name.lower() == "sinew":
         if not os.path.exists(LOGO_PATH):
-            print("[!] Logo not found: %s" % LOGO_PATH)
+            print(f"[!] Logo not found: {LOGO_PATH}")
             return
         logo = Image.open(LOGO_PATH).convert("RGBA")
         scale = (WIDTH * LOGO_SCALE) / logo.width
@@ -122,7 +129,7 @@ def paste_logo_or_text(bg, name):
 
         # Check if font exists
         if not os.path.exists(FONT_SOLID_PATH):
-            print("[!] Font not found: %s" % FONT_SOLID_PATH)
+            print(f"[!] Font not found: {FONT_SOLID_PATH}")
             print("    Using default font instead")
             font = ImageFont.load_default()
         else:
@@ -178,6 +185,7 @@ def paste_logo_or_text(bg, name):
 
 # ----------------- WALLPAPER GENERATORS -----------------
 def generate_game_wallpaper(name, colors):
+    """Generate and save a themed wallpaper PNG for a specific Pokemon game."""
     bg = vertical_gradient(*colors)
     draw_grid(bg)
     draw_scanlines(bg)
@@ -185,12 +193,13 @@ def generate_game_wallpaper(name, colors):
     draw_border(bg, thickness=6, color=(*colors[1], 120))
     paste_logo_or_text(bg, name)
     # Save as PNG but rename file to .gif
-    out_path = os.path.join(OUT_DIR, "%s.gif" % name.lower())
+    out_path = os.path.join(OUT_DIR, f"{name.lower()}.gif")
     bg.save(out_path, format="PNG")
-    print("[OK] %s generated" % out_path)
+    print(f"[OK] {out_path} generated")
 
 
 def generate_sinew_wallpaper():
+    """Generate and save the Sinew hub/menu wallpaper combining all game theme layers."""
     bg = Image.new("RGBA", (WIDTH, HEIGHT), (0, 0, 0, 255))
     for colors in THEMES.values():
         layer = vertical_gradient(*colors)
@@ -203,13 +212,13 @@ def generate_sinew_wallpaper():
     paste_logo_or_text(bg, "sinew")
     out_path = os.path.join(OUT_DIR, "PKSINEW.png")
     bg.save(out_path)
-    print("[OK] %s generated" % out_path)
+    print(f"[OK] {out_path} generated")
 
 
 # ----------------- RUN -----------------
 if __name__ == "__main__":
-    print("Font path: %s" % FONT_SOLID_PATH)
-    print("Output directory: %s" % OUT_DIR)
+    print(f"Font path: {FONT_SOLID_PATH}")
+    print(f"Output directory: {OUT_DIR}")
     print("")
 
     for game, colors in THEMES.items():

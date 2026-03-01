@@ -127,7 +127,7 @@ def decode_gen3_text(data):
     for byte in data:
         if byte == 0xFF:  # Only 0xFF is the terminator
             break
-        elif byte == 0x00:
+        if byte == 0x00:
             result.append(" ")  # 0x00 is space, not terminator
         elif byte == 0x01:
             result.append("あ")

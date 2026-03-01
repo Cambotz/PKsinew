@@ -365,12 +365,14 @@ class EmulatorSessionMixin:
                 self.external_emu = ExternalEmulator()
                 if self.external_emu.active_provider:
                     print(
-                        f"[ExternalEmu] Provider initialized: {type(self.external_emu.active_provider).__name__}"
+                        f"[ExternalEmu] Provider initialized: {type(
+                            self.external_emu.active_provider).__name__}"
                     )
                 else:
                     print("[ExternalEmu] No provider matched this environment")
             except ImportError:
-                print("[ExternalEmu] external_emulator.py not found — external emulator unavailable")
+                print(
+                    "[ExternalEmu] external_emulator.py not found — external emulator unavailable")
 
         from config import _save_scan_cache
         _rom_scan_cache.clear()
@@ -429,7 +431,8 @@ class EmulatorSessionMixin:
         if not self.is_on_sinew():
             self.load_game_and_background()
 
-        print(f"[GameScreen] External emulator toggled {'ON' if enabled else 'OFF'}, games reloaded")
+        toggled = 'ON' if enabled else 'OFF'
+        print(f"[GameScreen] External emulator toggled {toggled}, games reloaded")
 
     # ------------------------------------------------------------------
     # Draw (integrated emulator only)

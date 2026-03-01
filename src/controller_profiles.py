@@ -296,10 +296,9 @@ def _get_current_platform():
     system = _plat.system().lower()
     if system == "windows":
         return "Windows"
-    elif system == "darwin":
+    if system == "darwin":
         return "Mac OS X"
-    else:
-        return "Linux"
+    return "Linux"
 
 
 def _find_gcdb_path():
@@ -337,18 +336,18 @@ def _parse_sdl_mapping_value(value_str):
         if v.startswith("b"):
             return ("button", int(v[1:]))
 
-        elif v.startswith("h"):
+        if v.startswith("h"):
             parts = v[1:].split(".")
             hat_idx = int(parts[0])
             hat_val = int(parts[1])
             return ("hat", (hat_idx, hat_val))
 
-        elif v.startswith("-a") or v.startswith("+a"):
+        if v.startswith("-a") or v.startswith("+a"):
             sign = -1 if v[0] == "-" else 1
             axis_idx = int(v[2:])
             return ("axis_dir", (axis_idx, sign))
 
-        elif v.startswith("a"):
+        if v.startswith("a"):
             axis_idx = int(v[1:])
             return ("axis_full", axis_idx)
     except (ValueError, IndexError):
@@ -366,7 +365,7 @@ def _convert_sdl_mapping(mapping_str):
     result = {}
     dpad_buttons = {}
     dpad_axes = set()
-    has_dpad = False
+    _has_dpad = False
 
     # SDL name -> Sinew name mapping
     # SDL uses SNES-style labels: a=bottom, b=right, x=left, y=top
@@ -504,7 +503,8 @@ def _load_gamecontrollerdb():
 
         if count > 0:
             print(
-                f"[ControllerProfiles] Loaded {count} mappings from {os.path.basename(path)} ({current_platform})"
+                f"[ControllerProfiles] Loaded {count} mappings from"
+                f" {os.path.basename(path)} ({current_platform})"
             )
     except Exception as e:
         print(f"[ControllerProfiles] Error loading gamecontrollerdb.txt: {e}")
@@ -530,7 +530,8 @@ def lookup_gamecontrollerdb(guid):
 # ============================================================================
 
 
-def identify_controller(name, guid=None, num_buttons=0, num_axes=0, num_hats=0):
+def identify_controller(  # pylint: disable=unused-argument
+        name, guid=None, num_buttons=0, num_axes=0, num_hats=0):
     """
     Identify a controller and return the best matching profile.
 
@@ -659,7 +660,7 @@ def load_saved_profile(controller_name, guid=None):
     config_file = SETTINGS_FILE
     try:
         if os.path.exists(config_file):
-            with open(config_file, "r") as f:
+            with open(config_file, "r", encoding="utf-8") as f:
                 data = json.load(f)
 
             profiles = data.get("controller_profiles", {})
@@ -704,7 +705,7 @@ def save_controller_profile(controller_name, mapping, profile_id="custom", guid=
     try:
         data = {}
         if os.path.exists(config_file):
-            with open(config_file, "r") as f:
+            with open(config_file, "r", encoding="utf-8") as f:
                 data = json.load(f)
 
         if "controller_profiles" not in data:
@@ -722,7 +723,7 @@ def save_controller_profile(controller_name, mapping, profile_id="custom", guid=
         # Also write to legacy "controller_mapping" for backward compatibility
         data["controller_mapping"] = mapping
 
-        with open(config_file, "w") as f:
+        with open(config_file, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2)
 
         print(
@@ -775,7 +776,7 @@ def resolve_mapping(controller_name, guid=None, num_buttons=0, num_axes=0, num_h
     config_file = SETTINGS_FILE
     try:
         if os.path.exists(config_file):
-            with open(config_file, "r") as f:
+            with open(config_file, "r", encoding="utf-8") as f:
                 data = json.load(f)
 
             if "controller_mapping" in data:

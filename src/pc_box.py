@@ -16,36 +16,12 @@ Mixins:
 """
 
 import os
-import sys
 
 import pygame
-from pygame.locals import MOUSEBUTTONDOWN
-
-import ui_colors
-from config import (
-    FONT_PATH,
-    GEN3_NORMAL_DIR,
-    GEN3_SHINY_DIR,
-    POKEMON_DB_PATH,
-    SETTINGS_FILE,
-    SPRITES_DIR,
-    get_egg_sprite_path,
-    get_sprite_path,
-)
+from config import SPRITES_DIR
 from gif_sprite_handler import get_sprite_cache
 from save_data_manager import get_manager
-from ui_components import Button, scale_surface_preserve_aspect
-
-# Try to import achievements
-try:
-    from achievements import get_achievement_manager, get_achievement_notification
-
-    ACHIEVEMENTS_AVAILABLE = True
-except ImportError:
-    get_achievement_manager = None
-    get_achievement_notification = None
-    ACHIEVEMENTS_AVAILABLE = False
-    print("[PCBox] achievements not available")
+from ui_components import Button
 
 # Try to import Sinew storage
 try:
@@ -57,31 +33,6 @@ except ImportError:
     SINEW_STORAGE_AVAILABLE = False
     print("[PCBox] sinew_storage not available")
 
-# Try to import trade evolution system
-try:
-    from trade_evolution import (
-        apply_evolution,
-        can_evolve_by_trade,
-        evolve_raw_pokemon_bytes,
-    )
-
-    TRADE_EVOLUTION_AVAILABLE = True
-except ImportError:
-    can_evolve_by_trade = None
-    apply_evolution = None
-    evolve_raw_pokemon_bytes = None
-    TRADE_EVOLUTION_AVAILABLE = False
-    print("[PCBox] trade_evolution not available")
-
-# Try to import PokemonSummary
-try:
-    from pokemon_summary import PokemonSummary
-
-    SUMMARY_AVAILABLE = True
-except ImportError:
-    PokemonSummary = None
-    SUMMARY_AVAILABLE = False
-    print("[PCBox] PokemonSummary not available")
 from controller import NavigableList, get_controller
 from ui_pcbox_draw import PCBoxDrawMixin
 from pcbox_achievements import PCBoxAchievementsMixin
@@ -90,41 +41,16 @@ from pcbox_evolution import PCBoxEvolutionMixin
 from pcbox_input import PCBoxInputMixin
 from pcbox_transfer import PCBoxTransferMixin
 
-# Try to import save_writer for move functionality
-try:
-    from save_writer import (
-        clear_pc_slot,
-        find_section_by_id,
-        get_active_block,
-        load_save_file,
-        write_pokemon_to_pc,
-        write_save_file,
-    )
-
-    SAVE_WRITER_AVAILABLE = True
-except ImportError:
-    SAVE_WRITER_AVAILABLE = False
-    print("[PCBox] save_writer not available - move functionality disabled")
-
-# Try to import Altering Cave data for the Echoes feature
-try:
-    from achievements_data import (
-        ALTERING_CAVE_LOCATIONS,
-        ALTERING_CAVE_POKEMON,
-        ALTERING_CAVE_ZUBAT_SPECIES,
-    )
-
-    ALTERING_CAVE_AVAILABLE = True
-except ImportError:
-    ALTERING_CAVE_LOCATIONS = (183, 210)
-    ALTERING_CAVE_ZUBAT_SPECIES = 41
-    ALTERING_CAVE_POKEMON = []
-    ALTERING_CAVE_AVAILABLE = False
-    print("[PCBox] Altering Cave data not available - using defaults")
-
-
-class PCBox(PCBoxDrawMixin, PCBoxInputMixin, PCBoxTransferMixin, PCBoxEvolutionMixin, PCBoxAchievementsMixin, PCBoxDataMixin):
-    def __init__(
+class PCBox(  # pylint: disable=too-many-instance-attributes
+    PCBoxDrawMixin,
+    PCBoxInputMixin,
+    PCBoxTransferMixin,
+    PCBoxEvolutionMixin,
+    PCBoxAchievementsMixin,
+    PCBoxDataMixin,
+):
+    """PC Box screen — composition of all PCBox mixin classes."""
+    def __init__(  # pylint: disable=too-many-arguments,too-many-positional-arguments
         self,
         width,
         height,
@@ -133,7 +59,7 @@ class PCBox(PCBoxDrawMixin, PCBoxInputMixin, PCBoxTransferMixin, PCBoxEvolutionM
         prev_game_callback=None,
         next_game_callback=None,
         get_current_game_callback=None,
-        party_slot_scale=1.0,
+        party_slot_scale=1.0,  # pylint: disable=unused-argument
         party_slot_x_offset=0,
         is_game_running_callback=None,
         reload_save_callback=None,
@@ -356,4 +282,3 @@ class PCBox(PCBoxDrawMixin, PCBoxInputMixin, PCBoxTransferMixin, PCBoxEvolutionM
             height,
         )
         self.party_panel_speed = 15
-

@@ -192,7 +192,7 @@ class PCBoxTransferMixin:
     #  Sinew internal move                                                 #
     # ------------------------------------------------------------------ #
 
-    def _execute_sinew_move(self, dest_type, dest_box, dest_slot):
+    def _execute_sinew_move(self, dest_type, dest_box, dest_slot):  # pylint: disable=unused-argument
         """Execute a move within Sinew storage"""
         if not self.sinew_storage or not self.moving_pokemon:
             self._cancel_move_mode()
@@ -205,7 +205,8 @@ class PCBoxTransferMixin:
         dest_box_num = self.box_index + 1
 
         print(
-            f"[PCBox] Sinew move: Box {source_box} Slot {source_slot} -> Box {dest_box_num} Slot {actual_dest_slot}",
+            f"[PCBox] Sinew move: Box {source_box} Slot {source_slot} "
+            f"-> Box {dest_box_num} Slot {actual_dest_slot}",
             file=sys.stderr,
             flush=True,
         )
@@ -243,7 +244,7 @@ class PCBoxTransferMixin:
     #  Game -> Sinew deposit                                               #
     # ------------------------------------------------------------------ #
 
-    def _attempt_game_to_sinew_move(self, dest_type, dest_box, dest_slot):
+    def _attempt_game_to_sinew_move(self, dest_type, dest_box, dest_slot):  # pylint: disable=unused-argument
         """Attempt to deposit Pokemon from a game save into Sinew storage"""
         if not self.sinew_storage:
             self._show_warning("Sinew storage\nnot available!")
@@ -281,7 +282,10 @@ class PCBoxTransferMixin:
         else:
             source_loc = f"Party Slot {source['slot'] + 1}"
 
-        message = f"Deposit {pokemon_name}\nfrom {source['game']}\n{source_loc}\nto Sinew Storage {dest_box_num}?"
+        message = (
+            f"Deposit {pokemon_name}\nfrom {source['game']}\n"
+            f"{source_loc}\nto Sinew Storage {dest_box_num}?"
+        )
 
         self.pending_move_dest = {
             "type": "sinew",
@@ -310,7 +314,8 @@ class PCBoxTransferMixin:
 
         print("\n[PCBox] ===== DEPOSIT TO SINEW =====", file=sys.stderr, flush=True)
         print(
-            f"[PCBox] From: {source['game']} {source['type']} {source.get('box', 'N/A')}, slot {source.get('slot')}",
+            f"[PCBox] From: {source['game']} {source['type']} "
+            f"{source.get('box', 'N/A')}, slot {source.get('slot')}",
             file=sys.stderr,
             flush=True,
         )
@@ -375,7 +380,8 @@ class PCBoxTransferMixin:
 
                 if evolution_info:
                     print(
-                        f"[PCBox] Trade evolution available: {evolution_info['from_name']} -> {evolution_info['to_name']}",
+                        f"[PCBox] Trade evolution available: "
+                        f"{evolution_info['from_name']} -> {evolution_info['to_name']}",
                         file=sys.stderr,
                         flush=True,
                     )
@@ -410,7 +416,7 @@ class PCBoxTransferMixin:
     #  Sinew -> Game withdrawal                                            #
     # ------------------------------------------------------------------ #
 
-    def _attempt_sinew_to_game_move(self, dest_type, dest_box, dest_slot):
+    def _attempt_sinew_to_game_move(self, dest_type, dest_box, dest_slot):  # pylint: disable=unused-argument
         """Attempt to withdraw Pokemon from Sinew storage to a game save"""
         dest_game = self.get_current_game()
         if self.is_game_running_callback:
@@ -444,7 +450,7 @@ class PCBoxTransferMixin:
                 _block_offset = get_active_block(_check_data)
                 if find_section_by_id(_check_data, _block_offset, 5) is None:
                     self._show_warning(
-                        "Save too early in game!\nGet the Pokedex first,\nthen save before transferring."
+                        "Save too early in game!\nGet the Pokedex first,\nthen save before transferring."  # pylint: disable=line-too-long  # noqa: E501
                     )
                     self._cancel_move_mode()
                     return
@@ -562,7 +568,8 @@ class PCBoxTransferMixin:
                     pokemon_name = self.moving_pokemon.get("species_name", "Pokemon")
                     species = self.moving_pokemon.get("species", 0)
                     print(
-                        f"[PCBox] Updated Pokedex: #{species} ({pokemon_name}) marked as seen/caught",
+                        f"[PCBox] Updated Pokedex: #{species} ({pokemon_name}) "
+                        f"marked as seen/caught",
                         file=sys.stderr,
                         flush=True,
                     )
@@ -608,7 +615,8 @@ class PCBoxTransferMixin:
 
                 if evolution_info:
                     print(
-                        f"[PCBox] Trade evolution available: {evolution_info['from_name']} -> {evolution_info['to_name']}",
+                        f"[PCBox] Trade evolution available: "
+                        f"{evolution_info['from_name']} -> {evolution_info['to_name']}",
                         file=sys.stderr,
                         flush=True,
                     )
@@ -718,10 +726,6 @@ class PCBoxTransferMixin:
                 if badges:
                     dest_badge_count = sum(1 for b in badges if b)
 
-            dest_game_type = "RSE"
-            if dest_game and ("Fire" in dest_game or "Leaf" in dest_game):
-                dest_game_type = "FRLG"
-
             obedience_levels = {
                 0: 10, 1: 20, 2: 30, 3: 40,
                 4: 50, 5: 60, 6: 70, 7: 80, 8: 100,
@@ -752,7 +756,8 @@ class PCBoxTransferMixin:
                 _block_offset = get_active_block(_check_data)
                 if find_section_by_id(_check_data, _block_offset, 5) is None:
                     self._show_warning(
-                        "Save too early in game!\nGet the Pokedex first,\nthen save before transferring."
+                        "Save too early in game!\nGet the Pokedex first,\n"
+                        "then save before transferring."
                     )
                     self._cancel_move_mode()
                     return
@@ -774,7 +779,8 @@ class PCBoxTransferMixin:
         )
 
         if self.moving_pokemon_source["type"] == "box":
-            source_loc = f"Box {self.moving_pokemon_source['box']}, Slot {self.moving_pokemon_source['slot'] + 1}"
+            src = self.moving_pokemon_source
+            source_loc = f"Box {src['box']}, Slot {src['slot'] + 1}"
         else:
             source_loc = f"Party Slot {self.moving_pokemon_source['slot'] + 1}"
 
@@ -873,7 +879,8 @@ class PCBoxTransferMixin:
                     pokemon_name = self.moving_pokemon.get("species_name", "Pokemon")
                     species = self.moving_pokemon.get("species", 0)
                     print(
-                        f"[PCBox] Updated Pokedex: #{species} ({pokemon_name}) marked as seen/caught in {dest['game']}",
+                        f"[PCBox] Updated Pokedex: #{species} ({pokemon_name}) "
+                        f"marked as seen/caught in {dest['game']}",
                         file=sys.stderr,
                         flush=True,
                     )
@@ -963,7 +970,8 @@ class PCBoxTransferMixin:
 
                 if evolution_info:
                     print(
-                        f"[PCBox] Trade evolution available: {evolution_info['from_name']} -> {evolution_info['to_name']}",
+                        f"[PCBox] Trade evolution available: "
+                        f"{evolution_info['from_name']} -> {evolution_info['to_name']}",
                         file=sys.stderr,
                         flush=True,
                     )

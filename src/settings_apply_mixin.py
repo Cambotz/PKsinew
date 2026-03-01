@@ -59,7 +59,9 @@ class SettingsApplyMixin:
                         gmap[RETRO_DEVICE_ID_JOYPAD_A] = self.emulator._original_a_btn
                         gmap[RETRO_DEVICE_ID_JOYPAD_B] = self.emulator._original_b_btn
                     print(
-                        f"[Sinew] Emulator gamepad A/B: A→btn{gmap[RETRO_DEVICE_ID_JOYPAD_A]}, B→btn{gmap[RETRO_DEVICE_ID_JOYPAD_B]}"
+                        f"[Sinew] Emulator gamepad A/B:"
+                        f" A→btn{gmap[RETRO_DEVICE_ID_JOYPAD_A]},"
+                        f" B→btn{gmap[RETRO_DEVICE_ID_JOYPAD_B]}"
                     )
 
                 # --- Keyboard map ---
@@ -87,7 +89,9 @@ class SettingsApplyMixin:
                             self.emulator._original_b_keys
                         )
                     print(
-                        f"[Sinew] Emulator kb A/B: A→{kb_map.get(RETRO_DEVICE_ID_JOYPAD_A)}, B→{kb_map.get(RETRO_DEVICE_ID_JOYPAD_B)}"
+                        f"[Sinew] Emulator kb A/B:"
+                        f" A→{kb_map.get(RETRO_DEVICE_ID_JOYPAD_A)},"
+                        f" B→{kb_map.get(RETRO_DEVICE_ID_JOYPAD_B)}"
                     )
 
             except Exception as e:
@@ -143,7 +147,9 @@ class SettingsApplyMixin:
                     pass
 
             print(
-                f"[Sinew] Applied settings: music_muted={self._menu_music_muted}, external_emu={use_external}, swap_ab={swap_ab}"
+                f"[Sinew] Applied settings:"
+                f" music_muted={self._menu_music_muted},"
+                f" external_emu={use_external}, swap_ab={swap_ab}"
             )
 
         except Exception as e:

@@ -488,7 +488,8 @@ class PCBoxDrawMixin:
                         egg_sprite = pygame.image.load(egg_png_path).convert_alpha()
                         sprite_width = int(self.sprite_area.width * 0.9)
                         sprite_height = int(self.sprite_area.height * 0.9)
-                        egg_sprite = scale_surface_preserve_aspect(egg_sprite, sprite_width, sprite_height)
+                        egg_sprite = scale_surface_preserve_aspect(egg_sprite, sprite_width,
+                            sprite_height)
                         rect = egg_sprite.get_rect(center=self.sprite_area.center)
                         surf.blit(egg_sprite, rect.topleft)
                     except Exception:
@@ -516,7 +517,8 @@ class PCBoxDrawMixin:
                         # Scale to fit display area, preserving aspect ratio
                         sprite_width = int(self.sprite_area.width * 0.9)
                         sprite_height = int(self.sprite_area.height * 0.9)
-                        poke_sprite = scale_surface_preserve_aspect(poke_sprite, sprite_width, sprite_height)
+                        poke_sprite = scale_surface_preserve_aspect(poke_sprite, sprite_width,
+                            sprite_height)
                         rect = poke_sprite.get_rect(center=self.sprite_area.center)
                         surf.blit(poke_sprite, rect.topleft)
                     except Exception:

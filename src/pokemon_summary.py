@@ -62,9 +62,11 @@ except ImportError:
     MOVE_DATA_AVAILABLE = False
 
     def get_move_name(move_id):
+        """Return a placeholder move name string when move data is unavailable."""
         return f"Move #{move_id}" if move_id > 0 else "---"
 
     def get_move_info(move_id):
+        """Return a placeholder move info tuple (name, type, pp, power, accuracy) when move data is unavailable."""
         return (get_move_name(move_id), "normal", 0, 0, 0)
 
 
@@ -83,18 +85,23 @@ except ImportError:
     ABILITY_DATA_AVAILABLE = False
 
     def get_ability_name(ability_id):
+        """Return a placeholder ability name string when ability data is unavailable."""
         return f"Ability #{ability_id}"
 
     def get_pokemon_ability_name(species_id, ability_bit):
+        """Return 'Slot 1' or 'Slot 2' label when ability data is unavailable."""
         return "Slot 2" if ability_bit else "Slot 1"
 
     def get_pokemon_abilities(species_id):
+        """Return a placeholder abilities tuple (0, None) when ability data is unavailable."""
         return (0, None)
 
     def get_ability_description(ability_id):
+        """Return an empty string placeholder when ability data is unavailable."""
         return ""
 
     def get_pokemon_ability_id(species_id, ability_bit):
+        """Return 0 as a placeholder ability ID when ability data is unavailable."""
         return 0
 
 
@@ -107,6 +114,7 @@ except ImportError:
     LOCATION_DATA_AVAILABLE = False
 
     def get_location_name(location_id, game_type="RSE"):
+        """Return a placeholder location name string when location data is unavailable."""
         return f"Location {location_id}"
 
 
@@ -119,6 +127,7 @@ except ImportError:
     ITEM_DATA_AVAILABLE = False
 
     def get_item_name(item_id):
+        """Return a placeholder item name string when item data is unavailable."""
         return f"Item {item_id}" if item_id > 0 else "None"
 
 
@@ -534,7 +543,8 @@ class PokemonSummary:
 
         # Method 5: If all else fails, print debug info
         print(
-            f"[PokemonSummary] Could not load sprite. Pokemon data keys: {list(self.pokemon.keys())}"
+            f"[PokemonSummary] Could not load sprite. Pokemon data keys: {list(self.pokemon.keys(
+                ))}"
         )
         print(
             f"[PokemonSummary] Species value: {self.pokemon.get('species', 'MISSING')}"
@@ -947,7 +957,7 @@ class PokemonSummary:
                 move_pp = move.get("pp", 0) or 0
 
                 # Get move info
-                move_name, move_type, power, accuracy, max_pp = get_move_info(move_id)
+                move_name, move_type, power, _, max_pp = get_move_info(move_id)
 
                 # If PP is 0 or not set, assume full PP (for boxed Pokemon)
                 if move_pp == 0 and max_pp > 0:

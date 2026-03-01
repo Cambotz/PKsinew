@@ -1,4 +1,6 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
+
+"""Template provider for creating new external emulator providers."""
 
 import os
 from external_emulator import EmulatorProvider
@@ -10,7 +12,7 @@ class TemplateProvider(EmulatorProvider):
     Copy this file and rename the class and methods as needed.
     Set active = True when ready for use.
     """
-    
+
     active = False
 
     @property
@@ -21,12 +23,12 @@ class TemplateProvider(EmulatorProvider):
 
     def __init__(self, sinew_settings):
         self.settings = sinew_settings
-        
+
         # These are read by main.py
         self.roms_dir = "/path/to/external/roms"
         self.saves_dir = "/path/to/external/saves"
-        
-        
+
+
         # Initialize internal cache reference
         if "emulator_cache" not in self.settings:
             self.settings["emulator_cache"] = {}
@@ -44,10 +46,10 @@ class TemplateProvider(EmulatorProvider):
 
     def get_command(self, rom_path, core="auto"):
         """
-        Return the list of strings representing the shell command 
+        Return the list of strings representing the shell command
         to launch the emulator.
         """
-        
+
         return None
 
     def get_save_path(self, rom_path):
@@ -70,7 +72,6 @@ class TemplateProvider(EmulatorProvider):
         Called after the emulator exits, either naturally or via terminate().
         Use this to restart any input handlers (e.g. gptokeyb).
         """
-        pass
 
     def terminate(self, process):
         """
