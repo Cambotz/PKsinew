@@ -420,7 +420,7 @@ def parse_pc_boxes(data, section_offsets):
         section_data = data[offset : offset + size]
         pc_buffer.extend(section_data)
 
-    # Parse 420 Pokemon (14 boxes Ã— 30 slots)
+    # Parse 420 Pokemon (14 boxes x 30 slots)
     # Skip first 4 bytes (current box number)
     pc_pokemon = []
     pokemon_start = 4

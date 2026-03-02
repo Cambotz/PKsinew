@@ -431,7 +431,7 @@ class PCBoxDrawMixin:
             try:
                 warning_font = pygame.font.Font(None, 18)
                 warning_text = (
-                    f"âš  {self.get_current_game()} is running - transfers disabled"
+                    f"{self.get_current_game()} is running - transfers disabled"
                 )
                 text_surf = warning_font.render(
                     warning_text, True, ui_colors.COLOR_ERROR
