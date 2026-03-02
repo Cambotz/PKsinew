@@ -489,7 +489,7 @@ class _MgbaEmulator:
         self._frame_meta = {"width": 0, "height": 0, "pitch": 0}
         self._frame_ready = False
 
-        # Audio â€” buffer and queue depth tuned per platform
+        # Audio buffer and queue depth tuned per platform
         _audio_buf, _audio_queue_depth = get_audio_settings()
         self.audio_queue = deque(maxlen=_audio_queue_depth)
         self._audio_lock = threading.Lock()
@@ -498,7 +498,7 @@ class _MgbaEmulator:
         self._audio_running = False
 
         # Deferred audio setting changes (applied on next _init_audio / _reinit_audio,
-        # NOT immediately â€” avoids killing Sinew's menu music mixer while paused).
+        # NOT immediately -- avoids killing Sinew's menu music mixer while paused).
         self._pending_audio_buffer = None
         self._pending_audio_queue_depth = None
         # Set to True if _init_audio / _reinit_audio had to fall back to defaults.
@@ -510,7 +510,7 @@ class _MgbaEmulator:
         self._diagnostic_interval = 5.0  # seconds
         self._audio_batches_received = 0
 
-        # Volume / mute â€” loaded from settings, applied to channel after init
+        # Volume / mute -- loaded from settings, applied to channel after init
         self._mgba_muted = False
         self._master_volume = VOLUME_DEFAULT  # 0-100
         self._load_volume_settings()
@@ -556,7 +556,7 @@ class _MgbaEmulator:
     def _load_controller_config(self):
         """Load saved controller configuration from sinew_settings.json.
 
-        This is the USER OVERRIDE layer â€” it runs after _init_joystick() has
+        This is the USER OVERRIDE layer -- it runs after _init_joystick() has
         already applied SDL_GAMECONTROLLERCONFIG or controller_profiles, so any
         mapping saved here by the user (via ButtonMapper) always wins.
 
@@ -588,7 +588,7 @@ class _MgbaEmulator:
 
         try:
             if not os.path.exists(config_file):
-                # No settings file yet â€” _init_joystick already applied the best
+                # No settings file yet -- _init_joystick already applied the best
                 # available mapping (SDL config or controller_profiles).
                 # Re-apply profile so d-pad state is also initialised correctly.
                 self._apply_profile_from_joystick()
@@ -854,17 +854,17 @@ class _MgbaEmulator:
 
                 # DIAGNOSTIC: Log first audio batch from mGBA core
                 if _audio_batch_count[0] == 0:
-                    print(f"[MgbaEmulator] â•”â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•")
-                    print(f"[MgbaEmulator] â•‘ FIRST AUDIO BATCH FROM mGBA CORE")
-                    print(f"[MgbaEmulator] â• â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•")
-                    print(f"[MgbaEmulator] â•‘ Frames received:  {frames}")
-                    print(f"[MgbaEmulator] â•‘ Array shape:      {arr.shape}")
-                    print(f"[MgbaEmulator] â•‘ Array dtype:      {arr.dtype}")
-                    print(f"[MgbaEmulator] â•‘ Sample range:     [{arr.min()}, {arr.max()}]")
-                    print(f"[MgbaEmulator] â•‘ Queue size:       {len(
+                    print(f"[MgbaEmulator] ╔══════════════════════════════════════════════════════")
+                    print(f"[MgbaEmulator] ║ FIRST AUDIO BATCH FROM mGBA CORE")
+                    print(f"[MgbaEmulator] ╠══════════════════════════════════════════════════════")
+                    print(f"[MgbaEmulator] ║ Frames received:  {frames}")
+                    print(f"[MgbaEmulator] ║ Array shape:      {arr.shape}")
+                    print(f"[MgbaEmulator] ║ Array dtype:      {arr.dtype}")
+                    print(f"[MgbaEmulator] ║ Sample range:     [{arr.min()}, {arr.max()}]")
+                    print(f"[MgbaEmulator] ║ Queue size:       {len(
                         self.audio_queue)}/{self.audio_queue.maxlen}")
-                    print(f"[MgbaEmulator] â•‘ mGBA is generating audio âœ…")
-                    print(f"[MgbaEmulator] â•šâ•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•")
+                    print(f"[MgbaEmulator] ║ mGBA is generating audio")
+                    print(f"[MgbaEmulator] ╚══════════════════════════════════════════════════════")
 
                 _audio_batch_count[0] += 1
                 self._audio_batches_received += 1
@@ -873,12 +873,12 @@ class _MgbaEmulator:
                     self.audio_queue.append(arr)
                 return frames
             except Exception as e:
-                print(f"[MgbaEmulator] â•”â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•")
-                print(f"[MgbaEmulator] â•‘ AUDIO BATCH CALLBACK ERROR")
-                print(f"[MgbaEmulator] â• â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•")
-                print(f"[MgbaEmulator] â•‘ Error: {e}")
-                print(f"[MgbaEmulator] â•‘ Frames: {frames}")
-                print(f"[MgbaEmulator] â•šâ•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•")
+                print(f"[MgbaEmulator] ╔══════════════════════════════════════════════════════")
+                print(f"[MgbaEmulator] ║ AUDIO BATCH CALLBACK ERROR")
+                print(f"[MgbaEmulator] ╠══════════════════════════════════════════════════════")
+                print(f"[MgbaEmulator] ║ Error: {e}")
+                print(f"[MgbaEmulator] ║ Frames: {frames}")
+                print(f"[MgbaEmulator] ╚══════════════════════════════════════════════════════")
                 import traceback
                 traceback.print_exc()
                 return 0
@@ -1129,11 +1129,11 @@ class _MgbaEmulator:
         """Initialize joystick and resolve button mapping.
 
         Priority (highest to lowest):
-          1. SDL_GAMECONTROLLERCONFIG env var â€” set by PortMaster's control.txt /
+          1. SDL_GAMECONTROLLERCONFIG env var -- set by PortMaster's control.txt /
              get_controls for the exact device we're running on.  Most accurate.
-          2. controller_profiles database â€” our hand-curated + GameControllerDB
+          2. controller_profiles database -- our hand-curated + GameControllerDB
              fallback for non-PortMaster launches (desktop, direct run, etc.).
-          3. Hardcoded defaults in _gamepad_map â€” last resort.
+          3. Hardcoded defaults in _gamepad_map -- last resort.
 
         Saved user overrides in sinew_settings.json (controller_mapping) are
         applied afterwards by _load_controller_config(), which runs at the end
@@ -1152,7 +1152,7 @@ class _MgbaEmulator:
         if sdl_config:
             applied = self._apply_sdl_controller_config(sdl_config)
             if applied:
-                return  # SDL config is authoritative â€” skip profile lookup
+                return  # SDL config is authoritative -- skip profile lookup
 
         # --- Priority 2: controller_profiles database ---
         self._apply_profile_from_joystick()
@@ -1206,7 +1206,7 @@ class _MgbaEmulator:
                 best_entry = line
                 break
 
-        # If no name match, use the only entry (common case â€” one mapping per device)
+        # If no name match, use the only entry (common case -- one mapping per device)
         if best_entry is None and len(lines) == 1:
             best_entry = lines[0]
 
@@ -1529,12 +1529,12 @@ class _MgbaEmulator:
 
         while self._audio_running:
             try:
-                # Skip if paused â€” Sinew owns the mixer while we're paused
+                # Skip if paused -- Sinew owns the mixer while we're paused
                 if self.paused:
                     pygame.time.wait(10)
                     continue
 
-                # If mixer is gone, just wait â€” _reinit_audio will fix it on resume
+                # If mixer is gone, just wait -- _reinit_audio will fix it on resume
                 if not pygame.mixer.get_init():
                     pygame.time.wait(50)
                     continue
@@ -1580,7 +1580,7 @@ class _MgbaEmulator:
 
                                     if mixer_channels != chunk_channels:
                                         if mixer_channels > chunk_channels:
-                                            # Pad with zeros (e.g., stereo â†’ 8 channels)
+                                            # Pad with zeros (e.g., stereo -> 8 channels)
                                             # Audio plays on first 2 channels, rest are silent
                                             pad_channels = mixer_channels - chunk_channels
                                             zeros = np.zeros((chunk.shape[0], pad_channels),
@@ -1589,10 +1589,8 @@ class _MgbaEmulator:
 
                                             # Log this workaround on first occurrence
                                             if chunks_played == 0:
-                                                print(f"[MgbaEmulator] âš ï¸  AUDIO WORKAROUND: Padding {chunk_channels}-channel audio to {mixer_channels} channels")  # pylint: disable=line-too-long  # noqa: E501
-                                                print(
-                                                    f"[MgbaEmulator]     "
-                                                    "(pygame refused to initialize with stereo)"
+                                                print(f"[MgbaEmulator] AUDIO WORKAROUND: Padding {chunk_channels}-channel audio to {mixer_channels} channels")  # pylint: disable=line-too-long  # noqa: E501
+                                                print(f"[MgbaEmulator] (pygame refused to initialize with stereo)"
                                                 )
 
                                 sound = pygame.sndarray.make_sound(chunk)
@@ -1754,7 +1752,7 @@ class _MgbaEmulator:
             self._last_audio_diagnostic_time = current_time
             thread_alive = self._audio_thread and self._audio_thread.is_alive()
             queue_size = len(self.audio_queue)
-            print(f"[MgbaEmulator] â–¶ Audio Status: thread={'RUNNING âœ…' if thread_alive else 'STOPPED âŒ'}, "  # pylint: disable=line-too-long  # noqa: E501
+            print(f"[MgbaEmulator] Audio Status: thread={'RUNNING' if thread_alive else 'STOPPED'}, "  # pylint: disable=line-too-long  # noqa: E501
                   f"batches_received={self._audio_batches_received}, "
                   f"queue={queue_size}/{self.audio_queue.maxlen}, "
                   f"channel={'OK' if self._audio_channel else 'NONE'}, "
@@ -1783,7 +1781,7 @@ class _MgbaEmulator:
         ``_init_audio()`` or ``_reinit_audio()`` runs (i.e. on game launch
         or resume).
 
-        Returns True always â€” actual failure is handled at apply-time.
+        Returns True always -- actual failure is handled at apply-time.
         """
         self._pending_audio_buffer = int(buffer_size)
         self._pending_audio_queue_depth = int(queue_depth)
@@ -1855,13 +1853,13 @@ class _MgbaEmulator:
             print(f"[MgbaEmulator] Could not load volume settings: {e}")
 
     def _get_effective_volume(self):
-        """Return 0.0â€“1.0 for the audio channel, accounting for master + mute."""
+        """Return 0.0-1.0 for the audio channel, accounting for master + mute."""
         if self._mgba_muted:
             return 0.0
         return max(0.0, min(1.0, self._master_volume / 100.0))
 
     def set_master_volume(self, volume_int):
-        """Set master volume (0â€“100). Applies immediately to audio channel."""
+        """Set master volume (0-100). Applies immediately to audio channel."""
         self._master_volume = max(0, min(100, int(volume_int)))
         self._apply_channel_volume()
         paused_note = ' (paused - will apply on resume)' if self.paused else ''
@@ -2047,7 +2045,7 @@ class _MgbaEmulator:
                         num_buttons = self._joystick.get_numbuttons()
 
                         # Map button names to gamepad indices.
-                        # No magic-number fallbacks â€” _gamepad_map was already
+                        # No magic-number fallbacks -- _gamepad_map was already
                         # populated by _init_joystick (SDL config / profile / defaults).
                         btn_map = {
                             "START":  self._gamepad_map.get(RETRO_DEVICE_ID_JOYPAD_START),
@@ -2088,7 +2086,7 @@ class _MgbaEmulator:
             self.paused = True
             self.save_sram()
 
-            # Stop audio thread â€” Sinew is about to own the mixer
+            # Stop audio thread -- Sinew is about to own the mixer
             self._audio_running = False
             if self._audio_thread and self._audio_thread.is_alive():
                 try:
@@ -2117,6 +2115,10 @@ class _MgbaEmulator:
             self._reinit_audio()
 
             self.paused = False
+            # Apply latest master/mute state now that we're unpaused.
+            # _reinit_audio() may refresh channel refs while paused, and
+            # _apply_channel_volume() intentionally no-ops during pause.
+            self._apply_channel_volume()
             print(f"[MgbaEmulator] Resumed - paused now={self.paused}")
 
     def _reinit_audio(self):
