@@ -1680,11 +1680,17 @@ class AchievementManager:
         print(f"[Achievements] Reset {reset_count} achievements for {game_name}")
         return reset_count
 
-    def revalidate_achievements(self):
+    def revalidate_achievements(self, sinew_data_loaded=True):
         """
         Re-validate all unlocked achievements against current tracking data.
         Un-unlocks any achievements that were incorrectly unlocked.
         Returns list of achievement IDs that were revoked.
+
+        Args:
+            sinew_data_loaded: If False, skip revocation for Sinew aggregate
+                achievements because no save data was available to build the
+                aggregate (e.g. no local ROMs when using an external provider).
+                Defaults to True.
         """
         from achievements_data import GAMES, get_achievements_for
 
@@ -1709,7 +1715,14 @@ class AchievementManager:
             # reliably validate its achievements (tracking is in-memory only and
             # gets populated when a save is loaded). Keep all achievements for
             # unloaded games rather than falsely revoking them.
-            game_has_tracking = game in self.tracking
+            # For Sinew aggregate: if sinew_data_loaded is False, no save files were
+            # found on disk (e.g. external provider, no local ROMs), so the aggregate
+            # is meaningless zeros — treat it as unloaded to prevent mass revocations.
+            if game == "Sinew" and not sinew_data_loaded:
+                game_has_tracking = False
+                print("[Achievements] Skipping Sinew revocation check - no save data loaded")
+            else:
+                game_has_tracking = game in self.tracking
 
             for ach in achievements:
                 if not self.is_unlocked(ach["id"]):

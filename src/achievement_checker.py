@@ -266,8 +266,15 @@ class AchievementCheckerMixin:
             # subsequent calls only re-parse the game that changed).
             self._check_sinew_achievements_aggregate()
 
-            # Re-validate and save
-            revoked = self._achievement_manager.revalidate_achievements()
+            # Re-validate and save.
+            # sinew_data_loaded=True only when the cache is non-empty, meaning at least
+            # one save was successfully parsed. If the cache is empty (no local ROMs /
+            # all saves at external paths), we cannot trust the aggregate zeros and must
+            # not revoke Sinew achievements.
+            sinew_data_loaded = bool(getattr(self, "_sinew_game_data_cache", {}))
+            revoked = self._achievement_manager.revalidate_achievements(
+                sinew_data_loaded=sinew_data_loaded
+            )
             if revoked:
                 print(f"[Achievements] Revoked {len(
                     revoked)} incorrectly unlocked achievements on startup")
