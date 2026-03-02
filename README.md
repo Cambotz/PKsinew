@@ -9,7 +9,7 @@ It allows you to:
 - Handle **mass storage & transferring Pokémon between games**
 - Access **mythical rewards**
 - Explore **re-imagined abandoned features** from the original games
-- Export **save data to readable text file** for other projects
+- Export **save data to readable json file** for other projects
 
 PKsinew supports **Windows, macOS, and Linux**, and works best with a **controller** for seamless gameplay tracking.
 
@@ -55,8 +55,9 @@ If you downloaded a release, you do **not** need Python or any dependencies. Jus
 ### First-time In-App Setup
 
 1. **Map your controller buttons** in Settings
-2. Point each game slot to its ROM file
-3. Start playing — achievements and tracking begin automatically
+2. Enable external providers if using retroarch or a retro handheld, or add ROMs to the `roms` folder
+3. Restart the app if ROMs are added after booting
+4. Start playing — achievements and tracking begin automatically
 
 ---
 
@@ -145,7 +146,9 @@ This will install all required packages (Pillow, NumPy, Pygame, requests, etc.) 
 ### Build Executable
 
 1. Run the build command from the project root:
-   `pyinstaller --clean PKsinew.spec`
+```bash
+  pyinstaller --clean PKsinew.spec
+```
 2. The built app will appear in the `dist/` folder.
 
 ---
@@ -184,7 +187,7 @@ PKsinew is configured to know when it's being run in dev mode and will find all 
 
 **Game not detected**
 
-> Make sure your ROM filename contains the game name (e.g. `Pokemon Ruby.gba`). Check the `roms/` folder and ensure the file extension is supported.
+> Make sure your ROM is supported. PKsinew is designed to work with the GBA Pokemon games only.
 
 **Linux: No module named 'pygame.font' / 'pygame.mixer'**
 
