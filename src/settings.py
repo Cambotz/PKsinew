@@ -1319,8 +1319,7 @@ class MainSetup:
 
         # Check if emulator had to revert audio settings on last resume
         try:
-            import builtins
-            emu = getattr(builtins, "SINEW_EMULATOR", None)
+            emu = self._get_integrated_mgba_emulator()
             if emu is not None and getattr(emu, "audio_settings_reverted", False):
                 emu.audio_settings_reverted = False
                 # Re-read the (now default) values from the persisted settings
@@ -1510,6 +1509,25 @@ class MainSetup:
         except Exception as e:
             print(f"[Settings] Failed to save fast-forward settings: {e}")
 
+    def _get_integrated_mgba_emulator(self):
+        """Return active integrated mGBA emulator instance, else None."""
+        try:
+            import builtins
+
+            emu = getattr(builtins, "SINEW_EMULATOR", None)
+            if emu is None:
+                return None
+
+            emu_type = type(emu)
+            if (
+                getattr(emu_type, "__name__", "") == "_MgbaEmulator"
+                and getattr(emu_type, "__module__", "").endswith("integrated_mgba")
+            ):
+                return emu
+        except Exception:
+            pass
+        return None
+
     def _apply_fastforward_to_emulator(self):
         """Push the current fast-forward state to the running emulator via builtins."""
         enabled = False
@@ -1523,8 +1541,7 @@ class MainSetup:
                 speed_values = opt.get("speed_values", speed_values)
         multiplier = speed_values[speed_index] if enabled else 1
         try:
-            import builtins
-            emu = getattr(builtins, "SINEW_EMULATOR", None)
+            emu = self._get_integrated_mgba_emulator()
             if emu is not None and hasattr(emu, "set_fast_forward"):
                 emu.set_fast_forward(multiplier)
                 label = f"{multiplier}x" if enabled else "Off"
@@ -1585,8 +1602,7 @@ class MainSetup:
             print(f"[Settings] Failed to save mGBA mute: {e}")
 
         try:
-            import builtins
-            emu = getattr(builtins, "SINEW_EMULATOR", None)
+            emu = self._get_integrated_mgba_emulator()
             if emu is not None and hasattr(emu, "set_mgba_muted"):
                 emu.set_mgba_muted(muted)
         except Exception as e:
@@ -1626,8 +1642,7 @@ class MainSetup:
 
         # Stage on emulator (applied on next resume / game launch)
         try:
-            import builtins
-            emu = getattr(builtins, "SINEW_EMULATOR", None)
+            emu = self._get_integrated_mgba_emulator()
             if emu is not None and hasattr(emu, "set_audio_settings"):
                 emu.set_audio_settings(buf_value, depth_value)
                 self._status_msg(f"Audio: buf={buf_value} q={depth_value}")
