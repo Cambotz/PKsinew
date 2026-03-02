@@ -2355,22 +2355,16 @@ class IntegratedMgbaProvider(EmulatorProvider):
         self.settings = sinew_settings
 
     def probe(self, distro_id) -> bool:
-        """Return True if the mGBA core library is present and loadable."""
+        """Return True if the mGBA core library file exists."""
         try:
             import os
-            import ctypes
             from config import MGBA_CORE_PATH
             available = bool(MGBA_CORE_PATH and os.path.isfile(MGBA_CORE_PATH))
-            if available:
-                # Verify it can actually be loaded
-                try:
-                    ctypes.CDLL(MGBA_CORE_PATH)
-                except OSError:
-                    available = False
-        except Exception:
-            available = False
-        print(f"[IntegratedMgba] mGBA core {'available' if available else 'unavailable'}.")
-        return available
+            print(f"[IntegratedMgba] mGBA core {'available' if available else 'unavailable'}.")
+            return available
+        except Exception as e:
+            print(f"[IntegratedMgba] probe failed: {e}")
+            return False
 
     # ------------------------------------------------------------------
     # In-process launch — all mGBA logic lives here
