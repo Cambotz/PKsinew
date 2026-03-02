@@ -131,27 +131,34 @@ class EmulatorManager:
         display_was_quit = False
         
         # Smart display handling:
-        # - ROCKNIX/JELOS/ArkOS (KMSDRM): Must quit display to release GPU
-        # - AYN Thor (full Linux): Iconify for dual-screen support
+        # - ROCKNIX/JELOS/ArkOS (embedded): Must quit display to release GPU
+        # - AYN Thor (full desktop Linux): Iconify for dual-screen support
         # - Desktop: Iconify to minimize
         try:
             from config import IS_HANDHELD
             
-            # Detect if we're on embedded firmware (single-screen KMSDRM)
+            # Detect if we're on embedded firmware
+            # ROCKNIX uses Wayland but is still embedded (no full desktop)
             is_embedded_firmware = False
             if IS_HANDHELD:
-                # Check for known CFW markers
-                if (os.path.exists('/etc/rocknix') or 
-                    os.path.exists('/etc/jelos') or 
-                    os.path.exists('/etc/arkos') or
-                    os.path.exists('/etc/batocera')):
+                # Check 1: ROCKNIX specifically (has ES but no full DE)
+                if os.path.exists('/usr/bin/emulationstation') and not os.path.exists('/usr/bin/gnome-shell'):
                     is_embedded_firmware = True
-                # Or check SDL video driver
+                    print(f"[EmulatorManager] Embedded CFW detected (EmulationStation without desktop)")
+                # Check 2: Known CFW markers
+                elif any(os.path.exists(p) for p in [
+                    '/etc/rocknix', '/usr/share/rocknix', '/storage/.config/rocknix',
+                    '/etc/jelos', '/etc/arkos', '/etc/batocera'
+                ]):
+                    is_embedded_firmware = True
+                    print(f"[EmulatorManager] CFW detected via markers")
+                # Check 3: KMSDRM/fbdev drivers
                 elif os.environ.get('SDL_VIDEODRIVER', '').lower() in ('kmsdrm', 'directfb', 'fbcon'):
                     is_embedded_firmware = True
+                    print(f"[EmulatorManager] KMSDRM/fbdev driver detected")
             
             if is_embedded_firmware:
-                # Embedded CFW: quit display to release KMSDRM
+                # Embedded CFW: quit display to release GPU
                 pygame.display.quit()
                 display_was_quit = True
                 print("[EmulatorManager] Display quit for embedded handheld")
