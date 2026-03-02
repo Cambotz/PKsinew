@@ -132,11 +132,16 @@ def run():
             try:
                 surf = pygame.display.get_surface()
                 if not surf:
-                    scaler.reinit_display()
+                    # Display was quit, make sure it's initialized then recreate window
+                    if not pygame.display.get_init():
+                        pygame.display.init()
+                    scaler._create_window()
                     controller.resume()
             except pygame.error:
                 # Display was quit for external emulator, reinit when it returns
-                scaler.reinit_display()
+                if not pygame.display.get_init():
+                    pygame.display.init()
+                scaler._create_window()
                 controller.resume()
 
         dt = clock.tick(60)
