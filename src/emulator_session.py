@@ -142,7 +142,7 @@ class EmulatorSessionMixin:
         # In-process providers set emulator_active and stop music themselves
         # inside launch_integrated().  Subprocess providers need this mixin to
         # do it and to spin up a process-watcher thread.
-        if not provider.is_integrated:
+        if not getattr(provider, 'is_integrated', False):
             self.emulator_active = True
             self._stop_menu_music()
 

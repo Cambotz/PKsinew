@@ -112,7 +112,7 @@ class EmulatorManager:
             return False
 
         # In-process provider (e.g. integrated mGBA) — delegate directly.
-        if self.active_provider.is_integrated:
+        if getattr(self.active_provider, 'is_integrated', False):
             try:
                 self.active_provider.launch_integrated(rom_path, sav_path, game_screen)
                 return True
