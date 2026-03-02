@@ -1,5 +1,42 @@
+PKsinew v1.3.7
 
-PKsinew v1.3.6
+-External Emulator (Experimental), Major Refactor & Save Improvements
+
+⚠️ Important: Save backups are now stored in a separate folder. You must manually move your existing backup files — failure to do so will result in the wrong save files being read.
+
+Code Refactor (by @JeodC)
+-Massive codebase refactor and structural cleanup
+-Improved modularity and long-term maintainability
+
+External Emulator & Handheld (Experimental, by @JeodC)
+-External emulator launch and return to Sinew
+-Added dimming support for Sinew on dual-screen devices
+-Achievement support when using an external emulator
+
+(external support will be available as more providers are added. currently rocknix but desktop is in the works also)
+
+NEW
+-CFW detection
+-Support for .zip ROM files
+-Support for all save types
+-ROM priority system
+
+Improvements
+=Save file backups now save to /saves/backups (MUST BE MOVED MANUALY FOR THIS UPDATE)
+-Save cache reloading
+-Save data now refreshes when entering Trainer Info, Pokédex, and PC Box
+-External ROM filtering and detection reliability
+-External save handling improvements
+-Rocknix provider savefile detection
+-More Controller stability improvements
+
+Fixes
+-Audio crash when more than 2 channels are present
+
+
+=================================================================
+
+PKsinew v1.3.6 
 
 NEW:
 - Groundwork for external emulator and provider support by (@JeodC)
@@ -21,7 +58,7 @@ Technical:
 - Hash database for ROM detection built by (@Fraudbatman)
 - Consistent shebangs/docstrings applied across modules and general codebase cleanups by (@JeodC)
 
-=========================================================================
+===================================================================
 
 PKsinew v1.3.5
 
