@@ -72,11 +72,10 @@ class SaveEditorManager:
             self.loaded_save = parser
             self._build_save_info_text(filename, parser)
             return True, "Save loaded successfully!"
-        else:
-            self.save_info_text = (
-                f"Failed to load: {filename}\nMake sure this is a Gen3 save file."
-            )
-            return False, "Failed to load save file"
+        self.save_info_text = (
+            f"Failed to load: {filename}\nMake sure this is a Gen3 save file."
+        )
+        return False, "Failed to load save file"
 
     def _build_save_info_text(self, filename, parser):
         """Build the save info display text"""

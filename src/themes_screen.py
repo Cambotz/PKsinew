@@ -99,7 +99,7 @@ class ThemesScreen:
         try:
             settings_path = SETTINGS_FILE
             if os.path.exists(settings_path):
-                with open(settings_path, "r") as f:
+                with open(settings_path, "r", encoding="utf-8") as f:
                     settings = json.load(f)
                     self.unlocked_themes = set(settings.get("unlocked_themes", []))
         except Exception as e:
@@ -146,10 +146,9 @@ class ThemesScreen:
                         if manager.is_unlocked(full_id):
                             return False
                     return True
-                else:
-                    # Direct ID check - theme is locked if achievement is NOT unlocked
-                    is_ach_unlocked = manager.is_unlocked(required_ach_id)
-                    return not is_ach_unlocked
+                # Direct ID check - theme is locked if achievement is NOT unlocked
+                is_ach_unlocked = manager.is_unlocked(required_ach_id)
+                return not is_ach_unlocked
 
         # Default to unlocked if we can't check
         return False
@@ -253,7 +252,7 @@ class ThemesScreen:
                 self.selected_index -= 1
                 # Auto-scroll
                 if self.selected_index < self.scroll_offset:
-                    self.scroll_offset = self.selected_index
+                    self.scroll_offset = min(self.scroll_offset, self.selected_index)
             consumed = True
 
         if ctrl.is_dpad_just_pressed("down"):
@@ -308,7 +307,7 @@ class ThemesScreen:
                     if self.selected_index > 0:
                         self.selected_index -= 1
                         if self.selected_index < self.scroll_offset:
-                            self.scroll_offset = self.selected_index
+                            self.scroll_offset = min(self.scroll_offset, self.selected_index)
                 elif event.key == pygame.K_DOWN:
                     if self.selected_index < len(self.themes) - 1:
                         self.selected_index += 1
@@ -319,7 +318,7 @@ class ThemesScreen:
                             self.scroll_offset = (
                                 self.selected_index - self.themes_per_page + 1
                             )
-                elif event.key == pygame.K_RETURN or event.key == pygame.K_SPACE:
+                elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
                     self._apply_selected_theme()
 
             elif event.type == pygame.MOUSEBUTTONDOWN:
@@ -484,7 +483,7 @@ class ThemesScreen:
                 ("Button", preview_button),
             ]
 
-            for j, (name, color_value) in enumerate(colors_to_show):
+            for j, (_, color_value) in enumerate(colors_to_show):
                 sx = preview_x + 15 + j * (swatch_size + swatch_gap + 2)
                 swatch_rect = pygame.Rect(sx, swatch_y, swatch_size, swatch_size)
                 pygame.draw.rect(surf, color_value, swatch_rect)  # use the actual color tuple
@@ -598,12 +597,15 @@ class Modal:
         self.visible = True
 
     def update(self, events):
+        """Delegate event handling to the inner themes screen and return True while visible."""
         self.screen.handle_events(events)
         self.visible = self.screen.visible
         return self.visible
 
     def handle_controller(self, ctrl):
+        """Delegate controller input to the inner themes screen."""
         return self.screen.handle_controller(ctrl)
 
     def draw(self, surf):
+        """Delegate the draw call to the inner themes screen."""
         self.screen.draw(surf)

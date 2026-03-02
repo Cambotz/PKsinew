@@ -20,7 +20,7 @@ elif is_windows:
     icon = 'assets/pksinew.ico'
 
 a = Analysis(
-    ['src/main.py'],
+    ['src/__main__.py'],
     pathex=[os.path.abspath('.')],
     binaries=[],
     datas=[

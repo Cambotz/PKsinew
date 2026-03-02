@@ -134,10 +134,12 @@ class DBBuilderScreen:
                         self.func = func
 
                     def write(self, s):
+                        """Write a non-empty stripped line of captured stdout to the UI terminal log."""
                         if s.strip():
                             self.func(s.strip())
 
                     def flush(self):
+                        """No-op flush required by the stream redirect interface."""
                         pass
 
                 sys.stdout = UILogger(self._add_line)
@@ -206,10 +208,12 @@ class DBBuilderScreen:
                         self.func = func
 
                     def write(self, s):
+                        """Write a non-empty stripped line of captured stderr to the UI terminal log."""
                         if s.strip():
                             self.func(s.strip())
 
                     def flush(self):
+                        """No-op flush required by the stream redirect interface."""
                         pass
 
                 sys.stdout = UILogger(self._add_line)
@@ -508,14 +512,17 @@ class DBBuilder:
         self.visible = True
 
     def update(self, events):
+        """Delegate event handling to the inner builder screen and return True while visible."""
         self.screen.handle_events(events)
         self.visible = self.screen.visible
         return self.visible
 
     def handle_controller(self, ctrl):
+        """Delegate controller input to the inner builder screen."""
         self.screen.handle_controller(ctrl)
 
     def draw(self, surface):
+        """Delegate the draw call to the inner builder screen."""
         self.screen.draw(surface)
 
 

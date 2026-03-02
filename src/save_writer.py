@@ -14,7 +14,7 @@ from datetime import datetime
 # EXTERNAL EMULATOR MIRROR REGISTRY
 # =============================================================================
 # Maps  sinew_save_path  →  ext_save_path
-# When external emulator dev mode is active, _launch_external_emulator in
+# When emulator provider mode is active, _launch_via_provider in
 # main.py registers a mapping here. Every write_save_file call that targets a
 # registered sinew path will also write the same data to the external emulator's
 # save path, keeping it in sync with every Sinew edit without requiring a
@@ -245,7 +245,8 @@ def get_pc_pokemon_offset(
     # Validate section index is within expected range (5-13)
     if section_index < 5 or section_index > 13:
         raise ValueError(
-            f"Calculated section {section_index} is out of PC range (5-13). Box={box_number}, Slot={slot_number}"
+            f"Calculated section {section_index} is out of PC range (5-13)."
+            f" Box={box_number}, Slot={slot_number}"
         )
 
     # Check if section 5 exists (save is early if not).
@@ -301,7 +302,7 @@ def read_pokemon_from_pc(save_data, box_number, slot_number, game_type="RSE"):
         bytes: 80 bytes of Pokemon data
     """
     block_offset = get_active_block(save_data)
-    section_offset, offset_in_section, global_offset = get_pc_pokemon_offset(
+    _, _, global_offset = get_pc_pokemon_offset(
         save_data, block_offset, box_number, slot_number, game_type
     )
     return bytes(save_data[global_offset : global_offset + POKEMON_PC_SIZE])
@@ -332,7 +333,8 @@ def write_pokemon_to_pc(
         flush=True,
     )
     print(
-        f"[SaveWriter]   pokemon_bytes type={type(pokemon_bytes)}, len={len(pokemon_bytes) if pokemon_bytes else 'None'}",
+        f"[SaveWriter]   pokemon_bytes type={type(pokemon_bytes)},"
+        f" len={len(pokemon_bytes) if pokemon_bytes else 'None'}",
         file=sys.stderr,
         flush=True,
     )
@@ -372,7 +374,8 @@ def write_pokemon_to_pc(
         flush=True,
     )
     print(
-        f"[SaveWriter]   Section offset: 0x{section_offset:X}, offset in section: 0x{offset_in_section:X}",
+        f"[SaveWriter]   Section offset: 0x{section_offset:X},"
+        f" offset in section: 0x{offset_in_section:X}",
         file=sys.stderr,
         flush=True,
     )
@@ -649,7 +652,7 @@ def find_first_empty_slot(save_data, game_type="RSE", start_box=1):
     for box in range(start_box, 15):
         for slot in range(BOX_SIZE):
             try:
-                section_offset, offset_in_section, global_offset = (
+                _, _, global_offset = (
                     get_pc_pokemon_offset(save_data, block_offset, box, slot, game_type)
                 )
 
@@ -821,15 +824,15 @@ def _detect_rse_subtype(save_data, section0_offset, section1_offset=None):
             if 0 <= money_decrypted <= 999999:
                 # Valid decryption = Emerald
                 print(
-                    f"[GameDetect] Emerald detected (security_key=0x{security_key:08X}, money={money_decrypted})"
+                    f"[GameDetect] Emerald detected"
+                    f" (security_key=0x{security_key:08X}, money={money_decrypted})"
                 )
                 return "E"
-            else:
-                # Invalid decryption = RS with non-zero data at 0xAC (Battle Tower etc)
-                print(
-                    f"[GameDetect] Ruby/Sapphire detected (invalid key decryption: {money_decrypted})"
-                )
-                return "RS"
+            # Invalid decryption = RS with non-zero data at 0xAC (Battle Tower etc)
+            print(
+                f"[GameDetect] Ruby/Sapphire detected (invalid key decryption: {money_decrypted})"
+            )
+            return "RS"
 
     # Can't verify - default to RS (safer, avoids wrong offset writes)
     print("[GameDetect] Defaulting to Ruby/Sapphire (couldn't verify security key)")
@@ -943,7 +946,8 @@ def set_pokedex_flag(
             if save_data[addr] != old_val:
                 modified_sections.add((0, section0_offset))
                 print(
-                    f"[PokedexWriter] Set SEEN A @ Section 0, offset 0x{seen_a_offset + byte_index:X}"
+                    f"[PokedexWriter] Set SEEN A @ Section 0,"
+                    f" offset 0x{seen_a_offset + byte_index:X}"
                 )
 
         # SEEN B (Section 1)
@@ -955,7 +959,8 @@ def set_pokedex_flag(
                 if save_data[addr] != old_val:
                     modified_sections.add((1, section1_offset))
                     print(
-                        f"[PokedexWriter] Set SEEN B @ Section 1, offset 0x{seen_b_offset + byte_index:X}"
+                        f"[PokedexWriter] Set SEEN B @ Section 1,"
+                        f" offset 0x{seen_b_offset + byte_index:X}"
                     )
         else:
             print("[PokedexWriter] WARNING: Could not find Section 1!")
@@ -969,7 +974,8 @@ def set_pokedex_flag(
                 if save_data[addr] != old_val:
                     modified_sections.add((4, section4_offset))
                     print(
-                        f"[PokedexWriter] Set SEEN C @ Section 4, offset 0x{seen_c_offset + byte_index:X}"
+                        f"[PokedexWriter] Set SEEN C @ Section 4,"
+                        f" offset 0x{seen_c_offset + byte_index:X}"
                     )
         else:
             print("[PokedexWriter] WARNING: Could not find Section 4!")
@@ -1037,7 +1043,7 @@ def unlock_national_pokedex(save_data, game_type="FRLG"):
         if section2_offset is not None:
             # Field B - set bit 0
             addr_b = section2_offset + 0x68
-            if not (save_data[addr_b] & 0x01):
+            if not save_data[addr_b] & 0x01:
                 save_data[addr_b] |= 0x01
                 modified_sections.add((2, section2_offset))
                 print(
@@ -1081,11 +1087,12 @@ def unlock_national_pokedex(save_data, game_type="FRLG"):
 
             # Field B - set bit 6
             addr_b = section2_offset + field_b_offset
-            if not (save_data[addr_b] & 0x40):
+            if not save_data[addr_b] & 0x40:
                 save_data[addr_b] |= 0x40
                 modified_sections.add((2, section2_offset))
                 print(
-                    f"[PokedexWriter] Set National Dex Field B (Section 2 @ 0x{field_b_offset:X} bit 6)"
+                    f"[PokedexWriter] Set National Dex Field B"
+                    f" (Section 2 @ 0x{field_b_offset:X} bit 6)"
                 )
 
             # Field C
@@ -1112,9 +1119,8 @@ def unlock_national_pokedex(save_data, game_type="FRLG"):
             f"[PokedexWriter] National Dex unlocked! ({len(modified_sections)} section(s) modified)"
         )
         return True
-    else:
-        print("[PokedexWriter] National Dex was already unlocked")
-        return True
+    print("[PokedexWriter] National Dex was already unlocked")
+    return True
 
 
 def is_national_dex_unlocked(save_data, game_type="RSE"):
@@ -1142,12 +1148,12 @@ def is_national_dex_unlocked(save_data, game_type="RSE"):
     if game_code == 1:  # FRLG
         # Check Field A
         return save_data[section0_offset + 0x1B] == 0xB9
-    else:  # RSE
-        # Check Field A
-        val = struct.unpack(
-            "<H", save_data[section0_offset + 0x19 : section0_offset + 0x1B]
-        )[0]
-        return val == 0x01DA
+    # RSE
+    # Check Field A
+    val = struct.unpack(
+        "<H", save_data[section0_offset + 0x19 : section0_offset + 0x1B]
+    )[0]
+    return val == 0x01DA
 
 
 def set_pokedex_flags_for_pokemon(save_data, pokemon_data, game_type="RSE"):
@@ -1198,11 +1204,11 @@ def set_pokedex_flags_for_pokemon(save_data, pokemon_data, game_type="RSE"):
 
         if is_frlg and species > 151:
             print(
-                f"[PokedexWriter] Species {species} is outside Kanto Dex - will appear after National Dex unlock"
+                f"[PokedexWriter] Species {species} is outside Kanto Dex - will appear after National Dex unlock"  # pylint: disable=line-too-long  # noqa: E501
             )
         elif not is_frlg and species > 202:
             print(
-                f"[PokedexWriter] Species {species} is outside Hoenn Dex - will appear after National Dex unlock"
+                f"[PokedexWriter] Species {species} is outside Hoenn Dex - will appear after National Dex unlock"  # pylint: disable=line-too-long  # noqa: E501
             )
 
     return set_pokedex_flag(
@@ -1289,7 +1295,7 @@ def transfer_pokemon_with_pokedex(
         if source_pokemon.get("national_dex"):
             species = source_pokemon["national_dex"]
 
-        if species > 0 and species <= 386:
+        if 0 < species <= 386:
             pokedex_result = set_pokedex_flag(
                 dest_save_data,
                 species,
@@ -1402,7 +1408,7 @@ def get_item_encryption_key(save_data, section1_offset, game_type=None):
         # Use whichever is non-zero, preferring FRLG
         if key_frlg != 0:
             return key_frlg & 0xFFFF
-        elif key_e != 0:
+        if key_e != 0:
             return key_e & 0xFFFF
         return 0
 
@@ -1506,7 +1512,7 @@ def add_item_to_pocket(save_data, game_type, pocket_name, item_id, quantity=1):
     if pocket_name not in pocket_config:
         return (False, f"Invalid pocket: {pocket_name}")
 
-    offset, max_slots = pocket_config[pocket_name]
+    offset, _max_slots = pocket_config[pocket_name]
     pocket_offset = section1_offset + offset
 
     existing_slot = find_item_in_pocket(
@@ -1532,7 +1538,8 @@ def add_item_to_pocket(save_data, game_type, pocket_name, item_id, quantity=1):
         qty_stored = quantity if skip_encryption else (quantity ^ item_key)
         struct.pack_into("<H", save_data, slot_offset + 2, qty_stored)
         print(
-            f"[ItemWriter] Added item {item_id} x{quantity} to slot {empty_slot} (skip_encrypt={skip_encryption})"
+            f"[ItemWriter] Added item {item_id} x{quantity}"
+            f" to slot {empty_slot} (skip_encrypt={skip_encryption})"
         )
 
     update_section_checksum(save_data, section1_offset)
@@ -1591,8 +1598,7 @@ def add_event_item(save_data, game_type, game_name, event_key):
             )
 
         return (True, f"Received {item_name}!")
-    else:
-        return (False, msg)
+    return (False, msg)
 
 
 def has_event_item(save_data, game_type, event_key):
@@ -1729,7 +1735,8 @@ def check_frlg_event_prerequisites(save_data, game_type, game_name):
 
     if not all_met:
         print(
-            f"[EventPrereqs] FRLG prerequisites not met: National Dex={has_nat_dex}, Rainbow Pass={has_pass}"
+            f"[EventPrereqs] FRLG prerequisites not met:"
+            f" National Dex={has_nat_dex}, Rainbow Pass={has_pass}"
         )
 
     return (all_met, details)
@@ -1810,7 +1817,8 @@ def has_non_sinew_pokemon(party, pc_pokemon, species_ids):
 
     if matches:
         print(
-            f"[SinewOT] Found {len(matches)} Pokemon of species {species_ids}, but all have OT='SINEW'"
+            f"[SinewOT] Found {len(matches)} Pokemon of species {species_ids},"
+            f" but all have OT='SINEW'"
         )
     else:
         print(f"[SinewOT] No Pokemon found with species {species_ids}")
@@ -1818,7 +1826,7 @@ def has_non_sinew_pokemon(party, pc_pokemon, species_ids):
     return False
 
 
-def is_event_truly_complete(
+def is_event_truly_complete(  # pylint: disable=unused-argument
     save_data, game_type, game_name, event_key, party=None, pc_pokemon=None
 ):
     """
@@ -2100,7 +2108,7 @@ def set_flag_value(
         update_section_checksum(save_data, target_section_offset)
 
         print(
-            f"[FlagWrite] Set flag 0x{flag_id:X} in Section {target_section_id} at offset 0x{offset_in_section:X}"
+            f"[FlagWrite] Set flag 0x{flag_id:X} in Section {target_section_id} at offset 0x{offset_in_section:X}"  # pylint: disable=line-too-long  # noqa: E501
         )
         return True
 

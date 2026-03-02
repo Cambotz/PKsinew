@@ -126,7 +126,9 @@ class ExportModal:
 
         # Debug output
         print(
-            f"[ExportModal] Loaded data - Party: {len(self.save_data.get('party', []))}, Box: {len(self.save_data.get('box', []))}"
+            f"[ExportModal] Loaded data -"
+            f" Party: {len(self.save_data.get('party', []))},"
+            f" Box: {len(self.save_data.get('box', []))}"
         )
 
         # Pre-render content lines for scrolling

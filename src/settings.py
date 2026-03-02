@@ -20,16 +20,16 @@ from config import (
     VOLUME_DEFAULT, VOLUME_MIN, VOLUME_MAX, VOLUME_STEP,
 )
 
-# Debug: Show settings path at import time
-print(f"[Settings] Using settings file: {SETTINGS_FILE}")
-print(f"[Settings] EXT_DIR: {EXT_DIR}")
-
 # Use the same ARM detection as the emulator so slider defaults match
 # the actual values _init_audio will use.
 try:
-    from mgba_emulator import is_linux_arm
-    _IS_ARM_AUDIO = is_linux_arm()
-except ImportError:
+    import platform as _platform
+    _machine = _platform.machine().lower()
+    _IS_ARM_AUDIO = (
+        _platform.system().lower() == "linux"
+        and _machine in ("aarch64", "arm64", "armv7l", "armv6l", "arm")
+    )
+except Exception:
     _IS_ARM_AUDIO = IS_HANDHELD
 from controller import NavigableList, get_controller
 
@@ -55,14 +55,31 @@ def save_sinew_settings(data):
         # Ensure the directory exists (saves/sinew/ may not exist on first run)
         settings_dir = os.path.dirname(SETTINGS_FILE)
         os.makedirs(settings_dir, exist_ok=True)
-        
+
         # Write settings
         with open(SETTINGS_FILE, "w") as f:
             json.dump(data, f, indent=2)
-        
+
         print(f"[Settings] Saved to: {SETTINGS_FILE}")
     except Exception as e:
         print(f"[Settings] Failed to save settings to {SETTINGS_FILE}: {e}")
+        import traceback
+        traceback.print_exc()
+
+
+def save_sinew_settings_merged(data):
+    """Load existing settings, merge *data* into them, then write back.
+
+    Unlike save_sinew_settings() which overwrites the entire file, this
+    preserves any keys that are not present in *data* — useful when a
+    mixin or modal only wants to persist a subset of settings.
+    """
+    try:
+        existing = load_sinew_settings()
+        existing.update(data)
+        save_sinew_settings(existing)
+    except Exception as e:
+        print(f"[Settings] Failed to merge-save settings: {e}")
         import traceback
         traceback.print_exc()
 
@@ -631,7 +648,7 @@ class Settings:
         db_builder_callback=None,
         scaler=None,
         reload_combo_callback=None,
-        external_emu_toggle_callback=None,
+        emulator_provider_callback=None,
     ):
         self.width = w
         self.height = h
@@ -646,19 +663,22 @@ class Settings:
             db_builder_callback=db_builder_callback,
             scaler=scaler,
             reload_combo_callback=reload_combo_callback,
-            external_emu_toggle_callback=external_emu_toggle_callback,
+            emulator_provider_callback=emulator_provider_callback,
         )
         self.visible = True
 
     def update(self, events):
+        """Delegate event handling to the inner settings screen and return True while visible."""
         self.screen.handle_events(events)
         self.visible = self.screen.visible
         return self.visible
 
     def handle_controller(self, ctrl):
+        """Delegate controller input to the inner settings screen."""
         return self.screen.handle_controller(ctrl)
 
     def draw(self, surf):
+        """Delegate the draw call to the inner settings screen."""
         self.screen.draw(surf)
 
 
@@ -854,6 +874,7 @@ class KeyboardMapper:
             self.controller.kb_filter_enabled = True
 
     def on_close(self):
+        """Save the current key bindings and close the keyboard mapper screen."""
         self._save_bindings()
         self.visible = False
         # Ensure filter is re-enabled if we were still listening
@@ -951,6 +972,7 @@ class KeyboardMapper:
         return True
 
     def update(self, events):
+        """Process events and handle listen-mode timeout; return True while visible."""
         self.handle_events(events)
         # Auto-stop listening on timeout
         if self.listening:
@@ -1110,7 +1132,7 @@ class MainSetup:
         db_builder_callback=None,
         scaler=None,
         reload_combo_callback=None,
-        external_emu_toggle_callback=None,
+        emulator_provider_callback=None,
     ):
         self.width = width
         self.height = height
@@ -1122,7 +1144,7 @@ class MainSetup:
         self.db_builder_callback = db_builder_callback
         self.scaler = scaler
         self.reload_combo_callback = reload_combo_callback
-        self.external_emu_toggle_callback = external_emu_toggle_callback
+        self.emulator_provider_callback = emulator_provider_callback
         self.controller = get_controller()
 
         # Sub-screen state
@@ -1157,7 +1179,9 @@ class MainSetup:
         self.tab_options = {
             "General": [
                 # Fullscreen has no meaning on a handheld — hide it entirely
-                *([] if IS_HANDHELD else [{"name": "Fullscreen", "type": "toggle", "value": False}]),
+                *([] if IS_HANDHELD else [{"name": "Fullscreen", "type": "toggle",
+                    "value": False}]),
+                {"name": "Use External Providers", "type": "toggle", "value": False},
                 {
                     "name": "Volume",
                     "type": "slider",
@@ -1220,7 +1244,6 @@ class MainSetup:
                 {"name": "Changelog", "type": "button"},
             ],
             "Dev": [
-                {"name": "Use External Emulator", "type": "toggle", "value": False},
                 {"name": "Reset ALL Achievements", "type": "button"},
                 {"name": "Reset Game Achievements...", "type": "button"},
                 {"name": "Export Achievement Data", "type": "button"},
@@ -1254,11 +1277,15 @@ class MainSetup:
                 opt["value"] = settings.get("mute_menu_music", False)
             elif opt["name"] == "Fullscreen":
                 opt["value"] = settings.get("fullscreen", False)
+            elif opt["name"] == "Use External Providers":
+                opt["value"] = settings.get("use_emulator_provider", False)
             elif opt["name"] == "Volume":
                 saved_vol = settings.get("master_volume", VOLUME_DEFAULT)
-                vol_values = opt.get("volume_values", list(range(VOLUME_MIN, VOLUME_MAX + 1, VOLUME_STEP)))
+                vol_values = opt.get("volume_values", list(range(VOLUME_MIN, VOLUME_MAX + 1,
+                    VOLUME_STEP)))
                 # Snap to nearest step
-                closest_idx = min(range(len(vol_values)), key=lambda i: abs(vol_values[i] - saved_vol))
+                closest_idx = min(range(len(vol_values)),
+                    key=lambda i: abs(vol_values[i] - saved_vol))
                 opt["slider_index"] = closest_idx
 
         # Load Input tab settings
@@ -1277,7 +1304,7 @@ class MainSetup:
                 opt["value"] = settings.get("mgba_muted", False)
             elif opt["name"] == "Audio Buffer":
                 saved_buf = settings.get("mgba_audio_buffer",
-                                         AUDIO_BUFFER_DEFAULT_ARM if _IS_ARM_AUDIO else AUDIO_BUFFER_DEFAULT)
+                                         AUDIO_BUFFER_DEFAULT_ARM if _IS_ARM_AUDIO else AUDIO_BUFFER_DEFAULT)  # pylint: disable=line-too-long  # noqa: E501
                 if saved_buf in AUDIO_BUFFER_OPTIONS:
                     opt["slider_index"] = AUDIO_BUFFER_OPTIONS.index(saved_buf)
                 else:
@@ -1290,11 +1317,6 @@ class MainSetup:
                 else:
                     opt["slider_index"] = AUDIO_QUEUE_OPTIONS.index(AUDIO_QUEUE_DEPTH_DEFAULT)
 
-        # Load Dev tab settings
-        for opt in self.tab_options["Dev"]:
-            if opt["name"] == "Use External Emulator":
-                opt["value"] = settings.get("use_external_emulator", False)
-
         # Check if emulator had to revert audio settings on last resume
         try:
             import builtins
@@ -1306,11 +1328,12 @@ class MainSetup:
                 for opt in self.tab_options.get("mGBA", []):
                     if opt["name"] == "Audio Buffer":
                         rb = reverted_settings.get("mgba_audio_buffer",
-                                                   AUDIO_BUFFER_DEFAULT_ARM if _IS_ARM_AUDIO else AUDIO_BUFFER_DEFAULT)
+                                                   AUDIO_BUFFER_DEFAULT_ARM if _IS_ARM_AUDIO else AUDIO_BUFFER_DEFAULT)  # pylint: disable=line-too-long  # noqa: E501
                         vals = opt.get("audio_values", AUDIO_BUFFER_OPTIONS)
                         opt["slider_index"] = vals.index(rb) if rb in vals else 0
                     elif opt["name"] == "Queue Depth":
-                        rd = reverted_settings.get("mgba_audio_queue_depth", AUDIO_QUEUE_DEPTH_DEFAULT)
+                        rd = reverted_settings.get("mgba_audio_queue_depth",
+                            AUDIO_QUEUE_DEPTH_DEFAULT)
                         vals = opt.get("audio_values", AUDIO_QUEUE_OPTIONS)
                         opt["slider_index"] = vals.index(rd) if rd in vals else 0
                 print("[Settings] Audio settings were reverted to defaults by emulator")
@@ -1373,12 +1396,15 @@ class MainSetup:
                 break
 
     def current_tab(self):
+        """Return the name of the currently selected settings tab."""
         return self.tabs[self.selected_tab]
 
     def current_options(self):
+        """Return the list of option dicts for the currently selected tab."""
         return self.tab_options[self.current_tab()]
 
     def on_back(self):
+        """Hide the settings screen and invoke the close callback."""
         self.visible = False
         if self.close_callback:
             self.close_callback()
@@ -1438,24 +1464,24 @@ class MainSetup:
             self.fullscreen_callback(value)
         elif name == "Mute Menu Music" and self.music_mute_callback:
             self.music_mute_callback(value)
-        elif name == "Use External Emulator":
+        elif name == "Use External Providers":
             try:
                 settings = load_sinew_settings()
-                settings["use_external_emulator"] = value
+                settings["use_emulator_provider"] = value
                 save_sinew_settings(settings)
                 import builtins
 
-                builtins.SINEW_USE_EXTERNAL_EMULATOR = value
+                builtins.SINEW_USE_EMULATOR_PROVIDER = value
                 status = "ON" if value else "OFF"
-                print(f"[Settings] Use External Emulator: {status}")
-                self._status_msg(f"External Emulator: {status}")
-                
+                print(f"[Settings] Use External Providers: {status}")
+                self._status_msg(f"External Emulators: {status}")
+
                 # Trigger game re-scan in GameScreen
-                if self.external_emu_toggle_callback:
-                    self.external_emu_toggle_callback(value)
-                    
+                if self.emulator_provider_callback:
+                    self.emulator_provider_callback(value)
+
             except Exception as e:
-                print(f"[Settings] Failed to save external emulator setting: {e}")
+                print(f"[Settings] Failed to save emulator provider setting: {e}")
         elif name == "Fast-Forward":
             self._save_mgba_fastforward_settings()
             self._apply_fastforward_to_emulator()
@@ -1480,7 +1506,7 @@ class MainSetup:
             s["mgba_fastforward_index"] = speed_index
             s["mgba_fastforward_speed"] = speed_values[speed_index]
             save_sinew_settings(s)
-            print(f"[Settings] Fast-Forward: {'ON' if enabled else 'OFF'} @ {speed_values[speed_index]}x")
+            print(f"[Settings] Fast-Forward: {'ON' if enabled else 'OFF'} @ {speed_values[speed_index]}x")  # pylint: disable=line-too-long  # noqa: E501
         except Exception as e:
             print(f"[Settings] Failed to save fast-forward settings: {e}")
 
@@ -2134,6 +2160,7 @@ class MainSetup:
         surf.blit(hint_surf, (modal_x + 10, modal_y + modal_h - 18))
 
     def handle_controller(self, ctrl):
+        """Handle controller input, delegating to the active sub-screen if one is open."""
         # Delegate to sub-screen if active (but not on the frame it was just opened,
         # to prevent the activating button press from bleeding through)
         if self.sub_screen:
@@ -2246,7 +2273,7 @@ class MainSetup:
                                 notif = get_achievement_notification()
                                 if manager and notif:
                                     dev_ach = {
-                                        "id": "SINEW_063",  # Updated: was 062, shifted +1 after adding Legendary Birds
+                                        "id": "SINEW_063",  # was 062, +1 after Legendary Birds
                                         "name": "Dev Mode Discovered!",
                                         "desc": "Find the secret Dev Mode!",
                                         "game": "Sinew",
@@ -2265,7 +2292,7 @@ class MainSetup:
                             except Exception as e:
                                 print(f"[Settings] Dev mode achievement error: {e}")
                         elif self._dev_mode_active and self._dev_mode_counter >= 3:
-                            # In dev mode, pressing down 3 more times unlocks Debug Tester achievement AND triggers test notification
+                            # In dev mode, pressing down 3 more times unlocks Debug Tester achievement AND triggers test notification  # pylint: disable=line-too-long  # noqa: E501
                             self._dev_mode_counter = 0
                             try:
                                 from achievements import (
@@ -2279,7 +2306,7 @@ class MainSetup:
                                 # Unlock Debug Tester achievement if not already unlocked
                                 if manager and notif:
                                     debug_ach = {
-                                        "id": "SINEW_064",  # Updated: was 063, shifted +1 after adding Legendary Birds
+                                        "id": "SINEW_064",  # was 063, +1 after Legendary Birds
                                         "name": "Debug Tester!",
                                         "desc": "Trigger the debug test in Dev Mode!",
                                         "game": "Sinew",
@@ -2295,7 +2322,8 @@ class MainSetup:
                                     else:
                                         # Already unlocked - just show test notification
                                         print(
-                                            "[Settings] Debug Tester already unlocked, showing test notification"
+                                            "[Settings] Debug Tester already unlocked,"
+                                            " showing test notification"
                                         )
                                         test_ach = {
                                             "id": "test_001",
@@ -2346,6 +2374,7 @@ class MainSetup:
     # Keyboard / Pygame events
     # -------------------
     def handle_events(self, events):
+        """Handle pygame events, delegating to the active sub-screen if one is open."""
         # Delegate to sub-screen if active (but not on the frame it was just opened,
         # to prevent the activating keypress from bleeding through)
         if self.sub_screen:
@@ -2413,6 +2442,7 @@ class MainSetup:
     # Drawing
     # -------------------
     def draw(self, surf):
+        """Draw the active sub-screen, or the main settings view if no sub-screen is open."""
         # Draw sub-screen if active
         if self.sub_screen:
             self.sub_screen.draw(surf)
@@ -2653,7 +2683,8 @@ class MainSetup:
                                  pygame.Rect(bar_x, bar_y, fill_w, bar_h), border_radius=4)
             # Arrows
             surf.blit(self.font_text.render("<", True, arrows_color), (bar_x - 14, center_y - 7))
-            surf.blit(self.font_text.render(">", True, arrows_color), (bar_x + bar_width + 4, center_y - 7))
+            surf.blit(self.font_text.render(">", True, arrows_color), (bar_x + bar_width + 4,
+                center_y - 7))
             # Label
             lbl = self.font_text.render(label_text, True, ui_colors.COLOR_TEXT)
             surf.blit(lbl, lbl.get_rect(left=bar_x + bar_width + 18, centery=center_y))

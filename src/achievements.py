@@ -17,7 +17,9 @@ from config import ACH_SAVE_PATH, FONT_PATH, SETTINGS_FILE, SPRITES_DIR
 from controller import get_controller
 
 # Lazy imports to avoid circular import issues
-# from achievements_data import get_achievements_for, check_achievement_unlocked, GAME_ACHIEVEMENTS, GAMES
+# from achievements_data import (
+#     get_achievements_for, check_achievement_unlocked, GAME_ACHIEVEMENTS, GAMES
+# )
 # These are imported inside functions that need them
 
 
@@ -87,7 +89,7 @@ class AchievementNotification:
                         print(f"[AchNotify] Loaded icon: {game_name}")
                 except Exception as e:
                     print(f"[AchNotify] Could not load icon for {game_name}: {e}")
-        
+
         return self.game_icons.get(game_name)
 
     def _load_game_icons(self):
@@ -462,7 +464,8 @@ class AchievementManager:
                         if current >= required:
                             unlocked = True
                             print(
-                                f"[Achievements] Force unlock: {ach['name']} ({current}/{required} for '{key}' in {game})"
+                                f"[Achievements] Force unlock: {ach['name']}"
+                                f" ({current}/{required} for '{key}' in {game})"
                             )
                     except Exception:
                         pass
@@ -479,7 +482,8 @@ class AchievementManager:
                     except Exception:
                         pass
 
-                # Species ownership hints - use per-game owned_set for non-Sinew, combined_pokedex for Sinew
+                # Species ownership hints - use per-game owned_set for
+                # non-Sinew, combined_pokedex for Sinew
                 if "owns_species_" in hint and "owns_species_380_or_381" not in hint:
                     try:
                         species_id = int(
@@ -492,7 +496,8 @@ class AchievementManager:
                         if species_id in owned:
                             unlocked = True
                             print(
-                                f"[Achievements] Force unlock (species): {ach['name']} (species {species_id} in {game} pokedex)"
+                                f"[Achievements] Force unlock (species):"
+                                f" {ach['name']} (species {species_id} in {game} pokedex)"
                             )
                     except Exception:
                         pass
@@ -542,7 +547,8 @@ class AchievementManager:
                     if 144 in owned and 145 in owned and 146 in owned:
                         unlocked = True
                         print(
-                            f"[Achievements] Force unlock: {ach['name']} (Legendary Birds in {game})"
+                            f"[Achievements] Force unlock:"
+                            f" {ach['name']} (Legendary Birds in {game})"
                         )
 
                 if unlocked:
@@ -569,7 +575,8 @@ class AchievementManager:
                 owned_set = game_tracking.get("owned_set", set())
                 owned_count = len(owned_set) if isinstance(owned_set, set) else "N/A"
                 print(
-                    f"[Achievements]   {game}: badges={badges}, dex={dex}, money={money}, pc={pc}, owned_set={owned_count} species"
+                    f"[Achievements]   {game}: badges={badges}, dex={dex},"
+                    f" money={money}, pc={pc}, owned_set={owned_count} species"
                 )
 
                 # Show legendaries in this game's owned_set
@@ -700,7 +707,8 @@ class AchievementManager:
             current = 1 if game_tracking.get(key, False) else 0
             return (current, 1, current * 100)
 
-        # Species ownership - use DIFFERENT data depending on whether it's a Sinew or per-game achievement
+        # Species ownership - use DIFFERENT data depending on whether
+        # it's a Sinew or per-game achievement
         # Per-game achievements should check that game's owned_set
         # Sinew achievements should check the combined_pokedex_set
 
@@ -790,7 +798,8 @@ class AchievementManager:
                 )
                 if self.altering_cave_claimed:
                     print(
-                        f"[Achievements] Altering Cave progress: {len(self.altering_cave_claimed)}/7 claimed"
+                        f"[Achievements] Altering Cave progress:"
+                        f" {len(self.altering_cave_claimed)}/7 claimed"
                     )
         except Exception as e:
             print(f"[Achievements] Could not load progress: {e}")
@@ -960,7 +969,7 @@ class AchievementManager:
                     messages.append(f"Theme '{theme_name}' unlocked!")
 
                 # Then pokemon - UPDATED to use dynamic generation
-                poke_success, poke_msg = self._deliver_pokemon(pokemon_achievement)
+                poke_success, _ = self._deliver_pokemon(pokemon_achievement)
                 if poke_success:
                     messages.append(f"{pokemon_name} added to Sinew Storage!")
 
@@ -1114,7 +1123,8 @@ class AchievementManager:
                                 )
                                 if success:
                                     print(
-                                        f"[Achievements] {species_name} delivered to Box {box_num}, Slot {slot_idx + 1}"
+                                        f"[Achievements] {species_name}"
+                                        f" delivered to Box {box_num}, Slot {slot_idx + 1}"
                                     )
                                     return True, f"Stored in Box {box_num}"
 
@@ -1584,7 +1594,8 @@ class AchievementManager:
 
         self._save_progress()
         print(
-            f"[Achievements] Altering Cave progress reset (0/7), claimed={self.altering_cave_claimed}"
+            f"[Achievements] Altering Cave progress reset (0/7),"
+            f" claimed={self.altering_cave_claimed}"
         )
 
     def force_reload(self):
@@ -1619,13 +1630,15 @@ class AchievementManager:
         # Save fresh empty state
         self._save_progress()
         print(
-            f"[Achievements] Nuclear reset complete - altering_cave_claimed={self.altering_cave_claimed}"
+            f"[Achievements] Nuclear reset complete -"
+            f" altering_cave_claimed={self.altering_cave_claimed}"
         )
 
     def reset_all(self):
         """Reset all achievements (dev mode)"""
         print(
-            f"[Achievements] reset_all called - BEFORE: altering_cave_claimed={self.altering_cave_claimed}"
+            f"[Achievements] reset_all called - BEFORE:"
+            f" altering_cave_claimed={self.altering_cave_claimed}"
         )
         self.progress = {}
         self.stats = {}
@@ -1633,11 +1646,13 @@ class AchievementManager:
         self.high_water_marks = {}  # Also reset high water marks
         self.tracking = {}  # Also reset all tracking data
         print(
-            f"[Achievements] reset_all - AFTER clearing: altering_cave_claimed={self.altering_cave_claimed}"
+            f"[Achievements] reset_all - AFTER clearing:"
+            f" altering_cave_claimed={self.altering_cave_claimed}"
         )
         self._save_progress()
         print(
-            f"[Achievements] reset_all - AFTER save: altering_cave_claimed={self.altering_cave_claimed}"
+            f"[Achievements] reset_all - AFTER save:"
+            f" altering_cave_claimed={self.altering_cave_claimed}"
         )
         print(
             "[Achievements] All achievements, stats, tracking, and Altering Cave progress reset!"
@@ -1665,11 +1680,17 @@ class AchievementManager:
         print(f"[Achievements] Reset {reset_count} achievements for {game_name}")
         return reset_count
 
-    def revalidate_achievements(self):
+    def revalidate_achievements(self, sinew_data_loaded=True):
         """
         Re-validate all unlocked achievements against current tracking data.
         Un-unlocks any achievements that were incorrectly unlocked.
         Returns list of achievement IDs that were revoked.
+
+        Args:
+            sinew_data_loaded: If False, skip revocation for Sinew aggregate
+                achievements because no save data was available to build the
+                aggregate (e.g. no local ROMs when using an external provider).
+                Defaults to True.
         """
         from achievements_data import GAMES, get_achievements_for
 
@@ -1694,7 +1715,14 @@ class AchievementManager:
             # reliably validate its achievements (tracking is in-memory only and
             # gets populated when a save is loaded). Keep all achievements for
             # unloaded games rather than falsely revoking them.
-            game_has_tracking = game in self.tracking
+            # For Sinew aggregate: if sinew_data_loaded is False, no save files were
+            # found on disk (e.g. external provider, no local ROMs), so the aggregate
+            # is meaningless zeros — treat it as unloaded to prevent mass revocations.
+            if game == "Sinew" and not sinew_data_loaded:
+                game_has_tracking = False
+                print("[Achievements] Skipping Sinew revocation check - no save data loaded")
+            else:
+                game_has_tracking = game in self.tracking
 
             for ach in achievements:
                 if not self.is_unlocked(ach["id"]):
@@ -1714,7 +1742,8 @@ class AchievementManager:
                             # No tracking data for this game - cannot validate, keep the achievement
                             should_be_unlocked = True
                         elif "money" in key.lower():
-                            # BUGFIX: Use high water mark for money so spending doesn't revoke achievements
+                            # BUGFIX: Use high water mark for money so
+                            # spending doesn't revoke achievements
                             current = self.get_high_water_mark(key, game)
                             tracking_val = game_tracking.get(key, 0)
                             current = max(current, tracking_val)
@@ -1729,7 +1758,8 @@ class AchievementManager:
                 elif "== True" in hint:
                     try:
                         key = hint.split("==")[0].strip()
-                        # Special case: dev_mode and debug_test are permanent unlocks - never revoke them
+                        # Special case: dev_mode and debug_test are
+                        # permanent unlocks - never revoke them
                         if key in ("dev_mode_activated", "debug_test_activated"):
                             should_be_unlocked = True
                         elif not game_has_tracking:
@@ -1919,7 +1949,8 @@ class AchievementManager:
                 already_unlocked += 1
 
         print(
-            f"[Achievements]   Checked {checked_count} locked achievements, {already_unlocked} already unlocked"
+            f"[Achievements]   Checked {checked_count} locked achievements,"
+            f" {already_unlocked} already unlocked"
         )
 
         # Check Sinew achievements if sinew_data provided
@@ -2006,7 +2037,9 @@ class AchievementManager:
         from achievements_data import get_achievements_for
 
         print(
-            f"[Achievements] check_sinew_achievements: storage={sinew_storage_count}, transfers={transfer_count}, shiny={shiny_count}, evolutions={evolution_count}"
+            f"[Achievements] check_sinew_achievements:"
+            f" storage={sinew_storage_count}, transfers={transfer_count},"
+            f" shiny={shiny_count}, evolutions={evolution_count}"
         )
 
         newly_unlocked = []
@@ -2026,7 +2059,8 @@ class AchievementManager:
                     if sinew_storage_count >= required:
                         unlocked = True
                         print(
-                            f"[Achievements] Sinew storage achievement unlocked: {ach['name']} ({sinew_storage_count}/{required})"
+                            f"[Achievements] Sinew storage achievement unlocked:"
+                            f" {ach['name']} ({sinew_storage_count}/{required})"
                         )
                 except Exception:
                     pass
@@ -2045,7 +2079,8 @@ class AchievementManager:
                 try:
                     required = int(hint.split(">=")[1].strip().split()[0])
                     print(
-                        f"[Achievements] Checking shiny achievement: {ach['name']} - {shiny_count}/{required}"
+                        f"[Achievements] Checking shiny achievement:"
+                        f" {ach['name']} - {shiny_count}/{required}"
                     )
                     if shiny_count >= required:
                         unlocked = True
@@ -2121,6 +2156,7 @@ class Modal:
         self.screen = AchievementsScreen(w, h, game_filter, get_current_game_callback)
 
     def update(self, events):
+        """Delegate event handling to the inner achievements screen and return True while visible."""
         self.screen.handle_events(events)
         return self.screen.visible
 
@@ -2129,6 +2165,7 @@ class Modal:
         return self.screen.handle_controller(ctrl)
 
     def draw(self, surf):
+        """Delegate the draw call to the inner achievements screen."""
         self.screen.draw(surf, self.font)
 
 
@@ -2210,7 +2247,7 @@ class AchievementsScreen:
                         self.game_icons[game_name] = icon
                 except Exception as e:
                     print(f"[Achievements] Could not load icon for {game_name}: {e}")
-        
+
         return self.game_icons.get(game_name)
 
     def _load_game_icons(self):
@@ -2220,9 +2257,6 @@ class AchievementsScreen:
     def _load_achievements(self):
         """Load achievements for the current tab"""
         from achievements_data import GAMES, get_achievements_for
-
-        # Debug: show any achievements that appear stuck (progress >= required but not unlocked)
-        self.manager.debug_stuck_achievements()
 
         # Force check achievements against current tracking values
         # This catches any that should be unlocked but weren't
@@ -2283,6 +2317,7 @@ class AchievementsScreen:
         self.scroll_offset = 0
 
     def on_back(self):
+        """Hide the achievements screen by setting visible to False."""
         self.visible = False
 
     def handle_controller(self, ctrl):
@@ -2405,6 +2440,7 @@ class AchievementsScreen:
                         self.visible = False
 
     def draw(self, surf, font):
+        """Render the full achievements screen including tabs, list, progress bars, and detail popup."""
         # Background
         surf.fill(ui_colors.COLOR_BG)
         pygame.draw.rect(

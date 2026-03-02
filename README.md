@@ -152,7 +152,21 @@ This will install all required packages (Pillow, NumPy, Pygame, requests, etc.) 
 
 ### Dev Environment
 
-You can of course run PKsinew from the unpacked `src` folder (e.g. testing changes and other development things), just `cd src` and run `python3 main.py`. PKsinew is configured to know when it's being run in dev mode and should find all resource folders automatically.
+You can run PKsinew directly from source for development and testing. From the **project root** (not `src/`), run:
+
+**Windows (PowerShell):**
+
+```powershell
+python -m src
+```
+
+**macOS / Linux:**
+
+```bash
+python3 -m src
+```
+
+PKsinew is configured to know when it's being run in dev mode and will find all resource folders automatically. Do **not** `cd` into `src/` and run a file directly — the entry point is `src/__main__.py` and it must be launched as a module from the project root.
 
 ## Troubleshooting
 

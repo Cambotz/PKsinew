@@ -367,7 +367,7 @@ def parse_item_pocket(data, offset, max_slots, encryption_key):
             quantity = qty_encrypted
 
         # Skip empty slots
-        if item_id == 0 or item_id == 0xFFFF:
+        if item_id in (0, 0xFFFF):
             continue
 
         # Validate
@@ -382,7 +382,9 @@ def parse_item_pocket(data, offset, max_slots, encryption_key):
         elif item_id != 0:
             # Debug: show items that failed validation
             print(
-                f"[Items] Rejected: id={item_id}, qty_enc={qty_encrypted}, qty_dec={quantity}, key16={key_16bit}"
+                f"[Items] Rejected: id={item_id},"
+                f" qty_enc={qty_encrypted}, qty_dec={quantity},"
+                f" key16={key_16bit}"
             )
 
     return items
@@ -425,10 +427,12 @@ def parse_bag(data, section1_offset, game_type="RS", section_offsets=None):
                 )[0]
                 key_16bit = encryption_key & 0xFFFF
                 print(
-                    f"[Items] game_type={game_type}, key from Section {key_section} + 0x{key_offset:04X}"
+                    f"[Items] game_type={game_type},"
+                    f" key from Section {key_section} + 0x{key_offset:04X}"
                 )
                 print(
-                    f"[Items] Full key={encryption_key} (0x{encryption_key:08X}), Lower 16 bits={key_16bit} (0x{key_16bit:04X})"
+                    f"[Items] Full key={encryption_key} (0x{encryption_key:08X}),"
+                    f" Lower 16 bits={key_16bit} (0x{key_16bit:04X})"
                 )
     else:
         print(f"[Items] game_type={game_type}, no encryption (key=0)")
@@ -439,10 +443,12 @@ def parse_bag(data, section1_offset, game_type="RS", section_offsets=None):
         f"[Items]   items: 0x{offsets['items']:04X} ({offsets['item_slots']['items']} slots)"
     )
     print(
-        f"[Items]   key_items: 0x{offsets['key_items']:04X} ({offsets['item_slots']['key_items']} slots)"
+        f"[Items]   key_items: 0x{offsets['key_items']:04X}"
+        f" ({offsets['item_slots']['key_items']} slots)"
     )
     print(
-        f"[Items]   pokeballs: 0x{offsets['pokeballs']:04X} ({offsets['item_slots']['pokeballs']} slots)"
+        f"[Items]   pokeballs: 0x{offsets['pokeballs']:04X}"
+        f" ({offsets['item_slots']['pokeballs']} slots)"
     )
     print(
         f"[Items]   tms_hms: 0x{offsets['tms_hms']:04X} ({offsets['item_slots']['tms_hms']} slots)"
@@ -528,7 +534,9 @@ def parse_money(data, section1_offset, game_type="RS", section_offsets=None):
         # E or FRLG - XOR with full 32-bit key
         money = money_encrypted ^ encryption_key
         print(
-            f"[Money] game_type={game_type}, encrypted={money_encrypted}, key={encryption_key}, decrypted={money}"
+            f"[Money] game_type={game_type},"
+            f" encrypted={money_encrypted}, key={encryption_key},"
+            f" decrypted={money}"
         )
 
     # Validate
@@ -571,21 +579,20 @@ def categorize_item(item_id):
     """
     if 1 <= item_id <= 12:
         return "Poké Balls"
-    elif 13 <= item_id <= 62:
+    if 13 <= item_id <= 62:
         return "Medicine"
-    elif 63 <= item_id <= 71:
+    if 63 <= item_id <= 71:
         return "Vitamins"
-    elif 93 <= item_id <= 98:
+    if 93 <= item_id <= 98:
         return "Evolution Stones"
-    elif 133 <= item_id <= 175:
+    if 133 <= item_id <= 175:
         return "Berries"
-    elif 179 <= item_id <= 258:
+    if 179 <= item_id <= 258:
         return "Hold Items"
-    elif 289 <= item_id <= 338:
+    if 289 <= item_id <= 338:
         return "TMs"
-    elif 339 <= item_id <= 346:
+    if 339 <= item_id <= 346:
         return "HMs"
-    elif item_id >= 259:
+    if item_id >= 259:
         return "Key Items"
-    else:
-        return "Other"
+    return "Other"

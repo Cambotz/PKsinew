@@ -1374,8 +1374,7 @@ def get_exp_for_level(species, level):
     table = EXP_TABLES.get(rate, EXP_MEDIUM_FAST)
     if level < 1:
         return 0
-    if level > 100:
-        level = 100
+    level = min(level, 100)
     return table[level - 1] if level <= len(table) else table[-1]
 
 

@@ -152,6 +152,7 @@ class PartyScreen:
     # DRAW
     # ================================================================
     def draw(self, surf):
+        """Render the full party screen, including sprite, stats, and move panels, to surf."""
         self.surface.fill(ui_colors.COLOR_BG)
         selected = self.party_data[self.selected_index]
 
@@ -280,6 +281,7 @@ class PartyScreen:
     # CONTROLLER / EVENTS
     # ================================================================
     def handle_controller(self, ctrl):
+        """Handle controller D-pad navigation and button selection for the party screen."""
         consumed = False
 
         # If sub_modal is open, pass input to it
@@ -334,6 +336,7 @@ class PartyScreen:
         return consumed
 
     def handle_event(self, event):
+        """Handle pygame mouse and keyboard events for the party screen."""
         self.close_button.handle_event(event)
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_UP:
@@ -443,6 +446,7 @@ class PartyScreen:
     # UPDATE PARTY
     # ================================================================
     def update_party(self, data):
+        """Refresh the displayed party data from the updated save."""
         padded = [None] * SLOT_COUNT
         if data:
             for i in range(min(SLOT_COUNT, len(data))):

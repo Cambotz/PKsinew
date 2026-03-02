@@ -24,6 +24,7 @@ class Modal:
         self.screen = ItemBagScreen(w, h)
 
     def update(self, events):
+        """Delegate event handling to the inner item bag screen and return True while open."""
         self.screen.update(events)
         return not self.screen.should_close
 
@@ -32,6 +33,7 @@ class Modal:
         return self.screen.handle_controller(ctrl)
 
     def draw(self, surf):
+        """Render the item bag modal background, border, and inner screen content to surf."""
         # Outer modal background
         pygame.draw.rect(surf, (20, 20, 40), (0, 0, self.width, self.height))
         pygame.draw.rect(
@@ -444,7 +446,8 @@ class ItemBagScreen:
 
             # Scroll indicator (drawn outside clip area)
             if len(items) > self.items_per_page:
-                scroll_text = f"{self.scroll_offset + 1}-{min(self.scroll_offset + self.items_per_page, len(items))} of {len(items)}"
+                scroll_text = f"{self.scroll_offset + 1}-{min(
+                    self.scroll_offset + self.items_per_page, len(items))} of {len(items)}"
                 scroll_surf = self.font_small.render(scroll_text, True, (150, 150, 150))
                 surf.blit(scroll_surf, (list_area.right - 80, list_area.bottom + 5))
 

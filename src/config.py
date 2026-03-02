@@ -4,7 +4,8 @@
 Sinew Configuration
 All paths, constants, and configuration settings
 
-NOTE: All paths are absolute and should be constructed using os.path.join for cross-platform compatibility.
+NOTE: All paths are absolute
+    and should be constructed using os.path.join for cross-platform compatibility.
 """
 
 import os
@@ -166,14 +167,14 @@ def _detect_cfw():
     """
     if not IS_HANDHELD:
         return None
-    
+
     # Check for CFW-specific markers
     # AmberELEC: /etc/os-release contains "AmberELEC"
     # ArkOS: /etc/os-release contains "ArkOS"
     # ROCKNIX: /etc/os-release contains "ROCKNIX" or "JELOS" (former name)
     # muOS: Check for /opt/muos/
     # Knulli: Check for /usr/share/knulli
-    
+
     try:
         if os.path.exists('/etc/os-release'):
             with open('/etc/os-release', 'r') as f:
@@ -184,18 +185,18 @@ def _detect_cfw():
                     return 'arkos'
                 elif 'rocknix' in content or 'jelos' in content:
                     return 'rocknix'
-        
+
         # muOS detection - check for muOS-specific directory
         if os.path.exists('/opt/muos/'):
             return 'muos'
-        
+
         # Knulli detection - check for Knulli-specific directory
         if os.path.exists('/usr/share/knulli'):
             return 'knulli'
-            
+
     except Exception as e:
         print(f"[CFW Detection] Failed: {e}")
-    
+
     return 'unknown'
 
 
@@ -209,7 +210,7 @@ def _detect_video_driver():
     """
     if not IS_HANDHELD:
         return None
-    
+
     try:
         # Check /sys/module for loaded kernel modules
         if os.path.exists('/sys/module/panfrost'):
@@ -218,10 +219,10 @@ def _detect_video_driver():
             return 'mali'
         elif os.path.exists('/sys/module/mali_kbase'):
             return 'mali'
-        
+
     except Exception as e:
         print(f"[Video Driver Detection] Failed: {e}")
-    
+
     return 'unknown'
 
 
@@ -286,33 +287,34 @@ def _load_rom_hashes():
 def _extract_rom_from_zip(zip_path):
     """
     Extract a .gba ROM from a .zip file.
-    
+
     Args:
         zip_path: Path to .zip file
-    
+
     Returns:
         bytes: ROM data, or None if no .gba found
     """
     import zipfile
-    
+
     try:
         with zipfile.ZipFile(zip_path, 'r') as zf:
             # Find first .gba file in the zip
             gba_files = [name for name in zf.namelist() if name.lower().endswith('.gba')]
-            
+
             if not gba_files:
                 print(f"[ROMDetect] No .gba file found in {os.path.basename(zip_path)}")
                 return None
-            
+
             # Extract the first .gba file
             gba_filename = gba_files[0]
             if len(gba_files) > 1:
                 print(f"[ROMDetect] Multiple .gba files in zip, using: {gba_filename}")
-            
+
             rom_data = zf.read(gba_filename)
-            print(f"[ROMDetect] Extracted {gba_filename} from {os.path.basename(zip_path)} ({len(rom_data)} bytes)")
+            print(f"[ROMDetect] Extracted {gba_filename} from {os.path.basename(zip_path)} ({len(
+                rom_data)} bytes)")
             return rom_data
-            
+
     except Exception as e:
         print(f"[ROMDetect] Failed to extract from {os.path.basename(zip_path)}: {e}")
         return None
@@ -342,7 +344,7 @@ def identify_rom(rom_path, keywords_hint=None):
     import hashlib
 
     basename = os.path.basename(rom_path)
-    
+
     # OPTIMIZATION: Check filename keywords FIRST (before reading/hashing)
     # This applies to BOTH .gba and .zip files
     if keywords_hint:
@@ -351,7 +353,7 @@ def identify_rom(rom_path, keywords_hint=None):
         if not has_keyword:
             # Doesn't look like a Pokemon ROM - skip entirely
             return None
-    
+
     rom_data = None
 
     try:
@@ -381,7 +383,10 @@ def identify_rom(rom_path, keywords_hint=None):
         code = rom_data[0xAC:0xB0].decode("ascii", errors="replace")
         game = _ROM_HEADER_CODES.get(code)
         if game:
-            print(f"[ROMDetect] Header fallback: {basename} serial={code} -> {game} (ROM hack or unknown dump)")
+            print(
+                f"[ROMDetect] Header fallback: {basename}"
+                f" serial={code} -> {game} (ROM hack or unknown dump)"
+            )
             return (game, 2)  # Priority 2 = ROM hack
     except Exception:
         pass
@@ -393,40 +398,40 @@ def identify_rom(rom_path, keywords_hint=None):
 def extract_zip_to_temp(zip_path):
     """
     Extract .gba ROM from zip to a temporary location for emulator loading.
-    
+
     Args:
         zip_path: Path to .zip file
-    
+
     Returns:
         str: Path to extracted .gba file in temp directory, or None if failed
     """
     import zipfile
     import tempfile
-    
+
     try:
         with zipfile.ZipFile(zip_path, 'r') as zf:
             # Find first .gba file
             gba_files = [name for name in zf.namelist() if name.lower().endswith('.gba')]
-            
+
             if not gba_files:
                 print(f"[ZipExtract] No .gba file found in {os.path.basename(zip_path)}")
                 return None
-            
+
             gba_filename = gba_files[0]
-            
+
             # Create temp directory for extracted ROMs
             temp_dir = os.path.join(tempfile.gettempdir(), 'sinew_roms')
             os.makedirs(temp_dir, exist_ok=True)
-            
+
             # Extract to temp with original filename
             temp_rom_path = os.path.join(temp_dir, os.path.basename(gba_filename))
-            
+
             with open(temp_rom_path, 'wb') as f:
                 f.write(zf.read(gba_filename))
-            
+
             print(f"[ZipExtract] Extracted {gba_filename} to {temp_rom_path}")
             return temp_rom_path
-            
+
     except Exception as e:
         print(f"[ZipExtract] Failed to extract {os.path.basename(zip_path)}: {e}")
         return None
@@ -436,7 +441,7 @@ def cleanup_temp_roms():
     """Clean up temporary extracted ROM files"""
     import tempfile
     import shutil
-    
+
     temp_dir = os.path.join(tempfile.gettempdir(), 'sinew_roms')
     if os.path.exists(temp_dir):
         try:
@@ -472,37 +477,37 @@ _save_scan_cache = {}
 def identify_save(save_path):
     """
     Identify a Gen 3 Pokemon save file by reading its game code.
-    
+
     Gen 3 saves are 128KB with two save slots. Each slot contains 14 sections.
     The game code is stored at Section 0 + 0xAC (4 bytes).
-    
+
     Detection strategy:
     1. Find active save slot (highest save index)
     2. Locate Section 0 in active slot
     3. Read game code at offset 0xAC
     4. Map to canonical game name
-    
+
     Args:
         save_path: Path to a .sav file
-        
+
     Returns:
         str: Game name (e.g., "FireRed", "Emerald") or None if unrecognized
     """
     import struct
-    
+
     basename = os.path.basename(save_path)
-    
+
     try:
         with open(save_path, 'rb') as f:
             data = f.read()
     except Exception as e:
         print(f"[SaveDetect] Could not read {basename}: {e}")
         return None
-    
+
     # Gen 3 saves are 128KB (standard) or 64KB (some flashcarts — single slot)
     if len(data) not in (131072, 65536):
         return None  # Not a Gen 3 save or corrupted
-    
+
     # For 64KB saves, only slot A exists (offset 0x0000)
     if len(data) == 65536:
         active_slot_offset = 0x0000
@@ -513,26 +518,26 @@ def identify_save(save_path):
         try:
             slot_a_index = struct.unpack('<I', data[0x0FFC:0x1000])[0]
             slot_b_index = struct.unpack('<I', data[0xEFFC:0xF000])[0]
-            
+
             # Active slot is the one with higher save index
             active_slot_offset = 0xE000 if slot_b_index > slot_a_index else 0x0000
             active_slot = 'B' if slot_b_index > slot_a_index else 'A'
         except Exception as e:
             print(f"[SaveDetect] Could not read save indices for {basename}: {e}")
             return None
-    
+
     # Find Section 0 within the active slot
     # Each section is 4096 bytes, section ID is at offset +0xFF4
     section_0_offset = None
-    
+
     for i in range(14):  # 14 sections per save slot
         section_offset = active_slot_offset + (i * 0x1000)
         section_id_offset = section_offset + 0xFF4
-        
+
         # Bounds check for 64KB saves
         if section_id_offset + 2 > len(data):
             break
-        
+
         try:
             section_id = struct.unpack('<H', data[section_id_offset:section_id_offset+2])[0]
             if section_id == 0:
@@ -540,23 +545,24 @@ def identify_save(save_path):
                 break
         except Exception:
             continue
-    
+
     if section_0_offset is None:
         return None
-    
+
     # Read game code at Section 0 + 0xAC (4 bytes)
     game_code_offset = section_0_offset + 0xAC
-    
+
     try:
         game_code = data[game_code_offset:game_code_offset+4]
         game_name = _SAVE_GAME_CODES.get(game_code)
-        
+
         if game_name:
-            print(f"[SaveDetect] Identified {basename} -> {game_name} (code={game_code.decode('ascii', errors='replace')}, slot={active_slot})")
+            print(f"[SaveDetect] Identified {basename} -> {game_name} (code={game_code.decode(
+                'ascii', errors='replace')}, slot={active_slot})")
             return game_name
     except Exception:
         pass
-    
+
     return None
 
 
@@ -564,33 +570,33 @@ def _build_save_scan_cache(saves_dir):
     """
     Scan saves_dir once, identify every save file, and cache the results.
     Subsequent calls with the same directory are a no-op.
-    
+
     Uses SAVE_EXTENSIONS for the extension filter. No filename keyword filter
     is applied — identify_save() validates by reading the binary game code,
     so non-Pokemon saves are safely rejected.
-    
+
     Args:
         saves_dir: Directory containing save files
     """
     if saves_dir in _save_scan_cache:
         return
-    
+
     scan = {}
-    
+
     if not os.path.exists(saves_dir):
         _save_scan_cache[saves_dir] = scan
         return
-    
+
     for filename in os.listdir(saves_dir):
         fn_lower = filename.lower()
-        
+
         if not fn_lower.endswith(SAVE_EXTENSIONS):
             continue
-        
+
         save_path = os.path.join(saves_dir, filename)
-        
+
         scan[save_path] = identify_save(save_path)
-    
+
     _save_scan_cache[saves_dir] = scan
     print(f"[SaveDetect] Save scan complete: {len(scan)} files in {saves_dir}")
 
@@ -631,7 +637,7 @@ def _get_audio_defaults():
     """
     if not IS_HANDHELD:
         return 1024, 4  # Desktop defaults
-    
+
     # CFW-specific audio profiles (tuned per platform)
     # These are starting points - adjust after real-world testing
     cfw_audio_profiles = {
@@ -642,7 +648,7 @@ def _get_audio_defaults():
         'knulli': (512, 4),      # Needs testing
         'unknown': (256, 4),     # Conservative default for unrecognized CFW
     }
-    
+
     buffer, queue = cfw_audio_profiles.get(CFW_NAME, (256, 4))
     print(f"[Audio] CFW={CFW_NAME}, buffer={buffer}, queue={queue}")
     return buffer, queue

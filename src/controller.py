@@ -524,7 +524,7 @@ class ControllerManager:
     def refresh_controller_config(self):
         """
         Refresh controller configuration.
-        
+
         Re-applies the controller profile to ensure D-pad and button mappings
         are current. Useful after returning from emulator where controller state
         might have diverged.
@@ -539,7 +539,7 @@ class ControllerManager:
 
     def _store_originals_and_swap(self):
         """Store original A/B values and apply swap if pending.
-        
+
         Only captures originals if they aren't already set from the mapping
         result — this prevents resume/re-init from clobbering the true
         hardware values.
@@ -556,7 +556,7 @@ class ControllerManager:
             self.button_map["A"] = self._original_b[:]
             self.button_map["B"] = self._original_a[:]
             self._swap_ab = True
-            print(f"[Controller] Applied A/B Swap: A={self.button_map['A']} B={self.button_map['B']}")
+            print(f"[Controller] Applied A/B Swap: A={self.button_map['A']} B={self.button_map['B']}")  # pylint: disable=line-too-long  # noqa: E501
         else:
             self.button_map["A"] = self._original_a[:]
             self.button_map["B"] = self._original_b[:]
@@ -673,7 +673,7 @@ class ControllerManager:
             self.button_map["B"] = self._original_b[:]
 
         print(
-            f"[Controller] A/B swap {'enabled' if enabled else 'disabled'}: A={self.button_map['A']}, B={self.button_map['B']}"
+            f"[Controller] A/B swap {'enabled' if enabled else 'disabled'}: A={self.button_map['A']}, B={self.button_map['B']}"  # pylint: disable=line-too-long  # noqa: E501
         )
 
     def _init_controllers(self):
@@ -1264,7 +1264,7 @@ class ControllerManager:
         print("[Controller] Pausing input for external emulator...")
         self.connected = False
         # Physically shut down the joystick subsystem
-        pygame.joystick.quit() 
+        pygame.joystick.quit()
         # Clear states so buttons aren't 'stuck' when we return
         self.button_states = {k: False for k in self.button_states}
         self.dpad_states = {k: False for k in self.dpad_states}

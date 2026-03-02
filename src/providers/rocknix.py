@@ -9,7 +9,8 @@ import subprocess
 import signal
 import shlex
 import xml.etree.ElementTree as ET
-from external_emulator import EmulatorProvider 
+import pygame
+from emulator_manager import EmulatorProvider
 from settings import save_sinew_settings
 
 class RocknixProvider(EmulatorProvider):
@@ -20,12 +21,12 @@ class RocknixProvider(EmulatorProvider):
 
     def __init__(self, sinew_settings):
         self.settings = sinew_settings
-        
+
         self.system_db = os.path.expanduser("~/.config/system/configs/system.cfg")
         self.es_systems_db = os.path.expanduser("~/.emulationstation/es_systems.cfg")
         self.retroarch_cfg = os.path.expanduser("~/.config/retroarch/retroarch.cfg")
         self.roms_dir = os.path.expanduser("~/roms/gba")
-        
+
         # Determine saves directory from RetroArch settings
         # Check if saves live with the ROMs
         in_content_dir = self._get_retroarch_setting("savefiles_in_content_dir")
@@ -35,7 +36,7 @@ class RocknixProvider(EmulatorProvider):
         else:
             # Get the base save directory from RetroArch config
             base_save_dir = self._get_retroarch_setting("savefile_directory")
-            
+
             # Handle default or empty values
             if not base_save_dir or base_save_dir.lower() == "default":
                 # RetroArch default is the content dir
@@ -43,17 +44,17 @@ class RocknixProvider(EmulatorProvider):
             else:
                 # Expand home tilde if present
                 base_save_dir = os.path.expanduser(base_save_dir)
-                
+
                 # Check for sub-sorting by system
                 sort_by_content = self._get_retroarch_setting("sort_savefiles_by_content_enable")
                 if sort_by_content == "true":
                     self.saves_dir = os.path.join(base_save_dir, "gba")
                 else:
                     self.saves_dir = base_save_dir
-        
+
         print(f"[RocknixProvider] ROMs dir: {self.roms_dir}")
         print(f"[RocknixProvider] Saves dir: {self.saves_dir}")
-        
+
         # Initialize internal cache reference
         if "emulator_cache" not in self.settings:
             self.settings["emulator_cache"] = {}
@@ -63,22 +64,25 @@ class RocknixProvider(EmulatorProvider):
     def probe(self, distro_id):
         is_rocknix = (distro_id == "rocknix")
         script_exists = os.path.exists("/usr/bin/runemu.sh")
-        print(f"[RocknixProvider] Probe - Distro: {distro_id} (Match: {is_rocknix}), Script: {script_exists}")
+        print(
+            f"[RocknixProvider] Probe - Distro: {distro_id}"
+            f" (Match: {is_rocknix}), Script: {script_exists}"
+        )
         return is_rocknix and script_exists
 
     def get_command(self, rom_path, core="auto"):
         """
-        Return the list of strings representing the shell command 
+        Return the list of strings representing the shell command
         to launch the emulator.
         """
-        
-        # Controller GUID
+
+        # Controller GUID — read directly from the joystick pygame already has open.
         guid = self.cache.get("p1_guid")
         if not guid:
-            guid = self._get_last_input_guid()
+            guid = self._get_joystick_guid()
             if guid:
                 self._update_sinew_cache("p1_guid", guid)
-        
+
         if not guid:
             print("[ExternalEmu] ABORT: No Controller GUID found.")
             return None
@@ -99,22 +103,18 @@ class RocknixProvider(EmulatorProvider):
 
         controller_str = f" -p1index 0 -p1guid {guid} "
 
-        emu_cmd = f"/usr/bin/runemu.sh {shlex.quote(rom_path)} -Pgba --core={selected_core} --emulator={selected_emu} --controllers={shlex.quote(controller_str)}"
+        emu_cmd = f"/usr/bin/runemu.sh {shlex.quote(rom_path)} -Pgba --core={selected_core} --emulator={selected_emu} --controllers={shlex.quote(controller_str)}"  # pylint: disable=line-too-long  # noqa: E501
         return ["sh", "-c", emu_cmd]
 
-    def _get_last_input_guid(self):
-        path = os.path.expanduser("~/.emulationstation/es_last_input.cfg")
-        if not os.path.exists(path):
-            return None
+    def _get_joystick_guid(self):
+        """Return the SDL GUID of the first joystick pygame currently has open."""
         try:
-            tree = ET.parse(path)
-            node = tree.getroot().find('inputConfig')
-            if node is not None:
-                return node.get('deviceGUID')
-            else:
-                return None
-        except Exception:
-            return None
+            if pygame.joystick.get_count() > 0:
+                joy = pygame.joystick.Joystick(0)
+                return joy.get_guid()
+        except Exception as e:
+            print(f"[RocknixProvider] Could not read joystick GUID: {e}")
+        return None
 
     def _get_retroarch_setting(self, setting_key):
         if not os.path.exists(self.retroarch_cfg):
@@ -160,7 +160,7 @@ class RocknixProvider(EmulatorProvider):
             print(f"[RocknixProvider] Using system.cfg config: {core}/{emu}")
             return core, emu
         elif core:
-            print(f"[RocknixProvider] Using system.cfg core with fallback emulator: {core}/retroarch")
+            print(f"[RocknixProvider] Using system.cfg core with fallback emulator: {core}/retroarch")  # pylint: disable=line-too-long  # noqa: E501
             return core, "retroarch"
 
         # Fallback to ES defaults
@@ -193,7 +193,10 @@ class RocknixProvider(EmulatorProvider):
                     emu_name = emu.get("name")
                     for core in emu.findall(".//core"):
                         if core.get("default") == "true":
-                            print(f"[RocknixProvider] Found default core: {core.text}, emulator: {emu_name}")
+                            print(
+                                f"[RocknixProvider] Found default core:"
+                                f" {core.text}, emulator: {emu_name}"
+                            )
                             return core.text, emu_name
         except Exception as e:
             print(f"[RocknixProvider] EXCEPTION parsing ES config {self.es_systems_db}: {e}")

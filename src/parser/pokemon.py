@@ -366,7 +366,9 @@ def parse_party(data, section1_offset, game_type="RSE"):
     team_size = struct.unpack("<I", data[team_size_offset : team_size_offset + 4])[0]
 
     print(
-        f"[pokemon.py] game_type={game_type}, team_size_offset=0x{offsets['team_size']:X}, team_size={team_size}"
+        f"[pokemon.py] game_type={game_type},"
+        f" team_size_offset=0x{offsets['team_size']:X},"
+        f" team_size={team_size}"
     )
 
     if team_size > 6:
@@ -377,7 +379,8 @@ def parse_party(data, section1_offset, game_type="RSE"):
     team_data_offset = section1_offset + offsets["team_data"]
 
     print(
-        f"[pokemon.py] team_data_offset=0x{offsets['team_data']:X} (absolute: 0x{team_data_offset:X})"
+        f"[pokemon.py] team_data_offset=0x{offsets['team_data']:X}"
+        f" (absolute: 0x{team_data_offset:X})"
     )
 
     for i in range(team_size):
