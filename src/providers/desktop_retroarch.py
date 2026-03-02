@@ -6,7 +6,7 @@ desktop_retroarch.py
 Desktop provider for RetroArch on Linux, macOS, and Windows.
 
 Linux   — checks for the 'retroarch' package binary, then the Flatpak
-          org.libretro.Retroarch (preference is configurable).
+          org.libretro.RetroArch (preference is configurable).
 macOS   — checks for 'retroarch' in PATH (Homebrew / manual install),
           then the RetroArch.app bundle in /Applications.
 Windows — checks for 'retroarch.exe' in PATH, then the common default
@@ -21,15 +21,14 @@ import os
 import platform
 import signal
 import subprocess
-import sys
-from enum import StrEnum
+from enum import Enum
 
 from config import ROMS_DIR, SAVES_DIR
 from emulator_manager import EmulatorProvider
 from settings import save_sinew_settings
 
 
-class InstallationType(StrEnum):
+class InstallationType(str, Enum):
     """Preferred installation type for RetroArch discovery."""
     PACKAGE  = "package"   # system package / Homebrew / PATH binary
     FLATPAK  = "flatpak"   # Linux Flatpak only
@@ -109,10 +108,14 @@ class DesktopRetroarch(EmulatorProvider):
             self.roms_dir = custom_roms
         else:
             if self.retroarch_command:
-                exe_dir = os.path.dirname(self.retroarch_command[0])
-                roms_candidate = os.path.join(exe_dir, "roms")
-                if os.path.isdir(roms_candidate):
-                    self.roms_dir = roms_candidate
+                raw_exe = self.retroarch_command[0]
+                # Only meaningful when the command is a real absolute path;
+                # bare names like 'flatpak' or 'retroarch' have no useful dir.
+                if os.path.isabs(raw_exe):
+                    exe_dir = os.path.dirname(raw_exe)
+                    roms_candidate = os.path.join(exe_dir, "roms")
+                    if os.path.isdir(roms_candidate):
+                        self.roms_dir = roms_candidate
                 # else: keep ROMS_DIR default set in __init__
             # Seed the key so it's visible in sinew_settings.json for editing.
             # Only written when not already present — never overwrites user edits.
@@ -131,6 +134,9 @@ class DesktopRetroarch(EmulatorProvider):
 
     def get_command(self, rom_path, core="auto"):
         """Return the shell command list to launch RetroArch with the given ROM."""
+        if not self.retroarch_command:
+            print("[DesktopRetroarch] No RetroArch command available (probe not run or failed).")
+            return None
         core_file = self._find_core_file(core)
         if not core_file:
             print("[DesktopRetroarch] No compatible GBA core found.")
@@ -181,7 +187,7 @@ class DesktopRetroarch(EmulatorProvider):
             result = self._find_flatpak()
             if result:
                 return result
-            print("[DesktopRetroarch] Flatpak org.libretro.Retroarch not found, trying PATH.")
+            print("[DesktopRetroarch] Flatpak org.libretro.RetroArch not found, trying PATH.")
             return self._find_binary("retroarch")
         result = self._find_binary("retroarch")
         if result:
@@ -308,7 +314,8 @@ class DesktopRetroarch(EmulatorProvider):
             # Portable install: retroarch.cfg next to the exe
             if self.retroarch_command:
                 exe_dir = os.path.dirname(self.retroarch_command[0])
-                candidates.append(os.path.join(exe_dir, "retroarch.cfg"))
+                if exe_dir and os.path.isabs(exe_dir):
+                    candidates.append(os.path.join(exe_dir, "retroarch.cfg"))
 
         for path in candidates:
             if os.path.isfile(path):
@@ -324,15 +331,23 @@ class DesktopRetroarch(EmulatorProvider):
         the executable directory using the prefix ':\\' or ':/' — e.g. ':\\cores'.
         These are resolved against the directory containing the retroarch binary.
         """
-        exe_dir = (
-            os.path.dirname(self.retroarch_command[0])
-            if self.retroarch_command
-            else ""
-        )
+        # exe_dir is only meaningful for portable installs where RetroArch writes
+        # ':/' prefixed paths relative to its own directory.  For Flatpak the
+        # command is ['flatpak', 'run', ...] so dirname('flatpak') would be ''
+        # or a system bin dir — neither is useful.  Resolve to absolute first.
+        raw_exe = self.retroarch_command[0] if self.retroarch_command else ""
+        if raw_exe and os.sep not in raw_exe and not os.path.isabs(raw_exe):
+            # Plain binary name (e.g. 'flatpak', 'retroarch') — not a real path.
+            exe_dir = ""
+        else:
+            exe_dir = os.path.dirname(os.path.abspath(raw_exe)) if raw_exe else ""
 
         def _resolve(value: str) -> str:
             """Expand RetroArch portable-relative paths and home tildes."""
             value = value.strip().strip('"')
+            # Strip inline comments (e.g. "/path/to/dir" # some note)
+            if " # " in value:
+                value = value.split(" # ")[0].strip().strip('"')
             # RetroArch portable prefix: starts with ':/' or ':\'
             if value.startswith(":/") or value.startswith(":\\"):
                 return os.path.join(exe_dir, value[2:].lstrip("/\\")) if exe_dir else value
