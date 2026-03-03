@@ -24,6 +24,7 @@ class RetroPieProvider(EmulatorProvider):
     """
 
     active = True
+    is_desktop_retropie = True  # Tells EmulatorManager to use desktop (iconify) not embedded (quit display)
 
     @property
     def supported_os(self):
@@ -230,16 +231,19 @@ class RetroPieProvider(EmulatorProvider):
         
         if os.path.exists(emulators_cfg):
             # Use runcommand if configuration exists
-            return [
+            cmd = [
                 "/opt/retropie/supplementary/runcommand/runcommand.sh",
                 "0",      # Video mode: 0 = default
                 "_SYS_",  # System name token (RetroPie resolves this)
                 "gba",    # System identifier
                 rom_path
             ]
+            print(f"[RetroPieProvider] Using runcommand: {' '.join(cmd)}")
+            return cmd
         else:
             # Fallback: launch RetroArch directly
-            print(f"[RetroPieProvider] No emulators.cfg found, using direct RetroArch launch")
+            print(f"[RetroPieProvider] No emulators.cfg at {emulators_cfg}")
+            print(f"[RetroPieProvider] Using direct RetroArch launch")
             
             # Find RetroArch binary
             retroarch_bin = None
@@ -252,26 +256,31 @@ class RetroPieProvider(EmulatorProvider):
             for path in retroarch_paths:
                 if os.path.exists(path):
                     retroarch_bin = path
+                    print(f"[RetroPieProvider] Found RetroArch at: {path}")
                     break
             
             if not retroarch_bin:
                 print("[RetroPieProvider] ERROR: RetroArch binary not found")
+                print(f"[RetroPieProvider] Searched: {retroarch_paths}")
                 return None
             
             # Find mGBA core
             core_paths = [
                 "/opt/retropie/libretrocores/lr-mgba/mgba_libretro.so",
-                "/usr/lib/libretro/mgba_libretro.so"
+                "/usr/lib/libretro/mgba_libretro.so",
+                "/usr/lib/arm-linux-gnueabihf/libretro/mgba_libretro.so"
             ]
             
             mgba_core = None
             for path in core_paths:
                 if os.path.exists(path):
                     mgba_core = path
+                    print(f"[RetroPieProvider] Found mGBA core at: {path}")
                     break
             
             if not mgba_core:
                 print("[RetroPieProvider] ERROR: mGBA core not found")
+                print(f"[RetroPieProvider] Searched: {core_paths}")
                 return None
             
             # Get RetroArch config
@@ -279,12 +288,14 @@ class RetroPieProvider(EmulatorProvider):
             if not os.path.exists(retroarch_config):
                 retroarch_config = self.retroarch_global_cfg
             
-            return [
+            cmd = [
                 retroarch_bin,
                 "-L", mgba_core,
                 "--config", retroarch_config,
                 rom_path
             ]
+            print(f"[RetroPieProvider] Direct command: {' '.join(cmd)}")
+            return cmd
 
     def _update_sinew_cache(self, key, value):
         """Helper to update persistent settings only when changed."""
