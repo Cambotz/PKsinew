@@ -218,8 +218,11 @@ class RetroPieProvider(EmulatorProvider):
         """
         Return the command to launch RetroArch directly.
         
-        We override ONLY the frame timing settings, not video driver,
-        to ensure compatibility with however RetroPie has configured RetroArch.
+        Key insight: When audio fails (ALSA busy), RetroArch runs unthrottled
+        because audio_sync can't work. We need to:
+        1. Use SDL2 audio driver (can coexist with pygame better)
+        2. Enable vsync as the primary frame limiter
+        3. Disable threaded video so vsync actually blocks
         
         Args:
             rom_path: Absolute path to the ROM file
@@ -247,29 +250,40 @@ class RetroPieProvider(EmulatorProvider):
         if not os.path.exists(retroarch_config):
             retroarch_config = self.retroarch_global_cfg
         
-        # Read current video_driver from config to preserve it
+        # Read current video_driver from config to log it
         current_video_driver = self._get_retroarch_setting("video_driver")
         print(f"[RetroPieProvider] Current video driver: {current_video_driver}")
         
-        # Create temporary override config for frame timing ONLY
-        # Do NOT change video_driver - use whatever RetroPie has configured
+        # Create temporary override config
+        # CRITICAL: Audio fails with ALSA because Sinew had it locked.
+        # We use sdl2 audio (or null if that fails) and rely on VSYNC for timing.
         override_config = "/dev/shm/retroarch_sinew_override.cfg"
         try:
             with open(override_config, "w") as f:
-                # === FRAME TIMING SETTINGS ONLY ===
-                # These are the critical settings for proper speed
+                # === AUDIO SETTINGS ===
+                # Use SDL2 audio driver - it handles device sharing better than ALSA
+                # If SDL2 fails, RetroArch will fall back to null (no audio)
+                f.write('audio_driver = "sdl2"\n')
                 
-                # Enable vsync - this is essential
-                f.write('video_vsync = "true"\n')
-                
-                # Audio sync is the PRIMARY frame limiter in RetroArch
-                # This is often what keeps the game running at correct speed
+                # Enable audio sync - if audio works, this helps with timing
+                # If audio fails, vsync will be our backup
                 f.write('audio_sync = "true"\n')
                 
-                # Vsync swap interval - 1 = wait for vsync each frame
+                # Audio latency
+                f.write('audio_latency = "64"\n')
+                
+                # === VIDEO/VSYNC SETTINGS (PRIMARY FRAME LIMITER) ===
+                # These are critical when audio sync fails
+                
+                # Enable vsync - this is essential for frame limiting
+                f.write('video_vsync = "true"\n')
+                
+                # Vsync swap interval - 1 = wait for vsync each frame (60fps cap)
                 f.write('video_swap_interval = "1"\n')
                 
-                # Disable threaded video - can cause unthrottled speed
+                # CRITICAL: Disable threaded video!
+                # With threaded video, vsync happens on a separate thread and
+                # doesn't actually limit the main emulation loop speed.
                 f.write('video_threaded = "false"\n')
                 
                 # Disable VRR (variable refresh rate)
@@ -286,15 +300,14 @@ class RetroPieProvider(EmulatorProvider):
                 f.write('video_max_swapchain_images = "3"\n')
                 
                 # === FAST FORWARD PREVENTION ===
-                # Set ratio to 0 to disable fast-forward limiting
-                # (which paradoxically means no fast-forward)
+                # Set ratio to 0 to disable fast-forward
                 f.write('fastforward_ratio = "0.000000"\n')
                 
-                # Unbind fast-forward keys to prevent accidental activation
+                # Unbind fast-forward keys
                 f.write('input_toggle_fast_forward = "nul"\n')
                 f.write('input_hold_fast_forward = "nul"\n')
                 
-                # === RUN FULLSCREEN ===
+                # === FULLSCREEN ===
                 f.write('video_fullscreen = "true"\n')
                 
                 print(f"[RetroPieProvider] Created override config: {override_config}")
