@@ -141,18 +141,19 @@ class EmulatorManager:
         # Release the hardware
         controller_manager.pause()
         
-        # Clean up audio to prevent conflicts with RetroArch
+        # Clean up audio to prevent conflicts with external emulators
         try:
             pygame.mixer.quit()
             print("[EmulatorManager] Audio mixer stopped")
         except Exception as e:
             print(f"[EmulatorManager] Audio cleanup warning: {e}")
         
-        # For RetroPie: also quit pygame event system to fully release control
+        # RetroPie-specific: block pygame events to prevent interference
+        # (Other providers don't need this)
         if getattr(self.active_provider, 'is_desktop_retropie', False):
             try:
                 pygame.event.set_blocked(None)  # Block all events
-                print("[EmulatorManager] Pygame events blocked")
+                print("[EmulatorManager] Pygame events blocked for RetroPie")
             except Exception as e:
                 print(f"[EmulatorManager] Event block warning: {e}")
         
@@ -169,14 +170,28 @@ class EmulatorManager:
             # Detect if we're on embedded firmware
             # ROCKNIX uses Wayland but is still embedded (no full desktop)
             is_embedded_firmware = False
-            
-            # RetroPie special handling: needs display quit to release GPU for RetroArch
-            # Even though it runs on desktop OS, RetroArch needs exclusive GPU access
-            if getattr(self.active_provider, 'is_desktop_retropie', False):
-                is_embedded_firmware = True  # Changed: treat as embedded for display handling
-                print(f"[EmulatorManager] RetroPie detected - quitting display for RetroArch")
-            elif IS_HANDHELD:
+            if IS_HANDHELD:
                 # Check 1: ROCKNIX specifically (has ES but no full DE)
+                if os.path.exists('/usr/bin/emulationstation') and not os.path.exists('/usr/bin/gnome-shell'):
+                    is_embedded_firmware = True
+                    print(f"[EmulatorManager] Embedded CFW detected (EmulationStation without desktop)")
+                # Check 2: Known CFW markers
+                elif any(os.path.exists(p) for p in [
+                    '/etc/rocknix', '/usr/share/rocknix', '/storage/.config/rocknix',
+                    '/etc/jelos', '/etc/arkos', '/etc/batocera'
+                ]):
+                    is_embedded_firmware = True
+                    print(f"[EmulatorManager] CFW detected via markers")
+                # Check 3: KMSDRM/fbdev drivers
+                elif os.environ.get('SDL_VIDEODRIVER', '').lower() in ('kmsdrm', 'directfb', 'fbcon'):
+                    is_embedded_firmware = True
+                    print(f"[EmulatorManager] KMSDRM/fbdev driver detected")
+            
+            # RetroPie override: needs display quit even though it's on desktop OS
+            # RetroArch can't share display with pygame on Pi
+            if getattr(self.active_provider, 'is_desktop_retropie', False):
+                is_embedded_firmware = True  # Force display quit
+                print(f"[EmulatorManager] RetroPie detected - quitting display for RetroArch")
                 if os.path.exists('/usr/bin/emulationstation') and not os.path.exists('/usr/bin/gnome-shell'):
                     is_embedded_firmware = True
                     print(f"[EmulatorManager] Embedded CFW detected (EmulationStation without desktop)")
