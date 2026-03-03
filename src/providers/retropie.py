@@ -252,6 +252,16 @@ class RetroPieProvider(EmulatorProvider):
             "--config", retroarch_config,
             rom_path
         ]
+        
+        # Debug: Log environment variables that might affect speed
+        import os as os_module
+        env_vars = ['SDL_VIDEODRIVER', 'DISPLAY', 'WAYLAND_DISPLAY', 'HOME', 
+                    'XDG_RUNTIME_DIR', 'SDL_VIDEO_GL_DRIVER']
+        print(f"[RetroPieProvider] Environment check:")
+        for var in env_vars:
+            val = os_module.environ.get(var, 'NOT SET')
+            print(f"[RetroPieProvider]   {var}={val}")
+        
         print(f"[RetroPieProvider] Command: {' '.join(cmd)}")
         return cmd
 
