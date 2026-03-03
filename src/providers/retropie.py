@@ -13,8 +13,8 @@ class RetroPieProvider(EmulatorProvider):
     External emulator provider for RetroPie on Raspberry Pi.
     
     RetroPie uses RetroArch for most emulation with a custom launch system.
-    This provider launches RetroArch directly with the proper configuration
-    to ensure correct frame timing when launched from within an X11 session.
+    This provider launches RetroArch directly with configuration overrides
+    to ensure correct frame timing.
     
     ROM and save file handling
     --------------------------
@@ -24,7 +24,7 @@ class RetroPieProvider(EmulatorProvider):
     """
 
     active = True
-    is_desktop_retropie = True  # Tells EmulatorManager to use desktop (iconify) not embedded (quit display)
+    is_desktop_retropie = True  # Tells EmulatorManager to quit display for RetroArch
 
     @property
     def supported_os(self):
@@ -214,32 +214,12 @@ class RetroPieProvider(EmulatorProvider):
         print(f"[RetroPieProvider] Using base saves directory: {base_save_dir}")
         return base_save_dir
 
-    def _get_environment_overrides(self):
-        """
-        Get environment variable overrides needed for proper RetroArch operation.
-        
-        When launching from X11 (DISPLAY is set), we need to ensure RetroArch
-        uses the correct video context and has proper frame timing.
-        
-        Returns:
-            dict: Environment variables to set/override
-        """
-        env = {}
-        
-        # If running in X11, ensure SDL uses x11 driver for proper vsync
-        if os.environ.get('DISPLAY'):
-            env['SDL_VIDEODRIVER'] = 'x11'
-        
-        return env
-
     def get_command(self, rom_path, core="auto"):
         """
-        Return the command to launch RetroArch directly with proper frame timing.
+        Return the command to launch RetroArch directly.
         
-        When launched from X11 (which Sinew runs in when DISPLAY=:0), we need to:
-        1. Use the gl video driver (not kms/drm which needs console)
-        2. Enable vsync and audio sync for proper frame timing
-        3. Use fullscreen to avoid compositor interference
+        We override ONLY the frame timing settings, not video driver,
+        to ensure compatibility with however RetroPie has configured RetroArch.
         
         Args:
             rom_path: Absolute path to the ROM file
@@ -248,7 +228,7 @@ class RetroPieProvider(EmulatorProvider):
         Returns:
             list: Command to launch the emulator
         """
-        print(f"[RetroPieProvider] Using direct RetroArch launch for X11 environment")
+        print(f"[RetroPieProvider] Using direct RetroArch launch")
         
         # Find RetroArch binary
         retroarch_bin = "/opt/retropie/emulators/retroarch/bin/retroarch"
@@ -267,56 +247,55 @@ class RetroPieProvider(EmulatorProvider):
         if not os.path.exists(retroarch_config):
             retroarch_config = self.retroarch_global_cfg
         
-        # Create temporary override config for proper frame timing
-        # This is critical - without these settings RetroArch may run unthrottled
+        # Read current video_driver from config to preserve it
+        current_video_driver = self._get_retroarch_setting("video_driver")
+        print(f"[RetroPieProvider] Current video driver: {current_video_driver}")
+        
+        # Create temporary override config for frame timing ONLY
+        # Do NOT change video_driver - use whatever RetroPie has configured
         override_config = "/dev/shm/retroarch_sinew_override.cfg"
         try:
             with open(override_config, "w") as f:
-                # === VIDEO SETTINGS ===
-                # Use GL driver for X11 compatibility (not kms/drm)
-                f.write('video_driver = "gl"\n')
+                # === FRAME TIMING SETTINGS ONLY ===
+                # These are the critical settings for proper speed
                 
-                # Enable vsync - syncs to display refresh rate
+                # Enable vsync - this is essential
                 f.write('video_vsync = "true"\n')
                 
-                # Disable VRR (variable refresh rate) - use fixed timing
-                f.write('vrr_runloop_enable = "false"\n')
+                # Audio sync is the PRIMARY frame limiter in RetroArch
+                # This is often what keeps the game running at correct speed
+                f.write('audio_sync = "true"\n')
                 
-                # Vsync swap interval - wait for 1 vsync between frames
+                # Vsync swap interval - 1 = wait for vsync each frame
                 f.write('video_swap_interval = "1"\n')
                 
-                # Disable threaded video - better sync but may reduce performance
-                # This is the KEY setting that prevents unthrottled speed
+                # Disable threaded video - can cause unthrottled speed
                 f.write('video_threaded = "false"\n')
                 
-                # Max swapchain images - helps with frame pacing
-                f.write('video_max_swapchain_images = "2"\n')
+                # Disable VRR (variable refresh rate)
+                f.write('vrr_runloop_enable = "false"\n')
                 
-                # Frame delay settings
+                # Disable frame delay (can interfere with timing)
                 f.write('video_frame_delay = "0"\n')
                 f.write('video_frame_delay_auto = "false"\n')
                 
-                # Run fullscreen to avoid compositor interference
-                f.write('video_fullscreen = "true"\n')
-                f.write('video_windowed_fullscreen = "false"\n')
+                # Disable hard GPU sync (can cause issues on Pi)
+                f.write('video_hard_sync = "false"\n')
                 
-                # === AUDIO SETTINGS ===
-                # Audio sync is CRITICAL - this is often the primary frame limiter
-                f.write('audio_sync = "true"\n')
+                # Max swapchain images
+                f.write('video_max_swapchain_images = "3"\n')
                 
-                # Use ALSA for audio (standard on Pi)
-                f.write('audio_driver = "alsa"\n')
-                
-                # Audio latency - lower = more responsive but may crackle
-                f.write('audio_latency = "64"\n')
-                
-                # === FRAME THROTTLING ===
-                # Disable fast-forward by default
+                # === FAST FORWARD PREVENTION ===
+                # Set ratio to 0 to disable fast-forward limiting
+                # (which paradoxically means no fast-forward)
                 f.write('fastforward_ratio = "0.000000"\n')
                 
-                # These settings prevent the "turbo mode" behavior
+                # Unbind fast-forward keys to prevent accidental activation
                 f.write('input_toggle_fast_forward = "nul"\n')
                 f.write('input_hold_fast_forward = "nul"\n')
+                
+                # === RUN FULLSCREEN ===
+                f.write('video_fullscreen = "true"\n')
                 
                 print(f"[RetroPieProvider] Created override config: {override_config}")
         except Exception as e:
@@ -334,8 +313,8 @@ class RetroPieProvider(EmulatorProvider):
         if override_config:
             cmd.extend(["--appendconfig", override_config])
         
-        # Add verbose flag for debugging (remove for production)
-        # cmd.append("--verbose")
+        # Add verbose flag for debugging
+        cmd.append("--verbose")
         
         # ROM path must be last
         cmd.append(rom_path)
