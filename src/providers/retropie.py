@@ -43,7 +43,23 @@ class RetroPieProvider(EmulatorProvider):
             return
 
         # RetroPie standard paths
-        self.retropie_path = os.path.expanduser("~/RetroPie")
+        # Check multiple possible locations
+        possible_paths = [
+            os.path.expanduser("~/RetroPie"),  # Current user's home
+            "/home/pi/RetroPie",                # Default pi user
+            "/root/RetroPie"                    # Root user
+        ]
+        
+        self.retropie_path = None
+        for path in possible_paths:
+            if os.path.exists(path):
+                self.retropie_path = path
+                print(f"[RetroPieProvider] Found RetroPie at: {path}")
+                break
+        
+        if not self.retropie_path:
+            self.retropie_path = os.path.expanduser("~/RetroPie")  # Fallback
+        
         self.roms_base = os.path.join(self.retropie_path, "roms")
         self.configs_base = os.path.expanduser("/opt/retropie/configs")
         
@@ -68,12 +84,12 @@ class RetroPieProvider(EmulatorProvider):
 
     def probe(self, distro_id):
         """
-        Return True if RetroPie is installed and the runcommand script exists.
+        Return True if RetroPie is installed and configured for GBA.
         
         Checks for:
         - RetroPie directory structure
         - runcommand.sh launch script
-        - GBA ROMs directory
+        - GBA ROMs directory (must already exist)
         """
         # Check for RetroPie-specific paths
         retropie_exists = os.path.exists(self.retropie_path)
