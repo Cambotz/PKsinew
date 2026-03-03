@@ -162,7 +162,7 @@ class EmulatorManager:
                 print(f"[EmulatorManager] RetroPie detected - using desktop mode (iconify)")
             elif IS_HANDHELD:
                 # Check 1: ROCKNIX specifically (has ES but no full DE)
-                elif os.path.exists('/usr/bin/emulationstation') and not os.path.exists('/usr/bin/gnome-shell'):
+                if os.path.exists('/usr/bin/emulationstation') and not os.path.exists('/usr/bin/gnome-shell'):
                     is_embedded_firmware = True
                     print(f"[EmulatorManager] Embedded CFW detected (EmulationStation without desktop)")
                 # Check 2: Known CFW markers
