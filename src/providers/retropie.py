@@ -112,7 +112,6 @@ class RetroPieProvider(EmulatorProvider):
         if "emulator_cache" not in self.settings:
             self.settings["emulator_cache"] = {}
         self.cache = self.settings["emulator_cache"]
-        print(f"[RetroPieProvider] Cache loaded: {self.cache}")
 
     def probe(self, distro_id):
         """
@@ -168,7 +167,6 @@ class RetroPieProvider(EmulatorProvider):
                             parts = clean_line.split('=', 1)
                             if len(parts) > 1:
                                 value = parts[1].strip().strip('"').strip("'")
-                                print(f"[RetroPieProvider] Found {setting_key} = {value} in {cfg_path}")
                                 return value
             except Exception as e:
                 print(f"[RetroPieProvider] Error reading {cfg_path}: {e}")
@@ -190,7 +188,6 @@ class RetroPieProvider(EmulatorProvider):
         # Check if saves are in the same directory as ROMs
         in_content_dir = self._get_retroarch_setting("savefiles_in_content_dir")
         if in_content_dir == "true":
-            print("[RetroPieProvider] Saves stored with ROMs")
             return self.roms_dir
         
         # Get the base save directory
@@ -198,7 +195,6 @@ class RetroPieProvider(EmulatorProvider):
         
         # Handle default or empty values
         if not base_save_dir or base_save_dir.lower() == "default":
-            print("[RetroPieProvider] Using default save location (with ROMs)")
             return self.roms_dir
         
         # Expand home tilde if present
@@ -207,22 +203,18 @@ class RetroPieProvider(EmulatorProvider):
         # Check for per-system subdirectories
         sort_by_content = self._get_retroarch_setting("sort_savefiles_by_content_enable")
         if sort_by_content == "true":
-            gba_saves = os.path.join(base_save_dir, "gba")
-            print(f"[RetroPieProvider] Using per-system saves directory: {gba_saves}")
-            return gba_saves
+            return os.path.join(base_save_dir, "gba")
         
-        print(f"[RetroPieProvider] Using base saves directory: {base_save_dir}")
         return base_save_dir
 
     def get_command(self, rom_path, core="auto"):
         """
         Return the command to launch RetroArch directly.
         
-        Key insight: When audio fails (ALSA busy), RetroArch runs unthrottled
-        because audio_sync can't work. We need to:
-        1. Use SDL2 audio driver (can coexist with pygame better)
-        2. Enable vsync as the primary frame limiter
-        3. Disable threaded video so vsync actually blocks
+        Uses configuration overrides to ensure proper frame timing:
+        - SDL2 audio driver (handles device sharing better than ALSA)
+        - VSync enabled as primary frame limiter
+        - Threaded video disabled so vsync actually blocks
         
         Args:
             rom_path: Absolute path to the ROM file
@@ -231,8 +223,6 @@ class RetroPieProvider(EmulatorProvider):
         Returns:
             list: Command to launch the emulator
         """
-        print(f"[RetroPieProvider] Using direct RetroArch launch")
-        
         # Find RetroArch binary
         retroarch_bin = "/opt/retropie/emulators/retroarch/bin/retroarch"
         if not os.path.exists(retroarch_bin):
@@ -250,67 +240,32 @@ class RetroPieProvider(EmulatorProvider):
         if not os.path.exists(retroarch_config):
             retroarch_config = self.retroarch_global_cfg
         
-        # Read current video_driver from config to log it
-        current_video_driver = self._get_retroarch_setting("video_driver")
-        print(f"[RetroPieProvider] Current video driver: {current_video_driver}")
-        
-        # Create temporary override config
-        # CRITICAL: Audio fails with ALSA because Sinew had it locked.
-        # We use sdl2 audio (or null if that fails) and rely on VSYNC for timing.
+        # Create temporary override config for proper frame timing
         override_config = "/dev/shm/retroarch_sinew_override.cfg"
         try:
             with open(override_config, "w") as f:
-                # === AUDIO SETTINGS ===
-                # Use SDL2 audio driver - it handles device sharing better than ALSA
-                # If SDL2 fails, RetroArch will fall back to null (no audio)
+                # Audio - use SDL2 which handles device sharing better
                 f.write('audio_driver = "sdl2"\n')
-                
-                # Enable audio sync - if audio works, this helps with timing
-                # If audio fails, vsync will be our backup
                 f.write('audio_sync = "true"\n')
-                
-                # Audio latency
                 f.write('audio_latency = "64"\n')
                 
-                # === VIDEO/VSYNC SETTINGS (PRIMARY FRAME LIMITER) ===
-                # These are critical when audio sync fails
-                
-                # Enable vsync - this is essential for frame limiting
+                # Video/VSync - primary frame limiter
                 f.write('video_vsync = "true"\n')
-                
-                # Vsync swap interval - 1 = wait for vsync each frame (60fps cap)
                 f.write('video_swap_interval = "1"\n')
-                
-                # CRITICAL: Disable threaded video!
-                # With threaded video, vsync happens on a separate thread and
-                # doesn't actually limit the main emulation loop speed.
                 f.write('video_threaded = "false"\n')
-                
-                # Disable VRR (variable refresh rate)
                 f.write('vrr_runloop_enable = "false"\n')
-                
-                # Disable frame delay (can interfere with timing)
                 f.write('video_frame_delay = "0"\n')
                 f.write('video_frame_delay_auto = "false"\n')
-                
-                # Disable hard GPU sync (can cause issues on Pi)
                 f.write('video_hard_sync = "false"\n')
-                
-                # Max swapchain images
                 f.write('video_max_swapchain_images = "3"\n')
                 
-                # === FAST FORWARD PREVENTION ===
-                # Set ratio to 0 to disable fast-forward
+                # Disable fast forward
                 f.write('fastforward_ratio = "0.000000"\n')
-                
-                # Unbind fast-forward keys
                 f.write('input_toggle_fast_forward = "nul"\n')
                 f.write('input_hold_fast_forward = "nul"\n')
                 
-                # === FULLSCREEN ===
+                # Fullscreen
                 f.write('video_fullscreen = "true"\n')
-                
-                print(f"[RetroPieProvider] Created override config: {override_config}")
         except Exception as e:
             print(f"[RetroPieProvider] Warning: Could not write override config: {e}")
             override_config = None
@@ -322,25 +277,11 @@ class RetroPieProvider(EmulatorProvider):
             "--config", retroarch_config,
         ]
         
-        # Append override config if created
         if override_config:
             cmd.extend(["--appendconfig", override_config])
         
-        # Add verbose flag for debugging
-        cmd.append("--verbose")
-        
-        # ROM path must be last
         cmd.append(rom_path)
         
-        # Debug: Log environment and command
-        env_vars = ['SDL_VIDEODRIVER', 'DISPLAY', 'WAYLAND_DISPLAY', 'HOME', 
-                    'XDG_RUNTIME_DIR', 'SDL_VIDEO_GL_DRIVER', 'TTY']
-        print(f"[RetroPieProvider] Environment check:")
-        for var in env_vars:
-            val = os.environ.get(var, 'NOT SET')
-            print(f"[RetroPieProvider]   {var}={val}")
-        
-        print(f"[RetroPieProvider] Command: {' '.join(cmd)}")
         return cmd
 
     def _update_sinew_cache(self, key, value):
@@ -350,12 +291,7 @@ class RetroPieProvider(EmulatorProvider):
             save_sinew_settings(self.settings)
 
     def on_exit(self):
-        """
-        Called after the emulator exits.
-        
-        Clean up temporary config file.
-        """
-        # Clean up override config
+        """Called after the emulator exits. Clean up temporary config file."""
         override_config = "/dev/shm/retroarch_sinew_override.cfg"
         try:
             if os.path.exists(override_config):
@@ -364,12 +300,7 @@ class RetroPieProvider(EmulatorProvider):
             pass
 
     def terminate(self, process):
-        """
-        Terminate the emulator process.
-        
-        Args:
-            process: The subprocess.Popen object for the emulator
-        """
+        """Terminate the emulator process."""
         if process:
             try:
                 process.terminate()

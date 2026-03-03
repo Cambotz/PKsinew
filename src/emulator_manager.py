@@ -152,7 +152,6 @@ class EmulatorManager:
             print(f"[EmulatorManager] Audio cleanup warning: {e}")
         
         # RetroPie-specific: block pygame events to prevent interference
-        # (Other providers don't need this)
         is_retropie = getattr(self.active_provider, 'is_desktop_retropie', False)
         if is_retropie:
             try:
@@ -167,16 +166,14 @@ class EmulatorManager:
         # Smart display handling:
         # - ROCKNIX/JELOS/ArkOS (embedded): Must quit display to release GPU
         # - RetroPie: Must quit display for RetroArch to take over
-        # - AYN Thor (full desktop Linux): Iconify for dual-screen support
         # - Desktop: Iconify to minimize
         try:
             from config import IS_HANDHELD
             
             # Detect if we're on embedded firmware
-            # ROCKNIX uses Wayland but is still embedded (no full desktop)
             is_embedded_firmware = False
             if IS_HANDHELD:
-                # Check 1: ROCKNIX specifically (has ES but no full DE)
+                # Check 1: EmulationStation without full desktop
                 if os.path.exists('/usr/bin/emulationstation') and not os.path.exists('/usr/bin/gnome-shell'):
                     is_embedded_firmware = True
                     print(f"[EmulatorManager] Embedded CFW detected (EmulationStation without desktop)")
@@ -192,10 +189,9 @@ class EmulatorManager:
                     is_embedded_firmware = True
                     print(f"[EmulatorManager] KMSDRM/fbdev driver detected")
             
-            # RetroPie override: needs display quit even though it's on desktop OS
-            # RetroArch can't share display with pygame on Pi
+            # RetroPie: needs display quit for RetroArch to take over
             if is_retropie:
-                is_embedded_firmware = True  # Force display quit
+                is_embedded_firmware = True
                 print(f"[EmulatorManager] RetroPie detected - quitting display for RetroArch")
             
             if is_embedded_firmware:
@@ -203,7 +199,7 @@ class EmulatorManager:
                 pygame.display.quit()
                 display_was_quit = True
                 print("[EmulatorManager] Display quit for embedded handheld")
-                # Give GPU time to fully release (critical for RetroArch on Pi)
+                # Give GPU time to fully release
                 time.sleep(0.2)
             else:
                 # Full Linux or desktop: iconify
@@ -211,28 +207,24 @@ class EmulatorManager:
                 print("[EmulatorManager] Display iconified")
         except Exception as e:
             print(f"[EmulatorManager] Display handling warning: {e}")
-            # Safe fallback
             pygame.display.iconify()
 
         # Revert LD_LIBRARY_PATH for the system tools
         env = os.environ.copy()
         env["LD_LIBRARY_PATH"] = env.get("LD_LIBRARY_PATH_ORIG", "/usr/lib:/lib")
 
-        # RetroPie-specific: log file for debugging RetroArch output
-        retropie_log_file = "/dev/shm/retroarch_sinew.log" if is_retropie else None
-
         try:
             # Launch the external emulator
-            # RetroPie: use shell to match EmulationStation's launch environment
             if is_retropie:
+                # RetroPie: use shell to match EmulationStation's launch environment
                 cmd_str = ' '.join([f'"{arg}"' if ' ' in arg else arg for arg in cmd])
-                # Redirect output to log file for debugging
-                cmd_str_with_log = f"{cmd_str} > {retropie_log_file} 2>&1"
-                print(f"[EmulatorManager] RetroPie shell command with logging")
                 self.process = subprocess.Popen(
-                    cmd_str_with_log,
+                    cmd_str,
                     env=env,
                     shell=True,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    bufsize=1,
                     start_new_session=True
                 )
             else:
@@ -251,25 +243,7 @@ class EmulatorManager:
             # Automatically resume input when the process dies
             def wait_for_exit():
                 self.process.wait()
-                exit_code = self.process.returncode
-                print(f"[EmulatorManager] Subprocess ended with code: {exit_code}. Resuming Sinew controls...")
-                
-                # RetroPie-specific: Try to read and log RetroArch output for debugging
-                if is_retropie and retropie_log_file:
-                    try:
-                        if os.path.exists(retropie_log_file):
-                            with open(retropie_log_file, 'r') as f:
-                                log_content = f.read()
-                            # Print relevant lines for debugging
-                            lines = log_content.strip().split('\n')
-                            print(f"[EmulatorManager] RetroArch log ({len(lines)} lines total):")
-                            for line in lines[-50:]:
-                                # Filter for important lines
-                                line_lower = line.lower()
-                                if any(kw in line_lower for kw in ['error', 'warn', 'video', 'audio', 'sync', 'vsync', 'fps', 'driver', 'threaded']):
-                                    print(f"[RetroArch] {line}")
-                    except Exception as e:
-                        print(f"[EmulatorManager] Could not read RetroArch log: {e}")
+                print("[EmulatorManager] Subprocess ended. Resuming Sinew controls...")
                 
                 # Give hardware time to fully release
                 time.sleep(0.5)
@@ -307,7 +281,6 @@ class EmulatorManager:
 
     def _restore_window(self):
         """Restore and focus the Sinew window after the external emulator closes."""
-        # Give the OS a moment to fully clean up the emulator window.
         time.sleep(0.3)
         if platform.system().lower() == "windows":
             try:
@@ -321,8 +294,6 @@ class EmulatorManager:
             except Exception as e:
                 print(f"[EmulatorManager] Window restore failed: {e}")
         else:
-            # On Linux/macOS pygame.VIDEORESIZE or a display event will
-            # bring the window back; posting VIDEOEXPOSE nudges a redraw.
             pygame.event.post(pygame.event.Event(pygame.VIDEOEXPOSE))
 
     def check_status(self):
