@@ -148,6 +148,14 @@ class EmulatorManager:
         except Exception as e:
             print(f"[EmulatorManager] Audio cleanup warning: {e}")
         
+        # For RetroPie: also quit pygame event system to fully release control
+        if getattr(self.active_provider, 'is_desktop_retropie', False):
+            try:
+                pygame.event.set_blocked(None)  # Block all events
+                print("[EmulatorManager] Pygame events blocked")
+            except Exception as e:
+                print(f"[EmulatorManager] Event block warning: {e}")
+        
         # Store whether we fully quit the display (needed for handheld reinit)
         display_was_quit = False
         
@@ -189,6 +197,8 @@ class EmulatorManager:
                 pygame.display.quit()
                 display_was_quit = True
                 print("[EmulatorManager] Display quit for embedded handheld")
+                # Give GPU time to fully release (critical for RetroArch on Pi)
+                time.sleep(0.2)
             else:
                 # Full Linux or desktop: iconify
                 pygame.display.iconify()
@@ -204,14 +214,29 @@ class EmulatorManager:
 
         try:
             # Launch the external emulator
-            self.process = subprocess.Popen(
-                cmd,
-                env=env,
-                stderr=subprocess.STDOUT,
-                text=True,
-                bufsize=1,
-                start_new_session=True
-            )
+            # RetroPie: use shell to match EmulationStation's launch environment
+            use_shell = getattr(self.active_provider, 'is_desktop_retropie', False)
+            
+            if use_shell:
+                cmd_str = ' '.join([f'"{arg}"' if ' ' in arg else arg for arg in cmd])
+                self.process = subprocess.Popen(
+                    cmd_str,
+                    env=env,
+                    shell=True,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    bufsize=1,
+                    start_new_session=True
+                )
+            else:
+                self.process = subprocess.Popen(
+                    cmd,
+                    env=env,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    bufsize=1,
+                    start_new_session=True
+                )
             self.is_running = True
             self._exit_handled = False
 
