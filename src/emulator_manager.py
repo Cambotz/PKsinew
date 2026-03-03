@@ -69,7 +69,7 @@ class EmulatorManager:
 
         # Register Providers — when use_external_providers is False, skip
         # non-integrated providers so only the built-in mGBA fallback is used.
-        # Sort so integrated providers (fallbacks) are always probed last.
+        # Sort by: 1) integrated last, 2) higher priority first (for platform-specific providers)
         import providers
         self.providers = sorted(
             [
@@ -80,7 +80,10 @@ class EmulatorManager:
                 and getattr(cls, 'active', False)
                 and (use_external_providers or getattr(cls, 'is_integrated', False))
             ],
-            key=lambda p: (1 if getattr(p, 'is_integrated', False) else 0)
+            key=lambda p: (
+                1 if getattr(p, 'is_integrated', False) else 0,  # Integrated last
+                -getattr(p, 'priority', 0)  # Higher priority first (negated for descending)
+            )
         )
 
         self._detect_environment()

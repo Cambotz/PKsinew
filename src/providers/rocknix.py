@@ -16,6 +16,8 @@ from settings import save_sinew_settings
 
 class RocknixProvider(EmulatorProvider):
     active = True
+    priority = 10  # Check before DesktopRetroarch (which has priority=0 by default)
+
     @property
     def supported_os(self):
         return ["linux"]
