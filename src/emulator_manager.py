@@ -141,6 +141,13 @@ class EmulatorManager:
         # Release the hardware
         controller_manager.pause()
         
+        # Clean up audio to prevent conflicts with RetroArch
+        try:
+            pygame.mixer.quit()
+            print("[EmulatorManager] Audio mixer stopped")
+        except Exception as e:
+            print(f"[EmulatorManager] Audio cleanup warning: {e}")
+        
         # Store whether we fully quit the display (needed for handheld reinit)
         display_was_quit = False
         
@@ -212,6 +219,10 @@ class EmulatorManager:
             def wait_for_exit():
                 self.process.wait()
                 print("[EmulatorManager] Subprocess ended. Resuming Sinew controls...")
+                
+                # Give hardware time to fully release
+                time.sleep(0.5)
+                
                 self.is_running = False
                 
                 # Reinit display if we quit it for embedded handheld
@@ -221,6 +232,13 @@ class EmulatorManager:
                         print("[EmulatorManager] Display reinitialized")
                     except Exception as e:
                         print(f"[EmulatorManager] Display reinit error: {e}")
+                
+                # Restart audio mixer
+                try:
+                    pygame.mixer.init()
+                    print("[EmulatorManager] Audio mixer restarted")
+                except Exception as e:
+                    print(f"[EmulatorManager] Audio restart warning: {e}")
                 
                 if not self._exit_handled:
                     self._exit_handled = True
