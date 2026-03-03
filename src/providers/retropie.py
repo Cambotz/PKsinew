@@ -43,28 +43,56 @@ class RetroPieProvider(EmulatorProvider):
             return
 
         # RetroPie standard paths
-        # Check multiple possible locations
-        possible_paths = [
-            os.path.expanduser("~/RetroPie"),  # Current user's home
-            "/home/pi/RetroPie",                # Default pi user
-            "/root/RetroPie"                    # Root user
-        ]
+        # Build list of possible RetroPie locations dynamically
+        possible_paths = []
+        
+        # 1. Current user's home directory
+        possible_paths.append(os.path.expanduser("~/RetroPie"))
+        
+        # 2. Scan /home for all user directories with RetroPie
+        if os.path.exists("/home"):
+            try:
+                for user in os.listdir("/home"):
+                    user_retropie = os.path.join("/home", user, "RetroPie")
+                    if user_retropie not in possible_paths:
+                        possible_paths.append(user_retropie)
+            except (PermissionError, OSError):
+                pass  # Can't read /home, skip scanning
+        
+        # 3. Root user (if not already added)
+        root_retropie = "/root/RetroPie"
+        if root_retropie not in possible_paths:
+            possible_paths.append(root_retropie)
         
         self.retropie_path = None
+        self.roms_dir = None
+        
+        # First pass: prioritize paths with GBA directory already set up
         for path in possible_paths:
             if os.path.exists(path):
-                self.retropie_path = path
-                print(f"[RetroPieProvider] Found RetroPie at: {path}")
-                break
+                gba_path = os.path.join(path, "roms", "gba")
+                if os.path.exists(gba_path):
+                    self.retropie_path = path
+                    self.roms_dir = gba_path
+                    print(f"[RetroPieProvider] Found RetroPie with GBA at: {path}")
+                    break
         
+        # Second pass: if no GBA found, use first RetroPie directory
         if not self.retropie_path:
-            self.retropie_path = os.path.expanduser("~/RetroPie")  # Fallback
+            for path in possible_paths:
+                if os.path.exists(path):
+                    self.retropie_path = path
+                    self.roms_dir = os.path.join(path, "roms", "gba")
+                    print(f"[RetroPieProvider] Found RetroPie at: {path} (no GBA dir yet)")
+                    break
+        
+        # Fallback if nothing found
+        if not self.retropie_path:
+            self.retropie_path = os.path.expanduser("~/RetroPie")
+            self.roms_dir = os.path.join(self.retropie_path, "roms", "gba")
         
         self.roms_base = os.path.join(self.retropie_path, "roms")
         self.configs_base = os.path.expanduser("/opt/retropie/configs")
-        
-        # GBA-specific paths
-        self.roms_dir = os.path.join(self.roms_base, "gba")
         
         # Check RetroArch config for save directory settings
         self.retroarch_cfg = os.path.join(self.configs_base, "gba", "retroarch.cfg")
