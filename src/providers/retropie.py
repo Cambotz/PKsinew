@@ -215,87 +215,45 @@ class RetroPieProvider(EmulatorProvider):
         """
         Return the command to launch a game through RetroPie.
         
-        Tries two approaches:
-        1. RetroPie's runcommand system (if properly configured)
-        2. Direct RetroArch launch (fallback if runcommand might fail)
+        Uses direct RetroArch launch to avoid conflicts with runcommand.
+        runcommand expects to be launched by EmulationStation and has
+        environmental dependencies that conflict with PKsinew.
         
         Args:
             rom_path: Absolute path to the ROM file
-            core: Core selection (not used - RetroPie/RetroArch handles this)
+            core: Core selection (not used - uses configured default)
         
         Returns:
             list: Command to launch the emulator
         """
-        # Check if RetroPie has emulators.cfg configured for GBA
-        emulators_cfg = os.path.join(self.configs_base, "gba", "emulators.cfg")
+        # Direct RetroArch launch (bypasses runcommand)
+        print(f"[RetroPieProvider] Using direct RetroArch launch")
         
-        if os.path.exists(emulators_cfg):
-            # Use runcommand if configuration exists
-            cmd = [
-                "/opt/retropie/supplementary/runcommand/runcommand.sh",
-                "0",      # Video mode: 0 = default
-                "_SYS_",  # System name token (RetroPie resolves this)
-                "gba",    # System identifier
-                rom_path
-            ]
-            print(f"[RetroPieProvider] Using runcommand: {' '.join(cmd)}")
-            return cmd
-        else:
-            # Fallback: launch RetroArch directly
-            print(f"[RetroPieProvider] No emulators.cfg at {emulators_cfg}")
-            print(f"[RetroPieProvider] Using direct RetroArch launch")
-            
-            # Find RetroArch binary
-            retroarch_bin = None
-            retroarch_paths = [
-                "/opt/retropie/emulators/retroarch/bin/retroarch",
-                "/usr/bin/retroarch",
-                "/usr/local/bin/retroarch"
-            ]
-            
-            for path in retroarch_paths:
-                if os.path.exists(path):
-                    retroarch_bin = path
-                    print(f"[RetroPieProvider] Found RetroArch at: {path}")
-                    break
-            
-            if not retroarch_bin:
-                print("[RetroPieProvider] ERROR: RetroArch binary not found")
-                print(f"[RetroPieProvider] Searched: {retroarch_paths}")
-                return None
-            
-            # Find mGBA core
-            core_paths = [
-                "/opt/retropie/libretrocores/lr-mgba/mgba_libretro.so",
-                "/usr/lib/libretro/mgba_libretro.so",
-                "/usr/lib/arm-linux-gnueabihf/libretro/mgba_libretro.so"
-            ]
-            
-            mgba_core = None
-            for path in core_paths:
-                if os.path.exists(path):
-                    mgba_core = path
-                    print(f"[RetroPieProvider] Found mGBA core at: {path}")
-                    break
-            
-            if not mgba_core:
-                print("[RetroPieProvider] ERROR: mGBA core not found")
-                print(f"[RetroPieProvider] Searched: {core_paths}")
-                return None
-            
-            # Get RetroArch config
-            retroarch_config = self.retroarch_cfg
-            if not os.path.exists(retroarch_config):
-                retroarch_config = self.retroarch_global_cfg
-            
-            cmd = [
-                retroarch_bin,
-                "-L", mgba_core,
-                "--config", retroarch_config,
-                rom_path
-            ]
-            print(f"[RetroPieProvider] Direct command: {' '.join(cmd)}")
-            return cmd
+        # Find RetroArch binary
+        retroarch_bin = "/opt/retropie/emulators/retroarch/bin/retroarch"
+        if not os.path.exists(retroarch_bin):
+            print(f"[RetroPieProvider] ERROR: RetroArch not found at {retroarch_bin}")
+            return None
+        
+        # Find mGBA core
+        mgba_core = "/opt/retropie/libretrocores/lr-mgba/mgba_libretro.so"
+        if not os.path.exists(mgba_core):
+            print(f"[RetroPieProvider] ERROR: mGBA core not found at {mgba_core}")
+            return None
+        
+        # Get RetroArch config
+        retroarch_config = self.retroarch_cfg
+        if not os.path.exists(retroarch_config):
+            retroarch_config = self.retroarch_global_cfg
+        
+        cmd = [
+            retroarch_bin,
+            "-L", mgba_core,
+            "--config", retroarch_config,
+            rom_path
+        ]
+        print(f"[RetroPieProvider] Command: {' '.join(cmd)}")
+        return cmd
 
     def _update_sinew_cache(self, key, value):
         """Helper to update persistent settings only when changed."""
