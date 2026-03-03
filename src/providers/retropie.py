@@ -253,6 +253,18 @@ class RetroPieProvider(EmulatorProvider):
             rom_path
         ]
         
+        # Force fast-forward off to prevent speed issues when launched from PKsinew
+        # (fast-forward can get stuck on when RetroArch doesn't have proper display access)
+        cmd.insert(-1, "--appendconfig")
+        cmd.insert(-1, "/dev/shm/retroarch_pksinew.cfg")
+        
+        # Create temporary config to force fast-forward off
+        try:
+            with open("/dev/shm/retroarch_pksinew.cfg", "w") as f:
+                f.write("fastforward_ratio = \"1.0\"\n")  # Normal speed
+        except Exception as e:
+            print(f"[RetroPieProvider] Warning: Could not write temp config: {e}")
+        
         # Debug: Log environment variables that might affect speed
         import os as os_module
         env_vars = ['SDL_VIDEODRIVER', 'DISPLAY', 'WAYLAND_DISPLAY', 'HOME', 
