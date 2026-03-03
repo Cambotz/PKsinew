@@ -162,11 +162,11 @@ class EmulatorManager:
             # ROCKNIX uses Wayland but is still embedded (no full desktop)
             is_embedded_firmware = False
             
-            # RetroPie special handling: runs on full Raspberry Pi OS with X11/desktop
-            # Use iconify (desktop mode) not quit (embedded mode)
+            # RetroPie special handling: needs display quit to release GPU for RetroArch
+            # Even though it runs on desktop OS, RetroArch needs exclusive GPU access
             if getattr(self.active_provider, 'is_desktop_retropie', False):
-                is_embedded_firmware = False
-                print(f"[EmulatorManager] RetroPie detected - using desktop mode (iconify)")
+                is_embedded_firmware = True  # Changed: treat as embedded for display handling
+                print(f"[EmulatorManager] RetroPie detected - quitting display for RetroArch")
             elif IS_HANDHELD:
                 # Check 1: ROCKNIX specifically (has ES but no full DE)
                 if os.path.exists('/usr/bin/emulationstation') and not os.path.exists('/usr/bin/gnome-shell'):
