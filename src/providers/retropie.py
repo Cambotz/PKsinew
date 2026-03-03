@@ -13,9 +13,8 @@ class RetroPieProvider(EmulatorProvider):
     External emulator provider for RetroPie on Raspberry Pi.
     
     RetroPie uses RetroArch for most emulation with a custom launch system.
-    This provider detects RetroPie installations and launches games through
-    the runcommand.sh wrapper script, which properly configures video modes
-    and ensures correct frame timing.
+    This provider launches RetroArch directly with the proper configuration
+    to ensure correct frame timing when launched from within an X11 session.
     
     ROM and save file handling
     --------------------------
@@ -100,7 +99,7 @@ class RetroPieProvider(EmulatorProvider):
         self.retroarch_cfg = os.path.join(self.configs_base, "gba", "retroarch.cfg")
         self.retroarch_global_cfg = os.path.join(self.configs_base, "all", "retroarch.cfg")
         
-        # runcommand.sh path
+        # runcommand.sh path (for reference)
         self.runcommand_path = "/opt/retropie/supplementary/runcommand/runcommand.sh"
         
         # Determine saves directory from RetroArch configuration
@@ -215,73 +214,41 @@ class RetroPieProvider(EmulatorProvider):
         print(f"[RetroPieProvider] Using base saves directory: {base_save_dir}")
         return base_save_dir
 
+    def _get_environment_overrides(self):
+        """
+        Get environment variable overrides needed for proper RetroArch operation.
+        
+        When launching from X11 (DISPLAY is set), we need to ensure RetroArch
+        uses the correct video context and has proper frame timing.
+        
+        Returns:
+            dict: Environment variables to set/override
+        """
+        env = {}
+        
+        # If running in X11, ensure SDL uses x11 driver for proper vsync
+        if os.environ.get('DISPLAY'):
+            env['SDL_VIDEODRIVER'] = 'x11'
+        
+        return env
+
     def get_command(self, rom_path, core="auto"):
         """
-        Return the command to launch a game through RetroPie's runcommand.sh.
+        Return the command to launch RetroArch directly with proper frame timing.
         
-        Using runcommand.sh is critical because it:
-        - Sets up proper video mode switching (KMS/DRM settings)
-        - Configures SDL environment variables for correct frame timing
-        - Handles CPU governor settings for performance
-        - Ensures vsync works correctly
-        
-        Without runcommand.sh, RetroArch may run without frame throttling,
-        causing games to run at unlimited speed.
+        When launched from X11 (which Sinew runs in when DISPLAY=:0), we need to:
+        1. Use the gl video driver (not kms/drm which needs console)
+        2. Enable vsync and audio sync for proper frame timing
+        3. Use fullscreen to avoid compositor interference
         
         Args:
             rom_path: Absolute path to the ROM file
             core: Core selection (not used - uses configured default)
         
         Returns:
-            list: Command to launch the emulator via runcommand.sh
+            list: Command to launch the emulator
         """
-        print(f"[RetroPieProvider] Launching via runcommand.sh for proper video timing")
-        
-        # Verify runcommand.sh exists
-        if not os.path.exists(self.runcommand_path):
-            print(f"[RetroPieProvider] ERROR: runcommand.sh not found at {self.runcommand_path}")
-            return self._get_direct_command(rom_path)
-        
-        # runcommand.sh arguments:
-        # $1 = video mode (0 = use default from config)
-        # $2 = command type (_SYS_ = use system's default emulator)
-        # $3 = system name (gba)
-        # $4 = ROM path
-        #
-        # This matches how EmulationStation launches games
-        cmd = [
-            self.runcommand_path,
-            "0",        # Video mode: 0 = use configured default
-            "_SYS_",    # Use system's configured emulator
-            "gba",      # System name
-            rom_path    # ROM path
-        ]
-        
-        # Debug: Log environment variables
-        env_vars = ['SDL_VIDEODRIVER', 'DISPLAY', 'WAYLAND_DISPLAY', 'HOME', 
-                    'XDG_RUNTIME_DIR', 'SDL_VIDEO_GL_DRIVER', 'TTY']
-        print(f"[RetroPieProvider] Environment check:")
-        for var in env_vars:
-            val = os.environ.get(var, 'NOT SET')
-            print(f"[RetroPieProvider]   {var}={val}")
-        
-        print(f"[RetroPieProvider] Command: {' '.join(cmd)}")
-        return cmd
-
-    def _get_direct_command(self, rom_path):
-        """
-        Fallback: Return command for direct RetroArch launch.
-        
-        This is used only if runcommand.sh is not available.
-        May have frame timing issues - runcommand.sh is preferred.
-        
-        Args:
-            rom_path: Absolute path to the ROM file
-        
-        Returns:
-            list: Command to launch RetroArch directly
-        """
-        print(f"[RetroPieProvider] WARNING: Using direct RetroArch launch (frame timing may be affected)")
+        print(f"[RetroPieProvider] Using direct RetroArch launch for X11 environment")
         
         # Find RetroArch binary
         retroarch_bin = "/opt/retropie/emulators/retroarch/bin/retroarch"
@@ -300,46 +267,88 @@ class RetroPieProvider(EmulatorProvider):
         if not os.path.exists(retroarch_config):
             retroarch_config = self.retroarch_global_cfg
         
+        # Create temporary override config for proper frame timing
+        # This is critical - without these settings RetroArch may run unthrottled
+        override_config = "/dev/shm/retroarch_sinew_override.cfg"
+        try:
+            with open(override_config, "w") as f:
+                # === VIDEO SETTINGS ===
+                # Use GL driver for X11 compatibility (not kms/drm)
+                f.write('video_driver = "gl"\n')
+                
+                # Enable vsync - syncs to display refresh rate
+                f.write('video_vsync = "true"\n')
+                
+                # Disable VRR (variable refresh rate) - use fixed timing
+                f.write('vrr_runloop_enable = "false"\n')
+                
+                # Vsync swap interval - wait for 1 vsync between frames
+                f.write('video_swap_interval = "1"\n')
+                
+                # Disable threaded video - better sync but may reduce performance
+                # This is the KEY setting that prevents unthrottled speed
+                f.write('video_threaded = "false"\n')
+                
+                # Max swapchain images - helps with frame pacing
+                f.write('video_max_swapchain_images = "2"\n')
+                
+                # Frame delay settings
+                f.write('video_frame_delay = "0"\n')
+                f.write('video_frame_delay_auto = "false"\n')
+                
+                # Run fullscreen to avoid compositor interference
+                f.write('video_fullscreen = "true"\n')
+                f.write('video_windowed_fullscreen = "false"\n')
+                
+                # === AUDIO SETTINGS ===
+                # Audio sync is CRITICAL - this is often the primary frame limiter
+                f.write('audio_sync = "true"\n')
+                
+                # Use ALSA for audio (standard on Pi)
+                f.write('audio_driver = "alsa"\n')
+                
+                # Audio latency - lower = more responsive but may crackle
+                f.write('audio_latency = "64"\n')
+                
+                # === FRAME THROTTLING ===
+                # Disable fast-forward by default
+                f.write('fastforward_ratio = "0.000000"\n')
+                
+                # These settings prevent the "turbo mode" behavior
+                f.write('input_toggle_fast_forward = "nul"\n')
+                f.write('input_hold_fast_forward = "nul"\n')
+                
+                print(f"[RetroPieProvider] Created override config: {override_config}")
+        except Exception as e:
+            print(f"[RetroPieProvider] Warning: Could not write override config: {e}")
+            override_config = None
+        
+        # Build command
         cmd = [
             retroarch_bin,
             "-L", mgba_core,
             "--config", retroarch_config,
-            rom_path
         ]
         
-        # Force vsync and frame throttling settings via append config
-        cmd.insert(-1, "--appendconfig")
-        cmd.insert(-1, "/dev/shm/retroarch_pksinew.cfg")
+        # Append override config if created
+        if override_config:
+            cmd.extend(["--appendconfig", override_config])
         
-        # Create temporary config to enforce proper frame timing
-        try:
-            with open("/dev/shm/retroarch_pksinew.cfg", "w") as f:
-                # Frame rate limiting
-                f.write("fastforward_ratio = \"1.0\"\n")
-                
-                # VSync settings
-                f.write("vsync = \"true\"\n")
-                f.write("vrr_runloop_enable = \"false\"\n")
-                
-                # Audio sync - critical for frame timing
-                f.write("audio_sync = \"true\"\n")
-                
-                # Frame delay settings
-                f.write("video_frame_delay = \"0\"\n")
-                f.write("video_frame_delay_auto = \"false\"\n")
-                
-                # Swap chain settings
-                f.write("video_max_swapchain_images = \"3\"\n")
-                f.write("video_swap_interval = \"1\"\n")
-                
-                # Disable threaded video for better sync
-                f.write("video_threaded = \"false\"\n")
-                
-                print("[RetroPieProvider] Created temp config with vsync/throttle settings")
-        except Exception as e:
-            print(f"[RetroPieProvider] Warning: Could not write temp config: {e}")
+        # Add verbose flag for debugging (remove for production)
+        # cmd.append("--verbose")
         
-        print(f"[RetroPieProvider] Direct command: {' '.join(cmd)}")
+        # ROM path must be last
+        cmd.append(rom_path)
+        
+        # Debug: Log environment and command
+        env_vars = ['SDL_VIDEODRIVER', 'DISPLAY', 'WAYLAND_DISPLAY', 'HOME', 
+                    'XDG_RUNTIME_DIR', 'SDL_VIDEO_GL_DRIVER', 'TTY']
+        print(f"[RetroPieProvider] Environment check:")
+        for var in env_vars:
+            val = os.environ.get(var, 'NOT SET')
+            print(f"[RetroPieProvider]   {var}={val}")
+        
+        print(f"[RetroPieProvider] Command: {' '.join(cmd)}")
         return cmd
 
     def _update_sinew_cache(self, key, value):
@@ -352,9 +361,15 @@ class RetroPieProvider(EmulatorProvider):
         """
         Called after the emulator exits.
         
-        RetroPie's runcommand handles input restoration, so this is a no-op.
+        Clean up temporary config file.
         """
-        pass
+        # Clean up override config
+        override_config = "/dev/shm/retroarch_sinew_override.cfg"
+        try:
+            if os.path.exists(override_config):
+                os.remove(override_config)
+        except Exception:
+            pass
 
     def terminate(self, process):
         """
