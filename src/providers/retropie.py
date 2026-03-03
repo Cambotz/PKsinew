@@ -253,15 +253,38 @@ class RetroPieProvider(EmulatorProvider):
             rom_path
         ]
         
-        # Force fast-forward off to prevent speed issues when launched from PKsinew
-        # (fast-forward can get stuck on when RetroArch doesn't have proper display access)
+        # Force vsync and frame throttling to prevent speed issues when launched from PKsinew
+        # When not launched through runcommand/EmulationStation, RetroArch may not have
+        # proper display sync configured, causing the game to run at unlimited speed.
         cmd.insert(-1, "--appendconfig")
         cmd.insert(-1, "/dev/shm/retroarch_pksinew.cfg")
         
-        # Create temporary config to force fast-forward off
+        # Create temporary config to enforce proper frame timing
         try:
             with open("/dev/shm/retroarch_pksinew.cfg", "w") as f:
-                f.write("fastforward_ratio = \"1.0\"\n")  # Normal speed
+                # Frame rate limiting
+                f.write("fastforward_ratio = \"1.0\"\n")  # Cap fast-forward to 1x (normal speed)
+                
+                # VSync - sync to display refresh rate
+                f.write("vsync = \"true\"\n")
+                f.write("vrr_runloop_enable = \"false\"\n")  # Disable variable refresh rate
+                
+                # Audio sync - use audio as timing source (most reliable)
+                f.write("audio_sync = \"true\"\n")
+                
+                # Frame delay settings
+                f.write("video_frame_delay = \"0\"\n")
+                f.write("video_frame_delay_auto = \"false\"\n")
+                
+                # Swap chain / buffer settings
+                f.write("video_max_swapchain_images = \"3\"\n")
+                f.write("video_swap_interval = \"1\"\n")  # Wait for 1 vsync between frames
+                
+                # Ensure throttle is enabled (this is the key setting!)
+                f.write("video_threaded = \"false\"\n")  # Disable threaded video for better sync
+                f.write("menu_throttle_framerate = \"true\"\n")
+                
+                print("[RetroPieProvider] Created temp config with vsync/throttle settings")
         except Exception as e:
             print(f"[RetroPieProvider] Warning: Could not write temp config: {e}")
         
