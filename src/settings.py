@@ -730,6 +730,8 @@ class KeyboardMapper:
         ("DOWN", "GBA Down"),
         ("LEFT", "GBA Left"),
         ("RIGHT", "GBA Right"),
+        ("FF_TOGGLE", "Fast-Fwd Toggle"),
+        ("FF_HOLD", "Fast-Fwd Hold"),
     ]
 
     # Default bindings (pygame key constants)
@@ -755,6 +757,8 @@ class KeyboardMapper:
         "DOWN": [pygame.K_DOWN, pygame.K_s],
         "LEFT": [pygame.K_LEFT, pygame.K_a],
         "RIGHT": [pygame.K_RIGHT, pygame.K_d],
+        "FF_TOGGLE": [pygame.K_F1],
+        "FF_HOLD": [pygame.K_TAB],
     }
 
     LISTEN_TIMEOUT = 5.0  # seconds
@@ -819,6 +823,10 @@ class KeyboardMapper:
         settings = load_sinew_settings()
         settings["keyboard_nav_map"] = self.nav_map
         settings["keyboard_emulator_map"] = self.emu_map
+        # Also write FF bindings to their own top-level keys so the emulator
+        # can load them without knowing about the full emu_map structure.
+        settings["keyboard_ff_toggle_key"] = self.emu_map.get("FF_TOGGLE", [pygame.K_F1])
+        settings["keyboard_ff_hold_key"] = self.emu_map.get("FF_HOLD", [pygame.K_TAB])
         save_sinew_settings(settings)
         print("[KeyboardMapper] Saved keyboard bindings")
         if self.reload_kb_callback:
@@ -1204,8 +1212,8 @@ class MainSetup:
             "Input": [
                 {"name": "Swap A/B Buttons", "type": "toggle", "value": False},
                 {"name": "Pause/Menu Combo", "type": "button"},
-                {"name": "Map Buttons", "type": "button"},
-                {"name": "Reset to Default", "type": "button"},
+                {"name": "Map Controller", "type": "button"},
+                {"name": "Reset Controller Defaults", "type": "button"},
                 {"name": "Map Keyboard Keys", "type": "button"},
                 {"name": "Reset Keyboard Defaults", "type": "button"},
             ],
@@ -1270,8 +1278,8 @@ class MainSetup:
 
         # Load mGBA tab settings
         for opt in self.tab_options["mGBA"]:
-            if opt["name"] == "Fast-Forward":
-                opt["value"] = settings.get("mgba_fastforward_enabled", False)
+            if opt["name"] == "Controller FF Buttons":
+                opt["value"] = settings.get("mgba_ctrl_ff_enabled", True)
             elif opt["name"] == "Fast-Forward Speed":
                 saved_idx = settings.get("mgba_fastforward_index", 0)
                 opt["slider_index"] = max(0, min(saved_idx, len(opt["speed_values"]) - 1))
@@ -1335,7 +1343,7 @@ class MainSetup:
 
         # Integrated options (always built — shown or hidden depending on mode)
         integrated_opts = [
-            {"name": "Fast-Forward", "type": "toggle", "value": False},
+            {"name": "Controller FF Buttons", "type": "toggle", "value": True},
             {
                 "name": "Fast-Forward Speed",
                 "type": "slider",
@@ -1402,8 +1410,8 @@ class MainSetup:
         settings = load_sinew_settings()
         for opt in self.tab_options["mGBA"]:
             name = opt["name"]
-            if name == "Fast-Forward":
-                opt["value"] = settings.get("mgba_fastforward_enabled", False)
+            if name == "Controller FF Buttons":
+                opt["value"] = settings.get("mgba_ctrl_ff_enabled", True)
             elif name == "Fast-Forward Speed":
                 saved_idx = settings.get("mgba_fastforward_index", 0)
                 opt["slider_index"] = max(0, min(saved_idx, len(opt.get("speed_values", [0])) - 1))
@@ -1586,31 +1594,31 @@ class MainSetup:
                 # Fallback: no dedicated callback, treat as full toggle OFF
                 self.emulator_provider_callback(False)
 
-        elif name == "Fast-Forward":
+        elif name == "Controller FF Buttons":
             self._save_mgba_fastforward_settings()
             self._apply_fastforward_to_emulator()
         elif name == "Mute Emulator":
             self._save_and_apply_mgba_mute(value)
 
     def _save_mgba_fastforward_settings(self):
-        """Persist fast-forward toggle + speed index to sinew_settings.json."""
-        enabled = False
+        """Persist controller FF enabled flag + speed index to sinew_settings.json."""
+        ctrl_ff_enabled = True
         speed_index = 0
         speed_values = [2, 3, 4, 5, 6, 7, 8, 9, 10]
         for opt in self.tab_options.get("mGBA", []):
-            if opt["name"] == "Fast-Forward":
-                enabled = opt.get("value", False)
+            if opt["name"] == "Controller FF Buttons":
+                ctrl_ff_enabled = opt.get("value", True)
             elif opt["name"] == "Fast-Forward Speed":
                 speed_index = opt.get("slider_index", 0)
                 speed_values = opt.get("speed_values", speed_values)
-        multiplier = speed_values[speed_index] if enabled else 1
         try:
             s = load_sinew_settings()
-            s["mgba_fastforward_enabled"] = enabled
+            s["mgba_ctrl_ff_enabled"] = ctrl_ff_enabled
             s["mgba_fastforward_index"] = speed_index
             s["mgba_fastforward_speed"] = speed_values[speed_index]
             save_sinew_settings(s)
-            print(f"[Settings] Fast-Forward: {'ON' if enabled else 'OFF'} @ {speed_values[speed_index]}x")  # pylint: disable=line-too-long  # noqa: E501
+            status = "ON" if ctrl_ff_enabled else "OFF"
+            print(f"[Settings] Controller FF Buttons: {status} @ {speed_values[speed_index]}x")
         except Exception as e:
             print(f"[Settings] Failed to save fast-forward settings: {e}")
 
@@ -1634,25 +1642,20 @@ class MainSetup:
         return None
 
     def _apply_fastforward_to_emulator(self):
-        """Push the current fast-forward state to the running emulator via builtins."""
-        enabled = False
-        speed_index = 0
-        speed_values = [2, 3, 4, 5, 6, 7, 8, 9, 10]
+        """Push the controller FF enabled state to the running emulator via builtins."""
+        ctrl_ff_enabled = True
         for opt in self.tab_options.get("mGBA", []):
-            if opt["name"] == "Fast-Forward":
-                enabled = opt.get("value", False)
-            elif opt["name"] == "Fast-Forward Speed":
-                speed_index = opt.get("slider_index", 0)
-                speed_values = opt.get("speed_values", speed_values)
-        multiplier = speed_values[speed_index] if enabled else 1
+            if opt["name"] == "Controller FF Buttons":
+                ctrl_ff_enabled = opt.get("value", True)
+                break
         try:
             emu = self._get_integrated_mgba_emulator()
-            if emu is not None and hasattr(emu, "set_fast_forward"):
-                emu.set_fast_forward(multiplier)
-                label = f"{multiplier}x" if enabled else "Off"
-                print(f"[Settings] Applied fast-forward to emulator: {label}")
+            if emu is not None and hasattr(emu, "set_ctrl_ff_enabled"):
+                emu.set_ctrl_ff_enabled(ctrl_ff_enabled)
+                status = "ON" if ctrl_ff_enabled else "OFF"
+                print(f"[Settings] Controller FF Buttons applied to emulator: {status}")
         except Exception as e:
-            print(f"[Settings] Could not apply fast-forward to emulator: {e}")
+            print(f"[Settings] Could not apply controller FF state to emulator: {e}")
 
     # ---- Volume (General tab) ----
 
@@ -1798,7 +1801,7 @@ class MainSetup:
                 self.db_builder_callback()
             else:
                 print("[Settings] DB builder callback not available")
-        elif name == "Map Buttons":
+        elif name == "Map Controller":
             if BUTTON_MAPPER_AVAILABLE:
                 print("[Settings] Opening button mapper...")
                 self._set_sub_screen(
@@ -1837,7 +1840,7 @@ class MainSetup:
             km = KeyboardMapper(self.width, self.height)
             km._reset_to_defaults()
             self._status_msg("Keyboard defaults restored")
-        elif name == "Reset to Default":
+        elif name == "Reset Controller Defaults":
             print("[Settings] Resetting controller to defaults...")
             if self.controller:
                 # Reset to default mapping
