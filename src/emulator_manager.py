@@ -133,9 +133,14 @@ class EmulatorManager:
 
         # --- Slow path: iterate all remaining providers ---
         print("[EmulatorManager] Running full provider scan...")
-        claimed_distros_failed = {
-            self.distro_id
-        } if self.distro_id else set()  # avoid re-running a provider that already failed above
+        # Track which provider instance already failed the fast path so we don't re-run it
+        fast_path_failed = set()
+        if self.distro_id:
+            for provider in self.providers:
+                claimed = getattr(provider, 'claimed_distros', set())
+                if self.distro_id in claimed:
+                    fast_path_failed.add(id(provider))
+                    break
 
         for provider in self.providers:
             name = type(provider).__name__
@@ -145,9 +150,7 @@ class EmulatorManager:
                     f" supports {provider.supported_os}, current OS is '{self.current_os}'"
                 )
                 continue
-            # Skip any provider whose claimed_distros already failed the fast path
-            claimed = getattr(provider, 'claimed_distros', set())
-            if claimed & claimed_distros_failed:
+            if id(provider) in fast_path_failed:
                 print(f"[EmulatorManager] Skipping {name}: already failed fast-path probe.")
                 continue
             if provider.probe(self.distro_id):
