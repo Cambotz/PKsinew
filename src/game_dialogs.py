@@ -295,7 +295,7 @@ class ProviderSwitchDialog:
 
     def _btn_rect(self):
         bw, bh = 100, 28
-        return pygame.Rect(self.width // 2 - bw // 2, self.height - 44, bw, bh)
+        return pygame.Rect(self.width // 2 - bw // 2, self.height - 52, bw, bh)
 
     def handle_controller(self, ctrl):
         if not ctrl:
@@ -408,7 +408,7 @@ class ProviderErrorDialog:
 
     def _btn_rect(self):
         bw, bh = 100, 28
-        return pygame.Rect(self.width // 2 - bw // 2, self.height - 44, bw, bh)
+        return pygame.Rect(self.width // 2 - bw // 2, self.height - 52, bw, bh)
 
     def handle_controller(self, ctrl):
         if not ctrl:

@@ -332,6 +332,92 @@ class EmulatorSessionMixin:
     # External emulator toggle handler
     # ------------------------------------------------------------------
 
+    def _on_use_integrated_mgba(self):
+        """
+        Called from the mGBA tab's 'Use Integrated mGBA' toggle.
+
+        Switches the active *emulator* to integrated mGBA without changing
+        the file paths.  If external paths exist (provider had a roms_dir
+        different from ROMS_DIR) we keep use_emulator_provider = True so
+        the external ROMs/saves remain visible — we just run them through
+        the built-in core instead of an external binary.
+
+        The General tab 'Use External Providers' toggle is NOT flipped.
+        The mGBA tab is rebuilt to show the integrated options.
+        """
+        from game_dialogs import ProviderSwitchDialog
+        from config import ROMS_DIR, SAVES_DIR
+
+        _pw, _ph = 300, 175
+
+        # Determine whether external paths were in use
+        info = (self.emulator_manager.get_provider_info()
+                if self.emulator_manager else None)
+        had_external_paths = bool(
+            info and info.get("roms_dir") and info["roms_dir"] != ROMS_DIR
+        )
+
+        roms  = (info["roms_dir"] if had_external_paths else ROMS_DIR) if info else ROMS_DIR
+        saves = (info["saves_dir"] or SAVES_DIR) if info else SAVES_DIR
+
+        lines = [
+            "Switching to Sinew integrated mGBA.",
+        ]
+        if had_external_paths:
+            lines += [
+                "External paths kept:",
+                f"ROM paths:  {roms}",
+                f"Save paths: {saves}",
+            ]
+        else:
+            lines += [
+                f"ROM paths:  {ROMS_DIR}",
+                f"Save paths: {SAVES_DIR}",
+            ]
+
+        def _commit():
+            import builtins
+            from settings import save_sinew_settings_merged as _ssm
+            try:
+                from emulator_manager import EmulatorManager
+                # Rebuild with external providers OFF (integrated only)
+                new_manager = EmulatorManager(use_external_providers=False)
+                self.emulator_manager = new_manager
+            except Exception:
+                pass
+
+            # Keep use_emulator_provider ON if external paths exist — paths
+            # haven't changed, only the emulator binary has.
+            if not had_external_paths:
+                self.settings['use_emulator_provider'] = False
+                builtins.SINEW_USE_EMULATOR_PROVIDER = False
+                _ssm({'use_emulator_provider': False})
+
+            # Sync settings UI: mGBA tab → integrated options, General toggle unchanged
+            if hasattr(self, '_pending_settings_modal') and self._pending_settings_modal:
+                try:
+                    # Pass current use_emulator_provider value so General toggle is correct
+                    self._pending_settings_modal.revert_provider_toggle(
+                        self.settings.get('use_emulator_provider', False)
+                    )
+                except Exception:
+                    pass
+            self.modal_instance = None
+
+        if hasattr(self, '_pending_settings_modal') and self._pending_settings_modal:
+            self._pending_settings_modal = self._pending_settings_modal
+
+        dialog = ProviderSwitchDialog(
+            _pw, _ph, screen_size=(self.width, self.height),
+            title="Switching to Integrated mGBA",
+            lines=lines,
+            on_accept=_commit,
+        )
+        if hasattr(self, 'modal_instance') and hasattr(self.modal_instance,
+                                                        'revert_provider_toggle'):
+            self._pending_settings_modal = self.modal_instance
+        self.modal_instance = dialog
+
     def _on_emulator_provider_toggled(self, enabled):
         """Rebuild the game list when the user toggles the emulator provider setting.
 

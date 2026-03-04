@@ -649,6 +649,7 @@ class Settings:
         scaler=None,
         reload_combo_callback=None,
         emulator_provider_callback=None,
+        use_integrated_mgba_callback=None,
     ):
         self.width = w
         self.height = h
@@ -664,6 +665,7 @@ class Settings:
             scaler=scaler,
             reload_combo_callback=reload_combo_callback,
             emulator_provider_callback=emulator_provider_callback,
+            use_integrated_mgba_callback=use_integrated_mgba_callback,
         )
         self.visible = True
 
@@ -1137,6 +1139,7 @@ class MainSetup:
         scaler=None,
         reload_combo_callback=None,
         emulator_provider_callback=None,
+        use_integrated_mgba_callback=None,
     ):
         self.width = width
         self.height = height
@@ -1149,6 +1152,7 @@ class MainSetup:
         self.scaler = scaler
         self.reload_combo_callback = reload_combo_callback
         self.emulator_provider_callback = emulator_provider_callback
+        self.use_integrated_mgba_callback = use_integrated_mgba_callback
         self.controller = get_controller()
 
         # Sub-screen state
@@ -1568,15 +1572,18 @@ class MainSetup:
                 self.emulator_provider_callback(value)
 
         elif name == "Use External Emulator":
-            # mGBA tab: user wants to switch FROM integrated TO external
-            # Treat as turning Use External Providers ON
+            # mGBA tab: switch FROM integrated TO external binary
             if self.emulator_provider_callback:
                 self.emulator_provider_callback(True)
 
         elif name == "Use Integrated mGBA":
-            # mGBA tab: user wants to switch FROM external BACK to integrated
-            # Treat as turning Use External Providers OFF
-            if self.emulator_provider_callback:
+            # mGBA tab: switch FROM external binary TO integrated mGBA,
+            # but KEEP external paths (use_emulator_provider stays True if
+            # external paths exist — we're only changing the emulator, not paths).
+            if self.use_integrated_mgba_callback:
+                self.use_integrated_mgba_callback()
+            elif self.emulator_provider_callback:
+                # Fallback: no dedicated callback, treat as full toggle OFF
                 self.emulator_provider_callback(False)
 
         elif name == "Fast-Forward":
