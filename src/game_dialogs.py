@@ -264,13 +264,15 @@ class ProviderSwitchDialog:
         )
     """
 
-    def __init__(self, width, height, title, lines, on_accept=None, title_color=None):
+    def __init__(self, width, height, title, lines, on_accept=None, title_color=None,
+                 screen_size=None):
         self.width = width
         self.height = height
         self.title = title
         self.lines = lines  # list of strings
         self.on_accept = on_accept
         self.visible = True
+        self.screen_size = screen_size  # (screen_w, screen_h) for mouse offset
 
         self._last_click_time = 0
         self._click_debounce_ms = 300
@@ -316,10 +318,19 @@ class ProviderSwitchDialog:
                     self._accept()
             elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 if current_time - self._last_click_time > self._click_debounce_ms:
-                    if self._btn_rect().collidepoint(event.pos):
+                    local_pos = self._to_local(event.pos)
+                    if self._btn_rect().collidepoint(local_pos):
                         self._last_click_time = current_time
                         self._accept()
         return self.visible
+
+    def _to_local(self, pos):
+        """Translate screen-space mouse pos to popup-local coordinates."""
+        if self.screen_size:
+            ox = (self.screen_size[0] - self.width) // 2
+            oy = (self.screen_size[1] - self.height) // 2
+            return (pos[0] - ox, pos[1] - oy)
+        return pos
 
     def draw(self, surf):
         surf.fill(ui_colors.COLOR_BG)
@@ -369,13 +380,14 @@ class ProviderErrorDialog:
     the problem obvious.
     """
 
-    def __init__(self, width, height, title, lines, on_accept=None):
+    def __init__(self, width, height, title, lines, on_accept=None, screen_size=None):
         self.width = width
         self.height = height
         self.title = title
         self.lines = lines
         self.on_accept = on_accept
         self.visible = True
+        self.screen_size = screen_size  # (screen_w, screen_h) for mouse offset
 
         self._last_click_time = 0
         self._click_debounce_ms = 300
@@ -419,10 +431,19 @@ class ProviderErrorDialog:
                     self._accept()
             elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 if current_time - self._last_click_time > self._click_debounce_ms:
-                    if self._btn_rect().collidepoint(event.pos):
+                    local_pos = self._to_local(event.pos)
+                    if self._btn_rect().collidepoint(local_pos):
                         self._last_click_time = current_time
                         self._accept()
         return self.visible
+
+    def _to_local(self, pos):
+        """Translate screen-space mouse pos to popup-local coordinates."""
+        if self.screen_size:
+            ox = (self.screen_size[0] - self.width) // 2
+            oy = (self.screen_size[1] - self.height) // 2
+            return (pos[0] - ox, pos[1] - oy)
+        return pos
 
     def draw(self, surf):
         surf.fill(ui_colors.COLOR_BG)

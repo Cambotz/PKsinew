@@ -126,8 +126,9 @@ class EmulatorSessionMixin:
                         pass
                 self.modal_instance = None
 
+            _pw, _ph = 300, 160
             self.modal_instance = ProviderErrorDialog(
-                self.width, self.height,
+                _pw, _ph, screen_size=(self.width, self.height),
                 title="No Emulator Provider Found",
                 lines=[
                     "No provider is available to launch this game.",
@@ -346,6 +347,9 @@ class EmulatorSessionMixin:
         from game_dialogs import ProviderSwitchDialog, ProviderErrorDialog
         from config import ROMS_DIR, SAVES_DIR
 
+        # Small centred popup — not full screen
+        _pw, _ph = 300, 175
+
         try:
             screen = pygame.display.get_surface()
         except Exception:
@@ -396,8 +400,7 @@ class EmulatorSessionMixin:
                     def _revert_to_integrated_a():
                         _revert_ui(False)
                         self._commit_provider_toggle(False, new_manager, screen)
-                    dialog = ProviderSwitchDialog(
-                        self.width, self.height,
+                    dialog = ProviderSwitchDialog(_pw, _ph, screen_size=(self.width, self.height),
                         title=dialog_title, lines=lines,
                         on_accept=_revert_to_integrated_a,
                     )
@@ -414,8 +417,7 @@ class EmulatorSessionMixin:
                         f"ROM paths:  {info['roms_dir']}",
                         f"Save paths: {saves}",
                     ]
-                    dialog = ProviderSwitchDialog(
-                        self.width, self.height,
+                    dialog = ProviderSwitchDialog(_pw, _ph, screen_size=(self.width, self.height),
                         title=dialog_title, lines=lines,
                         on_accept=lambda: self._commit_provider_toggle(
                             True, new_manager, screen),
@@ -436,8 +438,7 @@ class EmulatorSessionMixin:
                         "Paths not found — using Sinew paths.",
                         f"ROM paths:  {ROMS_DIR}",
                     ]
-                    dialog = ProviderErrorDialog(
-                        self.width, self.height,
+                    dialog = ProviderErrorDialog(_pw, _ph, screen_size=(self.width, self.height),
                         title=dialog_title, lines=lines,
                         on_accept=lambda: self._commit_provider_toggle(
                             True, new_manager, screen),
@@ -451,8 +452,7 @@ class EmulatorSessionMixin:
                         f"ROM paths:  {roms}",
                         f"Save paths: {saves}",
                     ]
-                    dialog = ProviderSwitchDialog(
-                        self.width, self.height,
+                    dialog = ProviderSwitchDialog(_pw, _ph, screen_size=(self.width, self.height),
                         title=dialog_title, lines=lines,
                         on_accept=lambda: self._commit_provider_toggle(
                             True, new_manager, screen),
@@ -474,8 +474,7 @@ class EmulatorSessionMixin:
                         pass
                     self.modal_instance = None
 
-                dialog = ProviderErrorDialog(
-                    self.width, self.height,
+                dialog = ProviderErrorDialog(_pw, _ph, screen_size=(self.width, self.height),
                     title="No External Provider Found",
                     lines=[
                         "No compatible external emulator",
@@ -502,8 +501,7 @@ class EmulatorSessionMixin:
                 f"ROM paths:  {ROMS_DIR}",
                 f"Save paths: {SAVES_DIR}",
             ]
-            dialog = ProviderSwitchDialog(
-                self.width, self.height,
+            dialog = ProviderSwitchDialog(_pw, _ph, screen_size=(self.width, self.height),
                 title="Switching to Integrated mGBA",
                 lines=lines,
                 on_accept=lambda: self._commit_provider_toggle(
