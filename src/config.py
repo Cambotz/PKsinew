@@ -203,6 +203,30 @@ def _detect_cfw():
 CFW_NAME = _detect_cfw() if IS_HANDHELD else None
 
 
+def _is_retropie():
+    """
+    Detect if running on a RetroPie installation.
+    RetroPie can run on any Raspberry Pi OS (ID=debian or ID=raspbian),
+    identified by the presence of the runcommand launcher.
+    """
+    return os.path.exists("/opt/retropie/supplementary/runcommand/runcommand.sh")
+
+
+IS_RETROPIE = _is_retropie()
+
+
+def _default_use_external_providers():
+    """
+    Return True if external providers should be ON by default.
+    Applies to: any handheld CFW device, or a RetroPie installation.
+    Desktop users start with integrated mGBA and can opt in manually.
+    """
+    return IS_HANDHELD or IS_RETROPIE
+
+
+DEFAULT_USE_EXTERNAL_PROVIDERS = _default_use_external_providers()
+
+
 def _detect_video_driver():
     """
     Detect which video driver is in use.

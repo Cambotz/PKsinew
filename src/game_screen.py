@@ -131,17 +131,30 @@ class GameScreen(
         import builtins
         if not hasattr(builtins, 'SINEW_DEV_MODE'):
             builtins.SINEW_DEV_MODE = self.settings.get('dev_mode', False)
+
+        # Determine default for external providers — ON for handhelds/RetroPie,
+        # OFF for desktop users (they can opt in via settings).
+        from config import DEFAULT_USE_EXTERNAL_PROVIDERS
+        _provider_default = DEFAULT_USE_EXTERNAL_PROVIDERS
         if not hasattr(builtins, 'SINEW_USE_EMULATOR_PROVIDER'):
-            builtins.SINEW_USE_EMULATOR_PROVIDER = self.settings.get('use_emulator_provider', False)
+            # First-run: seed the setting from hardware-detected default if not saved yet
+            if 'use_emulator_provider' not in self.settings:
+                self.settings['use_emulator_provider'] = _provider_default
+                from settings import save_sinew_settings_merged as _ssm
+                _ssm({'use_emulator_provider': _provider_default})
+                print(f'[GameScreen] Defaulting external providers to {_provider_default}'
+                      f' (IS_HANDHELD/IS_RETROPIE)')
+            builtins.SINEW_USE_EMULATOR_PROVIDER = self.settings.get(
+                'use_emulator_provider', _provider_default)
 
         # Emulator manager — always initialized; use_provider controls whether
         # external (subprocess) providers are included alongside built-in mGBA.
-        use_provider = self.settings.get('use_emulator_provider', False)
+        use_provider = self.settings.get('use_emulator_provider', _provider_default)
         try:
             from emulator_manager import EmulatorManager
             self.emulator_manager = EmulatorManager(use_external_providers=use_provider)
             if self.emulator_manager.active_provider:
-                print(f'[EmulatorManager] Provider ready: {type(
+                print(f'[EmulatorManager] Provider ready: {type(\
                     self.emulator_manager.active_provider).__name__}')
             else:
                 print('[EmulatorManager] No provider matched this environment')

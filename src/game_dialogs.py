@@ -240,3 +240,219 @@ class DBWarningPopup:
             text_surf = self.font_button.render(btn_text, True, ui_colors.COLOR_TEXT)
             text_rect = text_surf.get_rect(center=rect.center)
             surf.blit(text_surf, text_rect)
+
+
+class ProviderSwitchDialog:
+    """
+    Info/confirmation dialog shown when the user toggles the external
+    emulator provider on or off.
+
+    Displays a title, a multi-line message, and a single "Accept" button.
+    The dialog cannot be dismissed with B — the user must explicitly accept,
+    so they've acknowledged the path/emulator change.
+
+    Usage:
+        dialog = ProviderSwitchDialog(
+            width, height,
+            title="Switching to External Emulator",
+            lines=[
+                "Emulator:  RocknixProvider",
+                "ROM paths: ~/roms/gba",
+                "Save paths: ~/roms/gba",
+            ],
+            on_accept=my_callback,
+        )
+    """
+
+    def __init__(self, width, height, title, lines, on_accept=None, title_color=None):
+        self.width = width
+        self.height = height
+        self.title = title
+        self.lines = lines  # list of strings
+        self.on_accept = on_accept
+        self.visible = True
+
+        self._last_click_time = 0
+        self._click_debounce_ms = 300
+
+        try:
+            self.font_title = pygame.font.Font(FONT_PATH, 13)
+            self.font_text  = pygame.font.Font(FONT_PATH, 10)
+            self.font_btn   = pygame.font.Font(FONT_PATH, 11)
+        except Exception:
+            self.font_title = pygame.font.SysFont(None, 20)
+            self.font_text  = pygame.font.SysFont(None, 16)
+            self.font_btn   = pygame.font.SysFont(None, 18)
+
+        self.title_color = title_color or ui_colors.COLOR_HIGHLIGHT
+
+    def _accept(self):
+        self.visible = False
+        if self.on_accept:
+            self.on_accept()
+
+    def _btn_rect(self):
+        bw, bh = 100, 28
+        return pygame.Rect(self.width // 2 - bw // 2, self.height - 44, bw, bh)
+
+    def handle_controller(self, ctrl):
+        if not ctrl:
+            return False
+        current_time = pygame.time.get_ticks()
+        if ctrl.is_button_just_pressed("A"):
+            if current_time - self._last_click_time > self._click_debounce_ms:
+                self._last_click_time = current_time
+                ctrl.consume_button("A")
+                self._accept()
+                return True
+        return False
+
+    def update(self, events):
+        current_time = pygame.time.get_ticks()
+        for event in events:
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_RETURN:
+                if current_time - self._last_click_time > self._click_debounce_ms:
+                    self._last_click_time = current_time
+                    self._accept()
+            elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                if current_time - self._last_click_time > self._click_debounce_ms:
+                    if self._btn_rect().collidepoint(event.pos):
+                        self._last_click_time = current_time
+                        self._accept()
+        return self.visible
+
+    def draw(self, surf):
+        surf.fill(ui_colors.COLOR_BG)
+
+        # Title
+        t_surf = self.font_title.render(self.title, True, self.title_color)
+        surf.blit(t_surf, t_surf.get_rect(centerx=self.width // 2, top=14))
+
+        # Divider
+        pygame.draw.line(surf, ui_colors.COLOR_BORDER,
+                         (16, 36), (self.width - 16, 36), 1)
+
+        # Lines
+        y = 46
+        for line in self.lines:
+            # Allow "Key: value" to colour the key part
+            if ": " in line:
+                key, val = line.split(": ", 1)
+                k_surf = self.font_text.render(key + ": ", True, ui_colors.COLOR_BORDER)
+                v_surf = self.font_text.render(val, True, ui_colors.COLOR_TEXT)
+                surf.blit(k_surf, (20, y))
+                surf.blit(v_surf, (20 + k_surf.get_width(), y))
+            else:
+                l_surf = self.font_text.render(line, True, ui_colors.COLOR_TEXT)
+                surf.blit(l_surf, l_surf.get_rect(centerx=self.width // 2, top=y))
+            y += 16
+
+        # Accept button
+        btn = self._btn_rect()
+        pygame.draw.rect(surf, ui_colors.COLOR_BUTTON_HOVER, btn, border_radius=4)
+        pygame.draw.rect(surf, ui_colors.COLOR_HIGHLIGHT, btn, 2, border_radius=4)
+        a_surf = self.font_btn.render("Accept", True, ui_colors.COLOR_TEXT)
+        surf.blit(a_surf, a_surf.get_rect(center=btn.center))
+
+        # Hint
+        h_surf = self.font_text.render("A / Enter to accept", True, ui_colors.COLOR_BORDER)
+        surf.blit(h_surf, h_surf.get_rect(centerx=self.width // 2, bottom=self.height - 6))
+
+
+class ProviderErrorDialog:
+    """
+    Error dialog shown when no external provider could be found, or when
+    external paths are missing.  Displays an error title, message lines,
+    and a single "Accept" button that triggers a revert callback.
+
+    Unlike ProviderSwitchDialog the title is coloured ERROR red to make
+    the problem obvious.
+    """
+
+    def __init__(self, width, height, title, lines, on_accept=None):
+        self.width = width
+        self.height = height
+        self.title = title
+        self.lines = lines
+        self.on_accept = on_accept
+        self.visible = True
+
+        self._last_click_time = 0
+        self._click_debounce_ms = 300
+
+        try:
+            self.font_title = pygame.font.Font(FONT_PATH, 13)
+            self.font_text  = pygame.font.Font(FONT_PATH, 10)
+            self.font_btn   = pygame.font.Font(FONT_PATH, 11)
+        except Exception:
+            self.font_title = pygame.font.SysFont(None, 20)
+            self.font_text  = pygame.font.SysFont(None, 16)
+            self.font_btn   = pygame.font.SysFont(None, 18)
+
+    def _accept(self):
+        self.visible = False
+        if self.on_accept:
+            self.on_accept()
+
+    def _btn_rect(self):
+        bw, bh = 100, 28
+        return pygame.Rect(self.width // 2 - bw // 2, self.height - 44, bw, bh)
+
+    def handle_controller(self, ctrl):
+        if not ctrl:
+            return False
+        current_time = pygame.time.get_ticks()
+        if ctrl.is_button_just_pressed("A"):
+            if current_time - self._last_click_time > self._click_debounce_ms:
+                self._last_click_time = current_time
+                ctrl.consume_button("A")
+                self._accept()
+                return True
+        return False
+
+    def update(self, events):
+        current_time = pygame.time.get_ticks()
+        for event in events:
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_RETURN:
+                if current_time - self._last_click_time > self._click_debounce_ms:
+                    self._last_click_time = current_time
+                    self._accept()
+            elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                if current_time - self._last_click_time > self._click_debounce_ms:
+                    if self._btn_rect().collidepoint(event.pos):
+                        self._last_click_time = current_time
+                        self._accept()
+        return self.visible
+
+    def draw(self, surf):
+        surf.fill(ui_colors.COLOR_BG)
+
+        # Error title
+        t_surf = self.font_title.render(self.title, True, ui_colors.COLOR_ERROR)
+        surf.blit(t_surf, t_surf.get_rect(centerx=self.width // 2, top=14))
+
+        pygame.draw.line(surf, ui_colors.COLOR_BORDER,
+                         (16, 36), (self.width - 16, 36), 1)
+
+        y = 46
+        for line in self.lines:
+            if ": " in line:
+                key, val = line.split(": ", 1)
+                k_surf = self.font_text.render(key + ": ", True, ui_colors.COLOR_BORDER)
+                v_surf = self.font_text.render(val, True, ui_colors.COLOR_TEXT)
+                surf.blit(k_surf, (20, y))
+                surf.blit(v_surf, (20 + k_surf.get_width(), y))
+            else:
+                l_surf = self.font_text.render(line, True, ui_colors.COLOR_TEXT)
+                surf.blit(l_surf, l_surf.get_rect(centerx=self.width // 2, top=y))
+            y += 16
+
+        # Accept button
+        btn = self._btn_rect()
+        pygame.draw.rect(surf, ui_colors.COLOR_ERROR, btn, border_radius=4)
+        pygame.draw.rect(surf, ui_colors.COLOR_HIGHLIGHT, btn, 2, border_radius=4)
+        a_surf = self.font_btn.render("Accept", True, ui_colors.COLOR_TEXT)
+        surf.blit(a_surf, a_surf.get_rect(center=btn.center))
+
+        h_surf = self.font_text.render("A / Enter to accept", True, ui_colors.COLOR_BORDER)
+        surf.blit(h_surf, h_surf.get_rect(centerx=self.width // 2, bottom=self.height - 6))
