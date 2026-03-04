@@ -25,6 +25,22 @@ class TemplateProvider(EmulatorProvider):
 
     active = False
 
+    # List the OS/firmware distro IDs this provider exclusively targets.
+    # These are matched against the 'ID=' field in /etc/os-release (lowercased).
+    #
+    # Examples:
+    #   claimed_distros = {"rocknix", "jelos"}   # ROCKNIX / former JELOS firmware
+    #   claimed_distros = {"raspbian"}            # Raspberry Pi OS (RetroPie)
+    #   claimed_distros = {"muos"}                # muOS handheld firmware
+    #   claimed_distros = set()                   # Generic fallback — always scanned
+    #
+    # When claimed_distros is non-empty and the current distro_id matches,
+    # EmulatorManager fast-paths directly to this provider and skips all others.
+    # probe() is still called as a sanity check (e.g. required binaries present).
+    # Leave as set() if this provider should work on any distro via probe() scan
+    # (e.g. a generic desktop provider).
+    claimed_distros: set = set()
+
     @property
     def supported_os(self):
         # Return a list of platforms this provider works on
@@ -49,11 +65,16 @@ class TemplateProvider(EmulatorProvider):
 
     def probe(self, distro_id) -> bool:
         """
-        Logic to determine if this provider should be active.
-        distro_id is passed from the main controller (e.g., 'rocknix').
+        Sanity check — called after a claimed_distros fast-path match, or during
+        the full provider scan if claimed_distros is empty.
+
+        Return True only if this provider is genuinely usable on the current system.
+        Typically checks for required binaries, directories, or config files.
+
+        distro_id: lowercased 'ID=' value from /etc/os-release, or None on non-Linux.
         """
-        # Example: check for a specific OS name and a required binary
-        # if distro_id == "my_os_name":
+        # Example: verify the firmware launcher binary actually exists
+        # if distro_id in self.claimed_distros:
         #     return os.path.exists("/path/to/launcher")
         return False
 

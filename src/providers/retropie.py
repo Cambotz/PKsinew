@@ -1,310 +1,455 @@
 #!/usr/bin/env python3
 
-"""RetroPie provider for PKsinew."""
+"""
+desktop_retroarch.py
+
+Desktop provider for RetroArch on Linux, macOS, and Windows.
+
+Linux   — checks for the 'retroarch' package binary, then the Flatpak
+          org.libretro.RetroArch (preference is configurable).
+macOS   — checks for 'retroarch' in PATH (Homebrew / manual install),
+          then the RetroArch.app bundle in /Applications.
+Windows — checks for 'retroarch.exe' in PATH, then the common default
+          install locations under %APPDATA% and Program Files.
+
+On all platforms the retroarch.cfg is parsed for the cores and saves
+directories.  Falls back to Sinew defaults when config values are missing
+or point to non-existent directories.
+"""
 
 import os
 import platform
+import signal
+import subprocess
+from enum import Enum
+
+from config import ROMS_DIR, SAVES_DIR
 from emulator_manager import EmulatorProvider
 from settings import save_sinew_settings
 
 
-class RetroPieProvider(EmulatorProvider):
+class InstallationType(str, Enum):
+    """Preferred installation type for RetroArch discovery."""
+    PACKAGE  = "package"   # system package / Homebrew / PATH binary
+    FLATPAK  = "flatpak"   # Linux Flatpak only
+    APP      = "app"       # macOS .app bundle
+    PORTABLE = "portable"  # Windows portable / installer paths
+
+
+_CURRENT_OS = platform.system().lower()   # "linux" | "darwin" | "windows"
+
+
+class DesktopRetroarch(EmulatorProvider):
     """
-    External emulator provider for RetroPie on Raspberry Pi.
-    
-    RetroPie uses RetroArch for most emulation with a custom launch system.
-    This provider launches RetroArch directly with configuration overrides
-    to ensure correct frame timing.
-    
-    ROM and save file handling
-    --------------------------
-    The provider sets self.roms_dir and self.saves_dir to point at RetroPie's
-    standard directory structure. The application reads these attributes and
-    handles all ROM/save detection and pairing internally.
+    Cross-platform RetroArch provider for Linux, macOS, and Windows desktops.
+    Discovers the RetroArch binary, reads retroarch.cfg, and resolves
+    the best available GBA core for launch.
     """
 
     active = True
-    is_desktop_retropie = True  # Tells EmulatorManager to quit display for RetroArch
+    claimed_distros: set = set()  # Generic fallback — never fast-pathed, always scanned
 
     @property
     def supported_os(self):
-        """RetroPie runs on Linux (Raspberry Pi OS)."""
-        return ["linux"]
+        return ["linux", "darwin", "windows"]
 
-    def __init__(self, sinew_settings):
+    def __init__(
+        self,
+        sinew_settings,
+        preferred_installation: InstallationType = InstallationType.PACKAGE,
+    ):
         self.settings = sinew_settings
+        self.pref_inst = preferred_installation
 
-        # Only set paths on Linux to avoid errors on other platforms
-        if platform.system().lower() != "linux":
-            self.roms_dir = None
-            self.saves_dir = None
-            if "emulator_cache" not in self.settings:
-                self.settings["emulator_cache"] = {}
-            self.cache = self.settings["emulator_cache"]
-            return
-
-        # RetroPie standard paths
-        # Build list of possible RetroPie locations dynamically
-        possible_paths = []
-        
-        # 1. Current user's home directory
-        possible_paths.append(os.path.expanduser("~/RetroPie"))
-        
-        # 2. Scan /home for all user directories with RetroPie
-        if os.path.exists("/home"):
-            try:
-                for user in os.listdir("/home"):
-                    user_retropie = os.path.join("/home", user, "RetroPie")
-                    if user_retropie not in possible_paths:
-                        possible_paths.append(user_retropie)
-            except (PermissionError, OSError):
-                pass  # Can't read /home, skip scanning
-        
-        # 3. Root user (if not already added)
-        root_retropie = "/root/RetroPie"
-        if root_retropie not in possible_paths:
-            possible_paths.append(root_retropie)
-        
-        self.retropie_path = None
-        self.roms_dir = None
-        
-        # First pass: prioritize paths with GBA directory already set up
-        for path in possible_paths:
-            if os.path.exists(path):
-                gba_path = os.path.join(path, "roms", "gba")
-                if os.path.exists(gba_path):
-                    self.retropie_path = path
-                    self.roms_dir = gba_path
-                    print(f"[RetroPieProvider] Found RetroPie with GBA at: {path}")
-                    break
-        
-        # Second pass: if no GBA found, use first RetroPie directory
-        if not self.retropie_path:
-            for path in possible_paths:
-                if os.path.exists(path):
-                    self.retropie_path = path
-                    self.roms_dir = os.path.join(path, "roms", "gba")
-                    print(f"[RetroPieProvider] Found RetroPie at: {path} (no GBA dir yet)")
-                    break
-        
-        # Fallback if nothing found
-        if not self.retropie_path:
-            self.retropie_path = os.path.expanduser("~/RetroPie")
-            self.roms_dir = os.path.join(self.retropie_path, "roms", "gba")
-        
-        self.roms_base = os.path.join(self.retropie_path, "roms")
-        self.configs_base = os.path.expanduser("/opt/retropie/configs")
-        
-        # Check RetroArch config for save directory settings
-        self.retroarch_cfg = os.path.join(self.configs_base, "gba", "retroarch.cfg")
-        self.retroarch_global_cfg = os.path.join(self.configs_base, "all", "retroarch.cfg")
-        
-        # runcommand.sh path (for reference)
-        self.runcommand_path = "/opt/retropie/supplementary/runcommand/runcommand.sh"
-        
-        # Determine saves directory from RetroArch configuration
-        self.saves_dir = self._resolve_saves_directory()
-        
-        print(f"[RetroPieProvider] ROMs dir: {self.roms_dir}")
-        print(f"[RetroPieProvider] Saves dir: {self.saves_dir}")
+        self.retroarch_command: list[str] | None = None
+        self.config_path: str | None = None
+        self.core_path: str | None = None
+        self.saves_dir: str = SAVES_DIR
+        self.roms_dir: str = ROMS_DIR
 
         # Initialize internal cache reference
         if "emulator_cache" not in self.settings:
             self.settings["emulator_cache"] = {}
         self.cache = self.settings["emulator_cache"]
 
-    def probe(self, distro_id):
-        """
-        Return True if RetroPie is installed and configured for GBA.
-        
-        Checks for:
-        - RetroPie directory structure
-        - runcommand.sh launch script
-        - GBA ROMs directory (must already exist)
-        """
-        # Check for RetroPie-specific paths
-        retropie_exists = os.path.exists(self.retropie_path)
-        runcommand_exists = os.path.exists(self.runcommand_path)
-        gba_dir_exists = os.path.exists(self.roms_dir)
-        
-        print(
-            f"[RetroPieProvider] Probe - RetroPie: {retropie_exists}, "
-            f"runcommand: {runcommand_exists}, GBA dir: {gba_dir_exists}"
-        )
-        
-        # All three conditions must be met
-        return retropie_exists and runcommand_exists and gba_dir_exists
+    # ------------------------------------------------------------------
+    # EmulatorProvider interface
+    # ------------------------------------------------------------------
 
-    def _get_retroarch_setting(self, setting_key, config_path=None):
-        """
-        Read a setting from a RetroArch config file.
-        
-        Args:
-            setting_key: The config key to read (e.g., 'savefile_directory')
-            config_path: Path to config file (uses defaults if None)
-        
-        Returns:
-            str: The setting value, or None if not found
-        """
-        # Try GBA-specific config first, then fall back to global
-        configs_to_check = [self.retroarch_cfg, self.retroarch_global_cfg]
-        if config_path:
-            configs_to_check.insert(0, config_path)
-        
-        for cfg_path in configs_to_check:
-            if not os.path.exists(cfg_path):
-                continue
-                
-            try:
-                with open(cfg_path, 'r') as f:
-                    for line in f:
-                        clean_line = line.strip()
-                        # Skip comments and empty lines
-                        if not clean_line or clean_line.startswith('#'):
-                            continue
-                        
-                        if clean_line.startswith(setting_key):
-                            parts = clean_line.split('=', 1)
-                            if len(parts) > 1:
-                                value = parts[1].strip().strip('"').strip("'")
-                                return value
-            except Exception as e:
-                print(f"[RetroPieProvider] Error reading {cfg_path}: {e}")
-        
-        return None
+    def probe(self, distro_id) -> bool:
+        """Return True if RetroArch is installed and configured on this system."""
+        print(f"[DesktopRetroarch] Probing on {_CURRENT_OS} (pref: {self.pref_inst})")
+        self.retroarch_command = self._find_installation()
 
-    def _resolve_saves_directory(self):
-        """
-        Determine where save files are stored based on RetroArch configuration.
-        
-        RetroPie can store saves in several locations:
-        - Same directory as ROMs (savefiles_in_content_dir = true)
-        - Custom directory (savefile_directory setting)
-        - Per-system subdirectories (sort_savefiles_by_content_enable = true)
-        
-        Returns:
-            str: Absolute path to saves directory
-        """
-        # Check if saves are in the same directory as ROMs
-        in_content_dir = self._get_retroarch_setting("savefiles_in_content_dir")
-        if in_content_dir == "true":
-            return self.roms_dir
-        
-        # Get the base save directory
-        base_save_dir = self._get_retroarch_setting("savefile_directory")
-        
-        # Handle default or empty values
-        if not base_save_dir or base_save_dir.lower() == "default":
-            return self.roms_dir
-        
-        # Expand home tilde if present
-        base_save_dir = os.path.expanduser(base_save_dir)
-        
-        # Check for per-system subdirectories
-        sort_by_content = self._get_retroarch_setting("sort_savefiles_by_content_enable")
-        if sort_by_content == "true":
-            return os.path.join(base_save_dir, "gba")
-        
-        return base_save_dir
+        if self.retroarch_command is None:
+            print("[DesktopRetroarch] RetroArch binary not found in PATH or known locations.")
+            print("[DesktopRetroarch] Add retroarch to PATH or install it to a default location.")
+            return False
+
+        print(f"[DesktopRetroarch] Found RetroArch: {' '.join(self.retroarch_command)}")
+
+        config_path = self._find_config()
+        if not config_path:
+            print("[DesktopRetroarch] No retroarch.cfg found in any expected location.")
+            return False
+
+        print(f"[DesktopRetroarch] Config: {config_path}")
+        self.config_path = config_path
+        if not self._parse_config(config_path):
+            return False
+
+        print(f"[DesktopRetroarch] Cores dir: {self.core_path}")
+        print(f"[DesktopRetroarch] Saves dir: {self.saves_dir}")
+
+        # ROMs directory: RetroArch has no single roms_dir in its config.
+        # Use retroarch_roms_dir from cache if set (user-editable), otherwise
+        # auto-detect and seed the cache key so the user can edit it later.
+        custom_roms = self.cache.get("retroarch_roms_dir", "")
+        if custom_roms and os.path.isdir(custom_roms):
+            self.roms_dir = custom_roms
+        else:
+            if self.retroarch_command:
+                raw_exe = self.retroarch_command[0]
+                # Only meaningful when the command is a real absolute path;
+                # bare names like 'flatpak' or 'retroarch' have no useful dir.
+                if os.path.isabs(raw_exe):
+                    exe_dir = os.path.dirname(raw_exe)
+                    roms_candidate = os.path.join(exe_dir, "roms")
+                    if os.path.isdir(roms_candidate):
+                        self.roms_dir = roms_candidate
+                # else: keep ROMS_DIR default set in __init__
+            # Seed the key so it's visible in sinew_settings.json for editing.
+            # Only written when not already present — never overwrites user edits.
+            if not custom_roms:
+                self._update_sinew_cache("retroarch_roms_dir", self.roms_dir)
+
+        print(f"[DesktopRetroarch] ROMs dir: {self.roms_dir}")
+
+        # Persist other resolved paths (informational, not user-editable).
+        self._update_sinew_cache("retroarch_resolved_exe", self.retroarch_command[0])
+        self._update_sinew_cache("retroarch_resolved_config", self.config_path)
+        self._update_sinew_cache("retroarch_resolved_cores", self.core_path)
+        self._update_sinew_cache("retroarch_resolved_saves", self.saves_dir)
+
+        return True
 
     def get_command(self, rom_path, core="auto"):
-        """
-        Return the command to launch RetroArch directly.
-        
-        Uses configuration overrides to ensure proper frame timing:
-        - SDL2 audio driver (handles device sharing better than ALSA)
-        - VSync enabled as primary frame limiter
-        - Threaded video disabled so vsync actually blocks
-        
-        Args:
-            rom_path: Absolute path to the ROM file
-            core: Core selection (not used - uses configured default)
-        
-        Returns:
-            list: Command to launch the emulator
-        """
-        # Find RetroArch binary
-        retroarch_bin = "/opt/retropie/emulators/retroarch/bin/retroarch"
-        if not os.path.exists(retroarch_bin):
-            print(f"[RetroPieProvider] ERROR: RetroArch not found at {retroarch_bin}")
+        """Return the shell command list to launch RetroArch with the given ROM."""
+        if not self.retroarch_command:
+            print("[DesktopRetroarch] No RetroArch command available (probe not run or failed).")
             return None
-        
-        # Find mGBA core
-        mgba_core = "/opt/retropie/libretrocores/lr-mgba/mgba_libretro.so"
-        if not os.path.exists(mgba_core):
-            print(f"[RetroPieProvider] ERROR: mGBA core not found at {mgba_core}")
+        core_file = self._find_core_file(core)
+        if not core_file:
+            print("[DesktopRetroarch] No compatible GBA core found.")
             return None
-        
-        # Get RetroArch config
-        retroarch_config = self.retroarch_cfg
-        if not os.path.exists(retroarch_config):
-            retroarch_config = self.retroarch_global_cfg
-        
-        # Create temporary override config for proper frame timing
-        override_config = "/dev/shm/retroarch_sinew_override.cfg"
-        try:
-            with open(override_config, "w") as f:
-                # Audio - use SDL2 which handles device sharing better
-                f.write('audio_driver = "sdl2"\n')
-                f.write('audio_sync = "true"\n')
-                f.write('audio_latency = "64"\n')
-                
-                # Video/VSync - primary frame limiter
-                f.write('video_vsync = "true"\n')
-                f.write('video_swap_interval = "1"\n')
-                f.write('video_threaded = "false"\n')
-                f.write('vrr_runloop_enable = "false"\n')
-                f.write('video_frame_delay = "0"\n')
-                f.write('video_frame_delay_auto = "false"\n')
-                f.write('video_hard_sync = "false"\n')
-                f.write('video_max_swapchain_images = "3"\n')
-                
-                # Disable fast forward
-                f.write('fastforward_ratio = "0.000000"\n')
-                f.write('input_toggle_fast_forward = "nul"\n')
-                f.write('input_hold_fast_forward = "nul"\n')
-                
-                # Fullscreen
-                f.write('video_fullscreen = "true"\n')
-        except Exception as e:
-            print(f"[RetroPieProvider] Warning: Could not write override config: {e}")
-            override_config = None
-        
-        # Build command
-        cmd = [
-            retroarch_bin,
-            "-L", mgba_core,
-            "--config", retroarch_config,
+
+        # retroarch -L /path/to/core.<ext> /path/to/rom.gba
+        return self.retroarch_command + ["-L", core_file, rom_path]
+
+    def on_exit(self):
+        """Called when the emulator exits cleanly."""
+        print("[DesktopRetroarch] Emulator exited.")
+
+    def terminate(self, process):
+        """Terminate the RetroArch process and call on_exit."""
+        if process:
+            try:
+                if _CURRENT_OS == "windows":
+                    # Windows does not support POSIX signals; use terminate()
+                    process.terminate()
+                else:
+                    process.send_signal(signal.SIGTERM)
+                process.wait(timeout=3)
+            except Exception as e:
+                print(f"[DesktopRetroarch] Terminate error: {e}")
+                try:
+                    process.kill()
+                except Exception:
+                    pass
+        self.on_exit()
+
+    # ------------------------------------------------------------------
+    # Installation discovery
+    # ------------------------------------------------------------------
+
+    def _find_installation(self) -> list[str] | None:
+        """Dispatch to the platform-appropriate finder, respecting preference."""
+        if _CURRENT_OS == "linux":
+            return self._find_linux()
+        if _CURRENT_OS == "darwin":
+            return self._find_macos()
+        if _CURRENT_OS == "windows":
+            return self._find_windows()
+        return None
+
+    def _find_linux(self) -> list[str] | None:
+        """Check for the retroarch package binary then the Flatpak."""
+        if self.pref_inst == InstallationType.FLATPAK:
+            result = self._find_flatpak()
+            if result:
+                return result
+            print("[DesktopRetroarch] Flatpak org.libretro.RetroArch not found, trying PATH.")
+            return self._find_binary("retroarch")
+        result = self._find_binary("retroarch")
+        if result:
+            return result
+        print("[DesktopRetroarch] 'retroarch' not in PATH, trying Flatpak.")
+        return self._find_flatpak()
+
+    def _find_macos(self) -> list[str] | None:
+        """Check for 'retroarch' in PATH (Homebrew), then the .app bundle."""
+        if self.pref_inst == InstallationType.APP:
+            result = self._find_macos_app()
+            if result:
+                return result
+            print("[DesktopRetroarch] RetroArch.app not found in /Applications, trying PATH.")
+            return self._find_binary("retroarch")
+        result = self._find_binary("retroarch")
+        if result:
+            return result
+        print("[DesktopRetroarch] 'retroarch' not in PATH, trying /Applications/RetroArch.app.")
+        return self._find_macos_app()
+
+    def _find_windows(self) -> list[str] | None:
+        """Check for 'retroarch.exe' in PATH then common install directories."""
+        path_result = self._find_binary("retroarch.exe")
+        if path_result:
+            return path_result
+
+        candidates = []
+        appdata = os.environ.get("APPDATA", "")
+        programfiles = os.environ.get("ProgramFiles", r"C:\Program Files")
+        programfiles_x86 = os.environ.get("ProgramFiles(x86)", r"C:\Program Files (x86)")
+
+        if appdata:
+            candidates.append(os.path.join(appdata, "RetroArch", "retroarch.exe"))
+        candidates += [
+            os.path.join(programfiles, "RetroArch", "retroarch.exe"),
+            os.path.join(programfiles_x86, "RetroArch", "retroarch.exe"),
+            r"C:\RetroArch-Win64\retroarch.exe",
         ]
-        
-        if override_config:
-            cmd.extend(["--appendconfig", override_config])
-        
-        cmd.append(rom_path)
-        
-        return cmd
+
+        for candidate in candidates:
+            if os.path.isfile(candidate):
+                return [candidate]
+            print(f"[DesktopRetroarch] Not found: {candidate}")
+        return None
+
+    def _find_binary(self, name: str) -> list[str] | None:
+        """Return [path] if `name` resolves to an executable via PATH."""
+        # On Windows use where.exe explicitly — 'where' is a PowerShell alias
+        # for Where-Object and will not resolve executables when spawned via
+        # subprocess.
+        cmd = "where.exe" if _CURRENT_OS == "windows" else "which"
+        try:
+            result = subprocess.run(
+                [cmd, name], capture_output=True, text=True, check=False
+            )
+            path = result.stdout.strip().splitlines()[0] if result.stdout.strip() else ""
+            if path and os.path.isfile(path):
+                return [path]
+        except FileNotFoundError:
+            pass
+        return None
+
+    def _find_flatpak(self) -> list[str] | None:
+        """Return the Flatpak run command if org.libretro.RetroArch is installed."""
+        try:
+            result = subprocess.run(
+                ["flatpak", "info", "org.libretro.RetroArch"],
+                capture_output=True,
+                check=False,
+            )
+            if result.returncode == 0:
+                return ["flatpak", "run", "org.libretro.RetroArch"]
+        except FileNotFoundError:
+            pass
+        return None
+
+    def _find_macos_app(self) -> list[str] | None:
+        """Return the command for the RetroArch.app bundle if it exists."""
+        app_path = "/Applications/RetroArch.app/Contents/MacOS/RetroArch"
+        if os.path.isfile(app_path):
+            return [app_path]
+        return None
+
+    # ------------------------------------------------------------------
+    # Config discovery & parsing
+    # ------------------------------------------------------------------
+
+    def _find_config(self) -> str | None:
+        """Return the path to retroarch.cfg for the current platform, or None."""
+        candidates: list[str] = []
+
+        if _CURRENT_OS == "linux":
+            # Flatpak RetroArch stores its config inside the sandbox data directory.
+            # Check this first when we know a Flatpak install was found.
+            if self.retroarch_command and self.retroarch_command[0] == "flatpak":
+                candidates.append(
+                    os.path.expanduser(
+                        "~/.var/app/org.libretro.RetroArch/config/retroarch/retroarch.cfg"
+                    )
+                )
+            xdg_home = os.environ.get("XDG_CONFIG_HOME", "")
+            if xdg_home:
+                candidates.append(os.path.join(xdg_home, "retroarch", "retroarch.cfg"))
+            candidates += [
+                os.path.expanduser("~/.config/retroarch/retroarch.cfg"),
+                "/etc/retroarch.cfg",
+            ]
+
+        elif _CURRENT_OS == "darwin":
+            candidates += [
+                os.path.expanduser(
+                    "~/Library/Application Support/RetroArch/retroarch.cfg"
+                ),
+                os.path.expanduser("~/.config/retroarch/retroarch.cfg"),
+            ]
+
+        elif _CURRENT_OS == "windows":
+            appdata = os.environ.get("APPDATA", "")
+            if appdata:
+                candidates.append(
+                    os.path.join(appdata, "RetroArch", "retroarch.cfg")
+                )
+            # Portable install: retroarch.cfg next to the exe
+            if self.retroarch_command:
+                exe_dir = os.path.dirname(self.retroarch_command[0])
+                if exe_dir and os.path.isabs(exe_dir):
+                    candidates.append(os.path.join(exe_dir, "retroarch.cfg"))
+
+        for path in candidates:
+            if os.path.isfile(path):
+                return path
+        return None
+
+    def _parse_config(self, config_path: str) -> bool:
+        """
+        Read retroarch.cfg and populate self.core_path / self.saves_dir.
+        Returns False if the cores directory cannot be determined.
+
+        RetroArch portable installs (common on Windows) store paths relative to
+        the executable directory using the prefix ':\\' or ':/' — e.g. ':\\cores'.
+        These are resolved against the directory containing the retroarch binary.
+        """
+        # exe_dir is only meaningful for portable installs where RetroArch writes
+        # ':/' prefixed paths relative to its own directory.  For Flatpak the
+        # command is ['flatpak', 'run', ...] so dirname('flatpak') would be ''
+        # or a system bin dir — neither is useful.  Resolve to absolute first.
+        raw_exe = self.retroarch_command[0] if self.retroarch_command else ""
+        if raw_exe and os.sep not in raw_exe and not os.path.isabs(raw_exe):
+            # Plain binary name (e.g. 'flatpak', 'retroarch') — not a real path.
+            exe_dir = ""
+        else:
+            exe_dir = os.path.dirname(os.path.abspath(raw_exe)) if raw_exe else ""
+
+        def _resolve(value: str) -> str:
+            """Expand RetroArch portable-relative paths and home tildes."""
+            value = value.strip().strip('"')
+            # Strip inline comments (e.g. "/path/to/dir" # some note)
+            if " # " in value:
+                value = value.split(" # ")[0].strip().strip('"')
+            # RetroArch portable prefix: starts with ':/' or ':\'
+            if value.startswith(":/") or value.startswith(":\\"):
+                return os.path.join(exe_dir, value[2:].lstrip("/\\")) if exe_dir else value
+            return os.path.expanduser(value)
+
+        try:
+            with open(config_path, "r") as fh:
+                lines = fh.readlines()
+
+            config: dict[str, str] = {}
+            for line in lines:
+                if " = " in line:
+                    key, _, val = line.partition(" = ")
+                    config[key.strip()] = _resolve(val)
+
+            if "libretro_directory" in config:
+                value = config["libretro_directory"]
+                if os.path.isdir(value):
+                    self.core_path = value
+                else:
+                    print("[DesktopRetroarch] Cores directory not found:", value)
+
+            if "savefile_directory" in config:
+                base = config["savefile_directory"]
+                sort_by_content = config.get("sort_savefiles_by_content_enable", "false")
+                if os.path.isdir(base):
+                    # Apply per-system subdirectory if configured
+                    if sort_by_content == "true":
+                        gba_subdir = os.path.join(base, "gba")
+                        self.saves_dir = gba_subdir if os.path.isdir(gba_subdir) else base
+                    else:
+                        self.saves_dir = base
+                else:
+                    print(
+                        "[DesktopRetroarch] Saves directory not found,"
+                        " using Sinew default."
+                    )
+                    self.saves_dir = SAVES_DIR
+            else:
+                print("[DesktopRetroarch] savefile_directory not set in config.")
+
+        except OSError as e:
+            print(f"[DesktopRetroarch] Error reading config: {e}")
+            return False
+
+        if not self.core_path:
+            print("[DesktopRetroarch] Cores directory missing.")
+            return False
+
+        return True
+
+    # ------------------------------------------------------------------
+    # Core discovery
+    # ------------------------------------------------------------------
+
+    def _find_core_file(self, preferred_core="auto") -> str | None:
+        """
+        Return the full path to the best available GBA core file.
+        Priority: mgba > vbam > vba_next > gpsp.
+        Core extension is platform-dependent: .so (Linux), .dylib (macOS), .dll (Windows).
+        If preferred_core matches one of the found cores, that is used instead.
+        """
+        if not self.core_path:
+            return None
+
+        ext_map = {"linux": ".so", "darwin": ".dylib", "windows": ".dll"}
+        core_ext = ext_map.get(_CURRENT_OS, ".so")
+
+        priority = ["mgba", "vbam", "vba_next", "gpsp"]
+        found: dict[str, str] = {}
+
+        try:
+            for fname in os.listdir(self.core_path):
+                if not fname.lower().endswith(core_ext):
+                    continue
+                lower = fname.lower()
+                for key in priority:
+                    if key in lower and key not in found:
+                        found[key] = os.path.join(self.core_path, fname)
+        except OSError as e:
+            print(f"[DesktopRetroarch] Error listing cores: {e}")
+            return None
+
+        if not found:
+            return None
+
+        if preferred_core != "auto" and preferred_core in found:
+            return found[preferred_core]
+
+        for key in priority:
+            if key in found:
+                return found[key]
+
+        return None
+
+    # ------------------------------------------------------------------
+    # Utilities
+    # ------------------------------------------------------------------
 
     def _update_sinew_cache(self, key, value):
         """Helper to update persistent settings only when changed."""
         if self.cache.get(key) != value:
             self.cache[key] = value
             save_sinew_settings(self.settings)
-
-    def on_exit(self):
-        """Called after the emulator exits. Clean up temporary config file."""
-        override_config = "/dev/shm/retroarch_sinew_override.cfg"
-        try:
-            if os.path.exists(override_config):
-                os.remove(override_config)
-        except Exception:
-            pass
-
-    def terminate(self, process):
-        """Terminate the emulator process."""
-        if process:
-            try:
-                process.terminate()
-                process.wait(timeout=2)
-            except Exception as e:
-                print(f"[RetroPieProvider] Terminate error: {e}")
-        self.on_exit()

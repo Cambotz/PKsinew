@@ -106,6 +106,37 @@ class EmulatorManager:
             print("[EmulatorManager] No providers registered (all have active = False).")
             return
 
+        # --- Fast path: direct firmware/distro match ---
+        # Providers declare `claimed_distros: set[str]` for OS IDs they own.
+        # If the current distro_id matches exactly, skip iterating every provider.
+        if self.distro_id:
+            for provider in self.providers:
+                claimed = getattr(provider, 'claimed_distros', set())
+                if self.distro_id not in claimed:
+                    continue
+                name = type(provider).__name__
+                print(
+                    f"[EmulatorManager] Direct firmware match: {name}"
+                    f" (distro='{self.distro_id}')"
+                )
+                # probe() still runs as a sanity check (required binaries present, etc.)
+                if provider.probe(self.distro_id):
+                    self.active_provider = provider
+                    print(f"[EmulatorManager] Initialized {name}")
+                    return
+                # Claimed but probe failed — log clearly and fall through to scan
+                print(
+                    f"[EmulatorManager] {name} claimed '{self.distro_id}' but probe failed"
+                    f" — falling through to full scan."
+                )
+                break  # Only one provider should ever claim a given distro
+
+        # --- Slow path: iterate all remaining providers ---
+        print("[EmulatorManager] Running full provider scan...")
+        claimed_distros_failed = {
+            self.distro_id
+        } if self.distro_id else set()  # avoid re-running a provider that already failed above
+
         for provider in self.providers:
             name = type(provider).__name__
             if self.current_os not in provider.supported_os:
@@ -114,9 +145,14 @@ class EmulatorManager:
                     f" supports {provider.supported_os}, current OS is '{self.current_os}'"
                 )
                 continue
+            # Skip any provider whose claimed_distros already failed the fast path
+            claimed = getattr(provider, 'claimed_distros', set())
+            if claimed & claimed_distros_failed:
+                print(f"[EmulatorManager] Skipping {name}: already failed fast-path probe.")
+                continue
             if provider.probe(self.distro_id):
                 self.active_provider = provider
-                print(f"[EmulatorManager] Initialized {name}")
+                print(f"[EmulatorManager] Initialized {name} (scan)")
                 return
             print(f"[EmulatorManager] {name} probe failed.")
 

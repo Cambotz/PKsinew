@@ -17,6 +17,7 @@ from settings import save_sinew_settings
 class RocknixProvider(EmulatorProvider):
     active = True
     priority = 10  # Check before DesktopRetroarch (which has priority=0 by default)
+    claimed_distros = {"rocknix", "jelos"}  # jelos = former ROCKNIX name
 
     @property
     def supported_os(self):
@@ -76,7 +77,7 @@ class RocknixProvider(EmulatorProvider):
         print(f"[RocknixProvider] Cache loaded: {self.cache}")
 
     def probe(self, distro_id):
-        is_rocknix = (distro_id == "rocknix")
+        is_rocknix = distro_id in self.claimed_distros
         script_exists = os.path.exists("/usr/bin/runemu.sh")
         print(
             f"[RocknixProvider] Probe - Distro: {distro_id}"

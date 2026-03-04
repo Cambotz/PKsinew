@@ -47,6 +47,7 @@ class DesktopRetroarch(EmulatorProvider):
     """
 
     active = True
+    claimed_distros: set = set()  # Generic fallback — never fast-pathed, always scanned
 
     @property
     def supported_os(self):
