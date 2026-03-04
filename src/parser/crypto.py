@@ -89,23 +89,26 @@ GEN3_CHARSET = {
     # Numbers (0xA1-0xAA)
     **{0xA1 + i: chr(ord("0") + i) for i in range(10)},
     # Special characters
-    0x00: "",  # Terminator (alternative)
+    0x00: " ",  # Space
     0xAB: "!",
     0xAC: "?",
     0xAD: ".",
     0xAE: "-",
-    0xB0: "…",  # Ellipsis
-    0xB1: '"',  # Left double quote
-    0xB2: '"',  # Right double quote
-    0xB3: "'",  # Apostrophe
-    0xB4: "'",  # Single quote
-    0xB5: "♂",  # Male symbol
-    0xB6: "♀",  # Female symbol
-    0xB7: ",",
-    0xB8: "/",
-    0xBA: ":",
+    0xAF: "·",   # Middle dot (interpunct)
+    0xB0: "…",   # Ellipsis
+    0xB1: "\u201C",  # Left double quote "
+    0xB2: "\u201D",  # Right double quote "
+    0xB3: "\u2018",  # Left single quote '
+    0xB4: "\u2019",  # Right single quote / apostrophe '
+    0xB5: "♂",
+    0xB6: "♀",
+    0xB7: "$",   # Pokémon Dollar
+    0xB8: ",",
+    0xB9: "×",
+    0xBA: "/",
+    0xEF: "►",
+    0xF0: ":",
     0xFF: "",  # Terminator
-    0x00: " ",  # Space (sometimes)
 }
 
 # Reverse mapping for encoding
@@ -450,45 +453,65 @@ def decode_gen3_text(data):
         elif byte == 0xA0:
             result.append("ッ")
         elif byte == 0xA1:
-            result.append("０")
+            result.append("0")
         elif byte == 0xA2:
-            result.append("１")
+            result.append("1")
         elif byte == 0xA3:
-            result.append("２")
+            result.append("2")
         elif byte == 0xA4:
-            result.append("３")
+            result.append("3")
         elif byte == 0xA5:
-            result.append("４")
+            result.append("4")
         elif byte == 0xA6:
-            result.append("５")
+            result.append("5")
         elif byte == 0xA7:
-            result.append("６")
+            result.append("6")
         elif byte == 0xA8:
-            result.append("７")
+            result.append("7")
         elif byte == 0xA9:
-            result.append("８")
+            result.append("8")
         elif byte == 0xAA:
-            result.append("９")
+            result.append("9")
         elif byte == 0xAB:
             result.append("!")
         elif byte == 0xAC:
             result.append("?")
         elif byte == 0xAD:
-            result.append("。")
+            result.append(".")
         elif byte == 0xAE:
             result.append("-")  # font doesn't work with ー
         elif byte == 0xAF:
-            result.append("・")
+            result.append("·")
+        elif byte == 0xB0:
+            result.append("…")
+        elif byte == 0xB1:
+            result.append("\u201C")  # "
+        elif byte == 0xB2:
+            result.append("\u201D")  # "
+        elif byte == 0xB3:
+            result.append("\u2018")  # '
+        elif byte == 0xB4:
+            result.append("\u2019")  # '
         elif byte == 0xB5:
             result.append("♂")
         elif byte == 0xB6:
             result.append("♀")
+        elif byte == 0xB7:
+            result.append("$")
+        elif byte == 0xB8:
+            result.append(",")
+        elif byte == 0xB9:
+            result.append("×")
         elif byte == 0xBA:
             result.append("/")
         elif 0xBB <= byte <= 0xD4:
             result.append(chr(ord("A") + (byte - 0xBB)))
         elif 0xD5 <= byte <= 0xEE:
             result.append(chr(ord("a") + (byte - 0xD5)))
+        elif byte == 0xEF:
+            result.append("►")
+        elif byte == 0xF0:
+            result.append(":")
         else:
             # Unknown character - skip or use placeholder
             pass
@@ -527,8 +550,34 @@ def encode_gen3_text(text, max_length=10, pad_byte=0xFF):
             result.append(0xAD)
         elif char == "-":
             result.append(0xAE)
-        elif char == "'":
+        elif char == "·":
+            result.append(0xAF)
+        elif char == "…":
+            result.append(0xB0)
+        elif char in ("\u201C", '"'):
+            result.append(0xB1)
+        elif char == "\u201D":
+            result.append(0xB2)
+        elif char == "\u2018":
+            result.append(0xB3)
+        elif char in ("'", "\u2019"):
             result.append(0xB4)
+        elif char == "♂":
+            result.append(0xB5)
+        elif char == "♀":
+            result.append(0xB6)
+        elif char == "$":
+            result.append(0xB7)
+        elif char == ",":
+            result.append(0xB8)
+        elif char == "×":
+            result.append(0xB9)
+        elif char == "/":
+            result.append(0xBA)
+        elif char == "►":
+            result.append(0xEF)
+        elif char == ":":
+            result.append(0xF0)
         else:
             # Unknown character - use space
             result.append(0x00)
