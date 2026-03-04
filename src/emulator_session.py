@@ -441,6 +441,11 @@ class EmulatorSessionMixin:
         except Exception:
             screen = self._loading_screen
 
+        # Capture current provider info BEFORE building the new manager —
+        # once we reinitialise with external off, the provider info is gone.
+        current_info = (self.emulator_manager.get_provider_info()
+                        if self.emulator_manager else None)
+
         # ----------------------------------------------------------------
         # Step 1 — build / reinitialise the EmulatorManager with the new flag
         # ----------------------------------------------------------------
@@ -573,12 +578,16 @@ class EmulatorSessionMixin:
 
         else:
             # --- Turning OFF (switching back to integrated mGBA) ---
-            info = (self.emulator_manager.get_provider_info()
-                    if self.emulator_manager else None)
-            had_external_paths = (
-                info and info.get("roms_dir") and info["roms_dir"] != ROMS_DIR
+            had_external_paths = bool(
+                current_info and
+                current_info.get("roms_dir") and
+                current_info["roms_dir"] != ROMS_DIR
             )
-            path_label = "external paths" if had_external_paths else "Sinew paths"
+
+            if had_external_paths:
+                path_label = "integrated (Sinew) files"
+            else:
+                path_label = "integrated (Sinew) files"
 
             lines = [
                 "Switching to Sinew integrated mGBA.",
