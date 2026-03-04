@@ -178,6 +178,7 @@ class GameScreen(
         self.menu_index = 0
         self.modal_instance = None
         self.should_close = False
+        self._pending_settings_modal = None
 
         # Emulator state
         self.emulator = None
@@ -218,6 +219,7 @@ class GameScreen(
     def _close_modal(self):
         """Close current modal"""
         self.modal_instance = None
+        self._pending_settings_modal = None
         self._last_input_time = time.time()
         self._modal_just_closed = True
 

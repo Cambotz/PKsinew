@@ -155,7 +155,7 @@ class ModalLauncherMixin:
                 get_current_game_callback=self.get_current_game_name,
             )
         elif name == "Settings" and Settings:
-            self.modal_instance = Settings(
+            settings_modal = Settings(
                 modal_w,
                 modal_h,
                 self.font,
@@ -168,6 +168,10 @@ class ModalLauncherMixin:
                 reload_combo_callback=self._reload_pause_combo_setting,
                 emulator_provider_callback=self._on_emulator_provider_toggled,
             )
+            self.modal_instance = settings_modal
+            # Keep a reference so provider dialogs can sync the Settings UI
+            # after a switch is accepted or reverted.
+            self._pending_settings_modal = settings_modal
         elif name == "Export" and ExportModal:
             current_game = self.get_current_game_name()
             self.modal_instance = ExportModal(

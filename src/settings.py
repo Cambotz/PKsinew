@@ -681,6 +681,10 @@ class Settings:
         """Delegate the draw call to the inner settings screen."""
         self.screen.draw(surf)
 
+    def revert_provider_toggle(self, use_external):
+        """Passthrough so emulator_session can flip the toggle and rebuild the mGBA tab."""
+        self.screen.revert_provider_toggle(use_external)
+
 
 # Alias for backwards compatibility
 Modal = Settings
@@ -1201,41 +1205,7 @@ class MainSetup:
                 {"name": "Map Keyboard Keys", "type": "button"},
                 {"name": "Reset Keyboard Defaults", "type": "button"},
             ],
-            "mGBA": [
-                {
-                    "name": "Fast-Forward",
-                    "type": "toggle",
-                    "value": False,
-                },
-                {
-                    "name": "Fast-Forward Speed",
-                    "type": "slider",
-                    "slider_index": 0,
-                    "labels": ["2x", "3x", "4x", "5x", "6x", "7x", "8x", "9x", "10x"],
-                    "speed_values": [2, 3, 4, 5, 6, 7, 8, 9, 10],
-                },
-                {
-                    "name": "Mute Emulator",
-                    "type": "toggle",
-                    "value": False,
-                },
-                {
-                    "name": "Audio Buffer",
-                    "type": "slider",
-                    "slider_index": AUDIO_BUFFER_OPTIONS.index(
-                        AUDIO_BUFFER_DEFAULT_ARM if _IS_ARM_AUDIO else AUDIO_BUFFER_DEFAULT
-                    ),
-                    "labels": [str(v) for v in AUDIO_BUFFER_OPTIONS],
-                    "audio_values": AUDIO_BUFFER_OPTIONS,
-                },
-                {
-                    "name": "Queue Depth",
-                    "type": "slider",
-                    "slider_index": AUDIO_QUEUE_OPTIONS.index(AUDIO_QUEUE_DEPTH_DEFAULT),
-                    "labels": [str(v) for v in AUDIO_QUEUE_OPTIONS],
-                    "audio_values": AUDIO_QUEUE_OPTIONS,
-                },
-            ],
+            "mGBA": self._build_mgba_tab_options(),
             "Info": [
                 {"name": "Sinew Version", "type": "label", "value": "v1.3.7"},
                 {"name": "Author", "type": "label", "value": "Cameron Penna"},
@@ -1278,7 +1248,8 @@ class MainSetup:
             elif opt["name"] == "Fullscreen":
                 opt["value"] = settings.get("fullscreen", False)
             elif opt["name"] == "Use External Providers":
-                opt["value"] = settings.get("use_emulator_provider", False)
+                from config import DEFAULT_USE_EXTERNAL_PROVIDERS
+                opt["value"] = settings.get("use_emulator_provider", DEFAULT_USE_EXTERNAL_PROVIDERS)
             elif opt["name"] == "Volume":
                 saved_vol = settings.get("master_volume", VOLUME_DEFAULT)
                 vol_values = opt.get("volume_values", list(range(VOLUME_MIN, VOLUME_MAX + 1,
@@ -1338,6 +1309,132 @@ class MainSetup:
                 print("[Settings] Audio settings were reverted to defaults by emulator")
         except Exception:
             pass
+
+    # ------------------------------------------------------------------
+    # mGBA tab — dynamic construction based on provider state
+    # ------------------------------------------------------------------
+
+    def _build_mgba_tab_options(self):
+        """
+        Build the mGBA tab option list.
+
+        When external providers are active the tab shows only the
+        'Use Integrated mGBA' toggle (so the user can switch back) plus
+        an info label explaining that options are hidden.
+
+        When integrated mGBA is active all audio/speed options are shown
+        plus a 'Use External Emulator' toggle (if external providers exist).
+        """
+        from config import DEFAULT_USE_EXTERNAL_PROVIDERS
+        settings = load_sinew_settings()
+        use_external = settings.get("use_emulator_provider", DEFAULT_USE_EXTERNAL_PROVIDERS)
+
+        # Integrated options (always built — shown or hidden depending on mode)
+        integrated_opts = [
+            {"name": "Fast-Forward", "type": "toggle", "value": False},
+            {
+                "name": "Fast-Forward Speed",
+                "type": "slider",
+                "slider_index": 0,
+                "labels": ["2x", "3x", "4x", "5x", "6x", "7x", "8x", "9x", "10x"],
+                "speed_values": [2, 3, 4, 5, 6, 7, 8, 9, 10],
+            },
+            {"name": "Mute Emulator", "type": "toggle", "value": False},
+            {
+                "name": "Audio Buffer",
+                "type": "slider",
+                "slider_index": AUDIO_BUFFER_OPTIONS.index(
+                    AUDIO_BUFFER_DEFAULT_ARM if _IS_ARM_AUDIO else AUDIO_BUFFER_DEFAULT
+                ),
+                "labels": [str(v) for v in AUDIO_BUFFER_OPTIONS],
+                "audio_values": AUDIO_BUFFER_OPTIONS,
+            },
+            {
+                "name": "Queue Depth",
+                "type": "slider",
+                "slider_index": AUDIO_QUEUE_OPTIONS.index(AUDIO_QUEUE_DEPTH_DEFAULT),
+                "labels": [str(v) for v in AUDIO_QUEUE_OPTIONS],
+                "audio_values": AUDIO_QUEUE_OPTIONS,
+            },
+        ]
+
+        if use_external:
+            # External mode: hide all mGBA options, show toggle-back + info
+            return [
+                {
+                    "name": "Use Integrated mGBA",
+                    "type": "toggle",
+                    "value": False,  # currently using external, so this is OFF
+                },
+                {
+                    "name": "Using External Emulator",
+                    "type": "label",
+                    "value": "mGBA options hidden",
+                },
+            ]
+        else:
+            # Integrated mode: show all options + toggle to switch to external
+            return [
+                {
+                    "name": "Use External Emulator",
+                    "type": "toggle",
+                    "value": False,  # currently using integrated, so this is OFF
+                },
+            ] + integrated_opts
+
+    def _rebuild_mgba_tab(self, use_external):
+        """
+        Rebuild the mGBA tab options in-place when the provider mode changes.
+        Preserves current slider/toggle values where possible, then resets
+        navigation so the cursor lands at the top of the rebuilt tab.
+        """
+        # Save current integrated values before rebuilding
+        old_opts = {o["name"]: o for o in self.tab_options.get("mGBA", [])}
+
+        # Rebuild
+        self.tab_options["mGBA"] = self._build_mgba_tab_options()
+
+        # Restore saved values into the new option list
+        settings = load_sinew_settings()
+        for opt in self.tab_options["mGBA"]:
+            name = opt["name"]
+            if name == "Fast-Forward":
+                opt["value"] = settings.get("mgba_fastforward_enabled", False)
+            elif name == "Fast-Forward Speed":
+                saved_idx = settings.get("mgba_fastforward_index", 0)
+                opt["slider_index"] = max(0, min(saved_idx, len(opt.get("speed_values", [0])) - 1))
+            elif name == "Mute Emulator":
+                opt["value"] = settings.get("mgba_muted", False)
+            elif name == "Audio Buffer":
+                saved_buf = settings.get(
+                    "mgba_audio_buffer",
+                    AUDIO_BUFFER_DEFAULT_ARM if _IS_ARM_AUDIO else AUDIO_BUFFER_DEFAULT)
+                if saved_buf in AUDIO_BUFFER_OPTIONS:
+                    opt["slider_index"] = AUDIO_BUFFER_OPTIONS.index(saved_buf)
+            elif name == "Queue Depth":
+                saved_depth = settings.get("mgba_audio_queue_depth", AUDIO_QUEUE_DEPTH_DEFAULT)
+                if saved_depth in AUDIO_QUEUE_OPTIONS:
+                    opt["slider_index"] = AUDIO_QUEUE_OPTIONS.index(saved_depth)
+
+        # Reset navigation
+        if self.current_tab() == "mGBA":
+            self.selected_option = 0
+        self._update_option_nav()
+
+    def revert_provider_toggle(self, use_external):
+        """
+        Called by emulator_session when a provider switch is reverted or committed.
+        Flips the 'Use External Providers' toggle in the General tab to match
+        the actual state, and rebuilds the mGBA tab accordingly.
+        """
+        # Update General tab toggle
+        for opt in self.tab_options.get("General", []):
+            if opt["name"] == "Use External Providers":
+                opt["value"] = use_external
+                break
+
+        # Rebuild mGBA tab for the new state
+        self._rebuild_mgba_tab(use_external)
 
     def _update_option_nav(self):
         """Update NavigableList for current tab"""
@@ -1463,24 +1560,25 @@ class MainSetup:
             self.fullscreen_callback(value)
         elif name == "Mute Menu Music" and self.music_mute_callback:
             self.music_mute_callback(value)
+
         elif name == "Use External Providers":
-            try:
-                settings = load_sinew_settings()
-                settings["use_emulator_provider"] = value
-                save_sinew_settings(settings)
-                import builtins
+            # General tab toggle — delegate entirely to session; session owns
+            # saving and will call revert_provider_toggle() if needed.
+            if self.emulator_provider_callback:
+                self.emulator_provider_callback(value)
 
-                builtins.SINEW_USE_EMULATOR_PROVIDER = value
-                status = "ON" if value else "OFF"
-                print(f"[Settings] Use External Providers: {status}")
-                self._status_msg(f"External Emulators: {status}")
+        elif name == "Use External Emulator":
+            # mGBA tab: user wants to switch FROM integrated TO external
+            # Treat as turning Use External Providers ON
+            if self.emulator_provider_callback:
+                self.emulator_provider_callback(True)
 
-                # Trigger game re-scan in GameScreen
-                if self.emulator_provider_callback:
-                    self.emulator_provider_callback(value)
+        elif name == "Use Integrated mGBA":
+            # mGBA tab: user wants to switch FROM external BACK to integrated
+            # Treat as turning Use External Providers OFF
+            if self.emulator_provider_callback:
+                self.emulator_provider_callback(False)
 
-            except Exception as e:
-                print(f"[Settings] Failed to save emulator provider setting: {e}")
         elif name == "Fast-Forward":
             self._save_mgba_fastforward_settings()
             self._apply_fastforward_to_emulator()
