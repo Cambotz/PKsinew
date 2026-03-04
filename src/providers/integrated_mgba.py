@@ -544,21 +544,21 @@ class _MgbaEmulator:
         if not hasattr(self, "_ff_hold_keys"):
             self._ff_hold_keys = [pygame.K_TAB]
         if not hasattr(self, "_ff_ctrl_toggle_btn"):
-            self._ff_ctrl_toggle_btn = self._gamepad_map.get(RETRO_DEVICE_ID_JOYPAD_L, 4)
-        if not hasattr(self, "_ff_ctrl_hold_axis"):
-            self._ff_ctrl_hold_axis = 5   # R trigger axis (SDL axis 5 on most controllers)
-        if not hasattr(self, "_ff_ctrl_hold_threshold"):
-            self._ff_ctrl_hold_threshold = 0.5
+            self._ff_ctrl_toggle_btn = self._gamepad_map.get(RETRO_DEVICE_ID_JOYPAD_L)
+        # R hold uses the same _gamepad_map R index — no axis config needed
 
         # FF toggle debounce: track previous frame's pressed state so we only
         # fire once per press (rising edge), not every frame while held.
         self._ff_toggle_key_prev = False
         self._ff_ctrl_toggle_prev = False
-        # FF hold: track whether we are currently "holding" so we can restore
-        # the saved toggle multiplier when the key/axis is released.
-        self._ff_hold_active = False
+        # FF hold: separate flags for keyboard and controller so they don't
+        # interfere with each other's press/release detection.
+        self._ff_kb_hold_active = False
+        self._ff_ctrl_hold_active = False
         # Saved multiplier before a hold was applied, so release restores it.
-        self._ff_saved_multiplier = 1
+        # Each hold source saves independently and the last one to release wins.
+        self._ff_kb_saved_multiplier = 1
+        self._ff_ctrl_saved_multiplier = 1
         # Whether controller FF buttons (L toggle, R trigger hold) are enabled.
         # Keyboard FF keys are always active regardless of this flag.
         self._ctrl_ff_enabled = True
@@ -797,23 +797,22 @@ class _MgbaEmulator:
                     ff_hold = [ff_hold]
                 self._ff_hold_keys = [v for v in ff_hold if isinstance(v, int)] or [pygame.K_TAB]
 
-                # Load controller FF config:
-                #   ff_controller_toggle_button: physical button index for L shoulder toggle
-                #   ff_controller_hold_axis / ff_controller_hold_axis_threshold: R trigger hold
+                # Load controller FF config.
+                # Both L (toggle) and R (hold) read their button index directly
+                # from _gamepad_map — resolved per-controller by profile/SDL config.
                 ctrl_cfg = settings_data.get("controller_ff_config", {})
-                # Default L shoulder index comes from _gamepad_map (set by profile/SDL)
                 self._ff_ctrl_toggle_btn = ctrl_cfg.get(
                     "toggle_button",
-                    self._gamepad_map.get(RETRO_DEVICE_ID_JOYPAD_L, 4),
+                    self._gamepad_map.get(RETRO_DEVICE_ID_JOYPAD_L),
                 )
-                self._ff_ctrl_hold_axis = ctrl_cfg.get("hold_axis", 5)      # R trigger axis
-                self._ff_ctrl_hold_threshold = ctrl_cfg.get("hold_threshold", 0.5)
+                # R hold button index comes directly from _gamepad_map — works for
+                # every controller since it's already resolved by profile/SDL config.
 
                 print(
                     f"[MgbaEmulator] FF keys: toggle={self._ff_toggle_keys}, "
                     f"hold={self._ff_hold_keys}, "
                     f"ctrl_toggle_btn={self._ff_ctrl_toggle_btn}, "
-                    f"ctrl_hold_axis={self._ff_ctrl_hold_axis}"
+                    f"ctrl_hold_btn={self._gamepad_map.get(RETRO_DEVICE_ID_JOYPAD_R)}"
                 )
         except Exception as e:
             print(f"[MgbaEmulator] Error loading keyboard config: {e}")
@@ -1034,6 +1033,24 @@ class _MgbaEmulator:
             return 0
 
         if self._key_state is None:
+            return 0
+
+        # When controller FF buttons are enabled, L and R shoulder are claimed
+        # exclusively for fast-forward (toggle and hold). Block them from
+        # reaching the game so they don't trigger in-game help menus etc.
+        # Keyboard bindings for GBA L/R are never blocked — only the physical
+        # controller buttons are suppressed here.
+        if self._ctrl_ff_enabled and button_id in (
+            RETRO_DEVICE_ID_JOYPAD_L, RETRO_DEVICE_ID_JOYPAD_R
+        ):
+            # Still allow keyboard keys bound to GBA L/R to work
+            kb_map = getattr(self, "_kb_map", {})
+            mapped = kb_map.get(button_id, [])
+            keys_to_check = mapped if isinstance(mapped, list) else [mapped]
+            for k in keys_to_check:
+                if self._key_state[k]:
+                    return 1
+            # Controller shoulder — blocked
             return 0
 
         # Use the loaded keyboard map (populated in _load_keyboard_config).
@@ -1838,9 +1855,7 @@ class _MgbaEmulator:
         if self._key_state is None:
             return
 
-        # Determine the configured FF speed (from Settings toggle/slider).
-        # We re-read _fast_forward_multiplier only when toggling ON; if it's
-        # already > 1 we use the current value as the "ON" speed.
+        # Read the configured FF speed from disk once per frame.
         import json as _json
         try:
             with open(SETTINGS_FILE, "r") as _f:
@@ -1858,7 +1873,6 @@ class _MgbaEmulator:
             if 0 <= k < len(self._key_state)
         )
         if kb_toggle_now and not self._ff_toggle_key_prev:
-            # Rising edge — toggle
             if self._fast_forward_multiplier > 1:
                 self._fast_forward_multiplier = 1
                 print("[MgbaEmulator] KB FF toggle: OFF")
@@ -1868,32 +1882,33 @@ class _MgbaEmulator:
         self._ff_toggle_key_prev = kb_toggle_now
 
         # ------------------------------------------------------------------ #
-        # 2. Keyboard FF HOLD (active while key held, restores on release)    #
+        # 2. Keyboard FF HOLD                                                  #
         # ------------------------------------------------------------------ #
         kb_hold_now = any(
             self._key_state[k]
             for k in self._ff_hold_keys
             if 0 <= k < len(self._key_state)
         )
-        if kb_hold_now and not self._ff_hold_active:
+        if kb_hold_now and not self._ff_kb_hold_active:
             # Pressed — save current multiplier and apply FF speed
-            self._ff_saved_multiplier = self._fast_forward_multiplier
+            self._ff_kb_saved_multiplier = self._fast_forward_multiplier
             self._fast_forward_multiplier = _ff_speed
-            self._ff_hold_active = True
+            self._ff_kb_hold_active = True
             print(f"[MgbaEmulator] KB FF hold: ON ({_ff_speed}x)")
-        elif not kb_hold_now and self._ff_hold_active:
-            # Released — restore saved multiplier unless a controller hold is active
-            ctrl_hold_now = self._is_ctrl_ff_hold_active()
-            if not ctrl_hold_now:
-                self._fast_forward_multiplier = self._ff_saved_multiplier
-                self._ff_hold_active = False
-                label = f"{self._ff_saved_multiplier}x" if self._ff_saved_multiplier > 1 else "OFF"
+        elif not kb_hold_now and self._ff_kb_hold_active:
+            # Released — restore unless controller hold is keeping FF active
+            if not self._ff_ctrl_hold_active:
+                self._fast_forward_multiplier = self._ff_kb_saved_multiplier
+                label = f"{self._ff_kb_saved_multiplier}x" if self._ff_kb_saved_multiplier > 1 else "OFF"
                 print(f"[MgbaEmulator] KB FF hold: released -> {label}")
+            self._ff_kb_hold_active = False
 
         # ------------------------------------------------------------------ #
-        # 3. Controller L shoulder TOGGLE (rising edge only)                  #
+        # 3 & 4. Controller inputs (gated by _ctrl_ff_enabled)                #
         # ------------------------------------------------------------------ #
         if self._joystick and self._ctrl_ff_enabled:
+
+            # -- 3. L shoulder TOGGLE (rising edge) --
             try:
                 num_btns = self._joystick.get_numbuttons()
                 btn_idx = self._ff_ctrl_toggle_btn
@@ -1906,7 +1921,6 @@ class _MgbaEmulator:
                 ctrl_toggle_now = False
 
             if ctrl_toggle_now and not self._ff_ctrl_toggle_prev:
-                # Rising edge — toggle (same logic as keyboard toggle)
                 if self._fast_forward_multiplier > 1:
                     self._fast_forward_multiplier = 1
                     print("[MgbaEmulator] Ctrl L toggle: FF OFF")
@@ -1915,41 +1929,43 @@ class _MgbaEmulator:
                     print(f"[MgbaEmulator] Ctrl L toggle: FF ON ({_ff_speed}x)")
             self._ff_ctrl_toggle_prev = ctrl_toggle_now
 
-            # ---------------------------------------------------------------- #
-            # 4. Controller R trigger HOLD (active while axis held)            #
-            # ---------------------------------------------------------------- #
+            # -- 4. R trigger HOLD --
             ctrl_hold_now = self._is_ctrl_ff_hold_active()
-            if ctrl_hold_now and not self._ff_hold_active:
-                self._ff_saved_multiplier = self._fast_forward_multiplier
+            if ctrl_hold_now and not self._ff_ctrl_hold_active:
+                # Pressed — save current multiplier and apply FF speed
+                self._ff_ctrl_saved_multiplier = self._fast_forward_multiplier
                 self._fast_forward_multiplier = _ff_speed
-                self._ff_hold_active = True
+                self._ff_ctrl_hold_active = True
                 print(f"[MgbaEmulator] Ctrl R trigger hold: ON ({_ff_speed}x)")
-            elif not ctrl_hold_now and self._ff_hold_active:
-                # Only release if keyboard hold is also not active
-                kb_hold_still = any(
-                    self._key_state[k]
-                    for k in self._ff_hold_keys
-                    if 0 <= k < len(self._key_state)
-                )
-                if not kb_hold_still:
-                    self._fast_forward_multiplier = self._ff_saved_multiplier
-                    self._ff_hold_active = False
-                    label = f"{self._ff_saved_multiplier}x" if self._ff_saved_multiplier > 1 else "OFF"
+            elif not ctrl_hold_now and self._ff_ctrl_hold_active:
+                # Released — restore unless keyboard hold is keeping FF active
+                if not self._ff_kb_hold_active:
+                    self._fast_forward_multiplier = self._ff_ctrl_saved_multiplier
+                    label = f"{self._ff_ctrl_saved_multiplier}x" if self._ff_ctrl_saved_multiplier > 1 else "OFF"
                     print(f"[MgbaEmulator] Ctrl R trigger hold: released -> {label}")
+                self._ff_ctrl_hold_active = False
+
         elif not self._ctrl_ff_enabled:
-            # Controller FF disabled — keep debounce state reset so there's no
-            # phantom rising edge when it gets re-enabled mid-session.
+            # Controller FF disabled — reset debounce so no phantom edge on re-enable.
             self._ff_ctrl_toggle_prev = False
+            # If a controller hold was active when FF got disabled, clean it up.
+            if self._ff_ctrl_hold_active:
+                if not self._ff_kb_hold_active:
+                    self._fast_forward_multiplier = self._ff_ctrl_saved_multiplier
+                self._ff_ctrl_hold_active = False
 
     def _is_ctrl_ff_hold_active(self):
-        """Return True if the R trigger axis is past the FF hold threshold."""
+        """Return True if the R shoulder button is currently held.
+
+        Uses _gamepad_map[RETRO_DEVICE_ID_JOYPAD_R] which is already resolved
+        correctly for every controller via profile/SDL config — no axis guessing.
+        """
         if not self._joystick:
             return False
         try:
-            axis_idx = self._ff_ctrl_hold_axis
-            if axis_idx < self._joystick.get_numaxes():
-                val = self._joystick.get_axis(axis_idx)
-                return val > self._ff_ctrl_hold_threshold
+            btn_idx = self._gamepad_map.get(RETRO_DEVICE_ID_JOYPAD_R)
+            if btn_idx is not None and btn_idx < self._joystick.get_numbuttons():
+                return bool(self._joystick.get_button(btn_idx))
         except Exception:
             pass
         return False
@@ -1972,20 +1988,12 @@ class _MgbaEmulator:
         status = "ON" if enabled else "OFF"
         print(f"[MgbaEmulator] Controller FF buttons: {status}")
 
-        # If we're disabling while a controller hold is active, release it
-        if not enabled and self._ff_hold_active:
-            # Only release if the keyboard hold isn't also keeping it active
-            kb_hold_active = False
-            if self._key_state is not None:
-                kb_hold_active = any(
-                    self._key_state[k]
-                    for k in getattr(self, "_ff_hold_keys", [])
-                    if 0 <= k < len(self._key_state)
-                )
-            if not kb_hold_active:
-                self._fast_forward_multiplier = self._ff_saved_multiplier
-                self._ff_hold_active = False
+        # If we're disabling while a controller hold is active, release it cleanly.
+        if not enabled and self._ff_ctrl_hold_active:
+            if not self._ff_kb_hold_active:
+                self._fast_forward_multiplier = self._ff_ctrl_saved_multiplier
                 print("[MgbaEmulator] Controller FF disabled: released active hold")
+            self._ff_ctrl_hold_active = False
 
     # ---- Audio buffer / queue tuning ----
 
