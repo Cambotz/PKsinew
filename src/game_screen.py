@@ -21,6 +21,7 @@ from config import (
 )
 from save_data_manager import get_manager
 from ui_components import Button
+from ui_scale import ui, scaled_font
 from sinew_logging import init_redirectors
 _log_file_path = init_redirectors()
 
@@ -131,17 +132,30 @@ class GameScreen(
         import builtins
         if not hasattr(builtins, 'SINEW_DEV_MODE'):
             builtins.SINEW_DEV_MODE = self.settings.get('dev_mode', False)
+
+        # Determine default for external providers — ON for handhelds/RetroPie,
+        # OFF for desktop users (they can opt in via settings).
+        from config import DEFAULT_USE_EXTERNAL_PROVIDERS
+        _provider_default = DEFAULT_USE_EXTERNAL_PROVIDERS
         if not hasattr(builtins, 'SINEW_USE_EMULATOR_PROVIDER'):
-            builtins.SINEW_USE_EMULATOR_PROVIDER = self.settings.get('use_emulator_provider', False)
+            # First-run: seed the setting from hardware-detected default if not saved yet
+            if 'use_emulator_provider' not in self.settings:
+                self.settings['use_emulator_provider'] = _provider_default
+                from settings import save_sinew_settings_merged as _ssm
+                _ssm({'use_emulator_provider': _provider_default})
+                print(f'[GameScreen] Defaulting external providers to {_provider_default}'
+                      f' (IS_HANDHELD/IS_RETROPIE)')
+            builtins.SINEW_USE_EMULATOR_PROVIDER = self.settings.get(
+                'use_emulator_provider', _provider_default)
 
         # Emulator manager — always initialized; use_provider controls whether
         # external (subprocess) providers are included alongside built-in mGBA.
-        use_provider = self.settings.get('use_emulator_provider', False)
+        use_provider = self.settings.get('use_emulator_provider', _provider_default)
         try:
             from emulator_manager import EmulatorManager
             self.emulator_manager = EmulatorManager(use_external_providers=use_provider)
             if self.emulator_manager.active_provider:
-                print(f'[EmulatorManager] Provider ready: {type(
+                print(f'[EmulatorManager] Provider ready: {type(\
                     self.emulator_manager.active_provider).__name__}')
             else:
                 print('[EmulatorManager] No provider matched this environment')
@@ -165,6 +179,7 @@ class GameScreen(
         self.menu_index = 0
         self.modal_instance = None
         self.should_close = False
+        self._pending_settings_modal = None
 
         # Emulator state
         self.emulator = None
@@ -177,8 +192,8 @@ class GameScreen(
         self._notification_subtext = None
         self._notification_timer = 0
         self._notification_duration = 3000
-        self._notification_y = -60
-        self._notification_target_y = 10
+        self._notification_y = ui.s(-60)
+        self._notification_target_y = ui.s(10)
 
         # Resume banner animation
         self._resume_banner_scroll_offset = 0
@@ -205,6 +220,7 @@ class GameScreen(
     def _close_modal(self):
         """Close current modal"""
         self.modal_instance = None
+        self._pending_settings_modal = None
         self._last_input_time = time.time()
         self._modal_just_closed = True
 
@@ -377,7 +393,7 @@ class GameScreen(
                     elif event.button == 1:
                         menu_button = Button(
                             menu_items[self.menu_index],
-                            rel_rect=(0.25, 0.65, 0.5, 0.12),
+                            rel_rect=(0.25, 0.69, 0.5, 0.12),
                             callback=lambda item=menu_items[
                                 self.menu_index
                             ]: self._open_menu(item),
@@ -470,8 +486,8 @@ class GameScreen(
                 modal_w = self.modal_instance.width
                 modal_h = self.modal_instance.height
             else:
-                modal_w = self.width - 30
-                modal_h = self.height - 30
+                modal_w = self.width - ui.s(30)
+                modal_h = self.height - ui.s(30)
 
             modal_surf = pygame.Surface((modal_w, modal_h), pygame.SRCALPHA)
 
@@ -498,50 +514,41 @@ class GameScreen(
 
             menu_button = Button(
                 current_menu_item,
-                rel_rect=(0.25, 0.65, 0.5, 0.12),
+                rel_rect=(0.25, 0.69, 0.5, 0.12),
                 callback=lambda: None,
             )
 
             if is_disabled:
                 bx = int(0.25 * self.width)
-                by = int(0.65 * self.height)
+                by = int(0.69 * self.height)
                 bw = int(0.5 * self.width)
                 bh = int(0.12 * self.height)
                 btn_rect = pygame.Rect(bx, by, bw, bh)
 
-                pygame.draw.rect(surf, (50, 50, 55), btn_rect, border_radius=4)
-                pygame.draw.rect(surf, (80, 80, 85), btn_rect, 2, border_radius=4)
+                pygame.draw.rect(surf, (50, 50, 55), btn_rect, border_radius=ui.s(4))
+                pygame.draw.rect(surf, (80, 80, 85), btn_rect, 2, border_radius=ui.s(4))
 
-                try:
-                    btn_font = pygame.font.Font(FONT_PATH, 14)
-                except Exception:
-                    btn_font = self.font
+                btn_font = scaled_font(14)
                 txt_surf = btn_font.render(current_menu_item, True, (100, 100, 105))
                 txt_rect = txt_surf.get_rect(center=btn_rect.center)
                 surf.blit(txt_surf, txt_rect)
 
-                try:
-                    hint2_font = pygame.font.Font(FONT_PATH, 7)
-                except Exception:
-                    hint2_font = pygame.font.SysFont(None, 12)
+                hint2_font = scaled_font(7)
                 hint2_surf = hint2_font.render(
                     "No ROM \u2014 place a .gba file in roms/", True, (90, 90, 90)
                 )
                 hint2_rect = hint2_surf.get_rect(
-                    centerx=self.width // 2, top=btn_rect.bottom + 3
+                    centerx=self.width // 2, top=btn_rect.bottom + ui.s(3)
                 )
                 surf.blit(hint2_surf, hint2_rect)
             else:
                 menu_button.draw(surf, self.font)
 
             hint_text = "< > Change Game    ^ v Scroll Menu"
-            try:
-                hint_font = pygame.font.Font(FONT_PATH, 8)
-            except Exception:
-                hint_font = pygame.font.SysFont(None, 14)
+            hint_font = scaled_font(8)
             hint_surf = hint_font.render(hint_text, True, (150, 150, 150))
             hint_rect = hint_surf.get_rect(
-                centerx=self.width // 2, bottom=self.height - 5
+                centerx=self.width // 2, bottom=self.height - ui.s(5)
             )
             surf.blit(hint_surf, hint_rect)
 

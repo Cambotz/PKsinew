@@ -12,8 +12,11 @@ import pygame
 
 # Import ui_colors module for dynamic theme support
 import ui_colors
-from config import FONT_PATH, POKEMON_DB_PATH, GEN3_NORMAL_DIR, SPRITES_DIR
+from config import FONT_PATH, POKEMON_DB_PATH, SPRITES_DIR
+from sprite_paths import get_sprite_dirs_for_game
 from ui_components import Button
+from ui_scale import ui, scaled_font
+from text_utils import render_pokemon_name, contains_gender_symbol
 
 # Constants
 INNER_GAP = 8
@@ -143,22 +146,28 @@ class PokedexModal:
 
         self.total = len(self.pokemon_data)
 
-        # Screen size - use passed dimensions or fallback to display surface
+        # Modal's actual dimensions (passed in as width/height parameters)
+        # Use these for layout calculations
         if width is not None and height is not None:
-            self.screen_w, self.screen_h = width, height
+            self.width = width
+            self.height = height
         else:
+            # Fallback if not provided
             dsurf = pygame.display.get_surface()
-            self.screen_w, self.screen_h = dsurf.get_size() if dsurf else DEFAULT_SCREEN
+            self.width, self.height = dsurf.get_size() if dsurf else DEFAULT_SCREEN
+        
+        # Screen dimensions (for font/sprite scaling - always use full screen)
+        # Get actual display size regardless of modal size
+        from config import WINDOW_WIDTH, WINDOW_HEIGHT
+        self.screen_w = WINDOW_WIDTH
+        self.screen_h = WINDOW_HEIGHT
 
         # Fonts - scale based on screen height
         font_size = max(8, int(self.screen_h * 0.04))
         title_font_size = max(10, int(self.screen_h * 0.05))
-        try:
-            self.font = pygame.font.Font(FONT_PATH, font_size)
-            self.title_font = pygame.font.Font(FONT_PATH, title_font_size)
-        except Exception:
-            self.font = pygame.font.SysFont(None, font_size)
-            self.title_font = pygame.font.SysFont(None, title_font_size)
+        from ui_colors import get_font
+        self.font = get_font(font_size)
+        self.title_font = get_font(title_font_size)
 
         # Sprite and list settings - scale item height based on screen
         self.item_height = max(16, int(self.screen_h * 0.065))
@@ -166,6 +175,11 @@ class PokedexModal:
         self.list_scroll = 0
         self.visible_items = 1
         self.gap = 8
+        
+        # Scroll acceleration tracking
+        self._scroll_direction = None  # 'up', 'down', or None
+        self._scroll_start_time = 0
+        self._last_scroll_time = 0
 
         # Initialize top buttons
         self.left_game_arrow = Button(
@@ -296,10 +310,11 @@ class PokedexModal:
     def calculate_layout(self):
         """Compute and cache all panel rectangles and layout positions for the Pokédex modal."""
         PADDING = 8
-        RIGHT_PAD = 40
-        BOTTOM_PAD = 40
+        RIGHT_PAD = 8  # Match left padding for symmetry
+        BOTTOM_PAD = 4  # Minimal bottom padding to maximize box space
+        FOOTER_HEIGHT = 14  # Space for footer text
 
-        usable_width = self.screen_w - PADDING - RIGHT_PAD
+        usable_width = self.width - PADDING - RIGHT_PAD
         left_col_ratio = 0.28
         right_col_width = (
             usable_width - 2 * int(usable_width * left_col_ratio) - INNER_GAP * 2
@@ -313,34 +328,46 @@ class PokedexModal:
         x_sprite = x_info + self.info_w + INNER_GAP
         x_list = x_sprite + self.sprite_w + INNER_GAP
 
-        # Left columns
-        top_button_height = int(0.08 * self.screen_h)
-        button_gap = PADDING
-        left_bottom_pad = BOTTOM_PAD
-        left_content_h = (
-            self.screen_h - top_button_height - button_gap - left_bottom_pad - PADDING
-        )
-        left_top = top_button_height + button_gap + PADDING
-
+        # Top buttons positioning
+        top_button_height = int(0.08 * self.height)
+        top_buttons_y = PADDING
+        button_gap = 6  # Gap between buttons and left content boxes
+        
+        # Calculate where left boxes start (below buttons)
+        left_top = top_buttons_y + top_button_height + button_gap
+        
+        # Calculate the EXACT bottom Y coordinate for ALL boxes
+        all_boxes_bottom_y = self.height - BOTTOM_PAD - FOOTER_HEIGHT
+        
+        # Right box starts at top
+        right_top = top_buttons_y
+        
+        # Calculate heights so both end at all_boxes_bottom_y
+        left_content_h = all_boxes_bottom_y - left_top
+        right_content_h = all_boxes_bottom_y - right_top
+        
         self.stats_rect = pygame.Rect(x_info, left_top, self.info_w, left_content_h)
         self.sprite_rect = pygame.Rect(
             x_sprite, left_top, self.sprite_w, left_content_h
         )
 
-        # Right column
-        right_top = PADDING
-        right_bottom = self.screen_h - BOTTOM_PAD
         self.list_rect = pygame.Rect(
             x_list,
             right_top,
-            self.screen_w - x_list - RIGHT_PAD,
-            right_bottom - right_top,
+            self.width - x_list - RIGHT_PAD,
+            right_content_h,
         )
+        
+        # Verify all bottoms are the same (for debugging)
+        # Left bottom: left_top + left_content_h = all_boxes_bottom_y
+        # Right bottom: right_top + right_content_h = all_boxes_bottom_y
+        
+        # Store footer position for rendering - slightly tighter
+        self.footer_y = all_boxes_bottom_y + 1
 
         # Top buttons across left 2 columns
         left_two_width = self.stats_rect.width + INNER_GAP + self.sprite_rect.width
         left_two_x = self.stats_rect.left
-        top_buttons_y = self.list_rect.top
         BUTTON_PAD = 8
         main_button_width = int(left_two_width * 0.7)
         arrow_width = int((left_two_width - main_button_width - 2 * BUTTON_PAD) / 2)
@@ -372,51 +399,130 @@ class PokedexModal:
 
     def center_left_columns_vertically(self):
         """Vertically align the stats column and sprite column within the left panel."""
-        top = min(self.stats_rect.top, self.sprite_rect.top)
-        bottom = max(self.stats_rect.bottom, self.sprite_rect.bottom)
-        combined_height = bottom - top
-        new_top = (self.screen_h - combined_height) // 2
-        offset = new_top - top
-        self.stats_rect.y += offset
-        self.sprite_rect.y += offset
+        # DISABLED: This was breaking the careful box alignment with the right column
+        # All boxes are now explicitly aligned to the same bottom position
+        pass
 
     # -----------------------
     # Sprite management
     # -----------------------
     def _load_and_presize_sprites(self):
-        for i, p in enumerate(self.pokemon_data):
-            poke_id = p.get("id", i + 1)
-            path = os.path.join(GEN3_NORMAL_DIR, f"{poke_id:03d}.png")
-            img = (
-                pygame.image.load(path).convert_alpha()
-                if os.path.exists(path)
-                else None
-            )
-            self.sprite_cache[i] = img
+        """Initialize sprite cache with None - sprites will be lazy-loaded on demand"""
+        # Don't preload all sprites - this speeds up initial load significantly
+        # Sprites will be loaded on-demand when first displayed
+        print("[Pokedex] Sprite cache initialized for lazy loading")
+    
+    def _get_sprite(self, index, size='full'):
+        """Lazy-load and return sprite at given index and size
+        
+        Args:
+            index: Pokemon index
+            size: 'full' or 'small'
+        """
+        if index < 0 or index >= self.total:
+            return None
+        
+        # Choose the appropriate cache and target size
+        cache = self.sprite_cache_full if size == 'full' else self.sprite_cache_small
+        target_w = self.sel_width if size == 'full' else self.small_width
+        target_h = self.sel_height if size == 'full' else self.small_height
+        
+        # Return cached sprite if already loaded
+        if cache[index] is not None:
+            return cache[index]
+        
+        # Load sprite on-demand using new sprite pack system
+        from PIL import Image, ImageSequence
+        
+        poke_id = self.pokemon_data[index].get("id", index + 1)
+        
+        # Get current game for pack-aware sprite loading
+        current_game = None
+        if self.get_current_game_callback:
+            current_game = self.get_current_game_callback()
+        
+        # Get best sprite path (GIF or PNG) with fallback to global pack
+        from sprite_paths import get_sprite_path_for_game_any_format
+        
+        sprite_path, is_gif = get_sprite_path_for_game_any_format(
+            species=poke_id,
+            game_name=current_game,
+            shiny=False,
+            prefer_gif=True,  # Prefer GIF for animation
+            fallback_to_global=True
+        )
+        
+        # Load GIF frames if we got a GIF - NO pre-scaling (PokedexModal scales later)
+        gif_frames = []
+        gif_durations = []
+        if is_gif and sprite_path and os.path.exists(sprite_path):
+            try:
+                pil_img = Image.open(sprite_path)
+                for frame in ImageSequence.Iterator(pil_img):
+                    frame_rgba = frame.convert('RGBA')
+                    data = frame_rgba.tobytes()
+                    surf = pygame.image.fromstring(data, frame_rgba.size, frame_rgba.mode).convert_alpha()
+                    gif_frames.append(surf)
+                    gif_durations.append(frame.info.get('duration', 100))
+                pil_img.close()
+            except Exception:
+                pass  # Silently fail and try PNG
+        
+        # Load static PNG - NO pre-scaling
+        png_img = None
+        if not is_gif and sprite_path and os.path.exists(sprite_path):
+            try:
+                png_img = pygame.image.load(sprite_path).convert_alpha()
+            except Exception:
+                pass
+        
+        # Create scaled sprite
+        if gif_frames:
+            # Scale all GIF frames
+            cache[index] = {
+                'type': 'gif',
+                'frames': [self._scale_sprite_crisp(f, target_w, target_h) for f in gif_frames],
+                'durations': gif_durations,
+                'frame_index': 0,
+                'last_update': pygame.time.get_ticks()
+            }
+        elif png_img:
+            # Scale static PNG
+            cache[index] = self._scale_sprite_crisp(png_img, target_w, target_h)
+        else:
+            # Empty placeholder
+            cache[index] = pygame.Surface((target_w, target_h), pygame.SRCALPHA)
+        
+        return cache[index]
 
-            if img:
-                self.sprite_cache_full[i] = self._scale_preserve_aspect(
-                    img, self.sel_width, self.sel_height
-                )
-                self.sprite_cache_small[i] = self._scale_preserve_aspect(
-                    img, self.small_width, self.small_height
-                )
-            else:
-                self.sprite_cache_full[i] = pygame.Surface(
-                    (self.sel_width, self.sel_height), pygame.SRCALPHA
-                )
-                self.sprite_cache_small[i] = pygame.Surface(
-                    (self.small_width, self.small_height), pygame.SRCALPHA
-                )
-
-    def _scale_preserve_aspect(self, surf_img, target_w, target_h):
+    def _scale_sprite_crisp(self, surf_img, target_w, target_h):
+        """Scale sprite using nearest-neighbor for crisp pixel art, with smart scale limiting"""
         iw, ih = surf_img.get_size()
         if iw == 0 or ih == 0:
             return pygame.Surface((target_w, target_h), pygame.SRCALPHA)
+        
+        # Calculate scale ratio to fit within target
         ratio = min(target_w / iw, target_h / ih)
-        return pygame.transform.smoothscale(
-            surf_img, (max(1, int(iw * ratio)), max(1, int(ih * ratio)))
-        )
+        
+        # Apply tiered max scale based on original sprite size
+        # More dramatic scaling limits for better size uniformity
+        original_size = max(iw, ih)
+        if original_size < 40:
+            # Very small sprites (Diglett, Joltik, etc.) - very minimal scaling
+            max_scale = 1.5
+        elif original_size < 60:
+            # Small sprites - light scaling
+            max_scale = 2.0
+        else:
+            # Normal/large sprites - moderate scaling
+            max_scale = 2.75
+        
+        ratio = min(ratio, max_scale)
+        
+        new_w = max(1, int(iw * ratio))
+        new_h = max(1, int(ih * ratio))
+        # Use scale (nearest-neighbor) instead of smoothscale for pixel art
+        return pygame.transform.scale(surf_img, (new_w, new_h))
 
     def get_sprite(self, index):
         """Return the cached sprite surface for the given Pokédex index, loading it if needed."""
@@ -621,6 +727,11 @@ class PokedexModal:
         self.selected_index = 0
         self.list_scroll = 0
         self._load_pokedex_data()
+        
+        # Clear sprite caches to reload from new game's pack
+        self.sprite_cache_full = [None] * self.total
+        self.sprite_cache_small = [None] * self.total
+        print("[PokedexModal] Sprite caches cleared for new game pack")
 
     def get_current_game(self):
         """Return current game name via callback"""
@@ -699,23 +810,84 @@ class PokedexModal:
                 self.parent.sub_modal = None
             return True
 
-        # Focus navigation
+        # Focus navigation with acceleration
         if self.focus_mode == "list":
-            if ctrl.is_dpad_just_pressed("up"):
-                ctrl.consume_dpad("up")
-                self.move_selection(-1)
-                consumed = True
-            if ctrl.is_dpad_just_pressed("down"):
-                ctrl.consume_dpad("down")
-                self.move_selection(1)
-                consumed = True
-            if ctrl.is_button_just_pressed("L"):
+            import time
+            current_time = time.time()
+            
+            # Check if up/down is pressed
+            up_pressed = ctrl.is_dpad_just_pressed("up")
+            down_pressed = ctrl.is_dpad_just_pressed("down")
+            
+            if up_pressed or down_pressed:
+                direction_name = "up" if up_pressed else "down"
+                direction = -1 if up_pressed else 1
+                
+                # Check if this is a NEW direction (direction changed or was None)
+                if self._scroll_direction != direction_name:
+                    # NEW direction - reset everything and always move just 1
+                    self._scroll_direction = direction_name
+                    self._scroll_start_time = current_time
+                    scroll_speed = 1
+                    hold_time = 0
+                else:
+                    # SAME direction as last time - check how long we've been holding
+                    hold_time = current_time - self._scroll_start_time
+                    
+                    # Calculate scroll speed - gradual ramp
+                    # 0-2.0s: speed 1
+                    # 2.0-3.5s: speed 2
+                    # 3.5s+: speed 3
+                    if hold_time < 2.0:
+                        scroll_speed = 1
+                    elif hold_time < 3.5:
+                        scroll_speed = 2
+                    else:
+                        scroll_speed = 3
+                
+                # Dynamic throttle - decreases as you hold longer (speeds up over time)
+                # 0-1s: 150ms delay (6-7 moves/sec)
+                # 1-2s: 120ms delay (8 moves/sec)
+                # 2-3s: 90ms delay (11 moves/sec)
+                # 3-4s: 60ms delay (16 moves/sec)
+                # 4s+: 40ms delay (25 moves/sec, max speed)
+                if hold_time < 1.0:
+                    min_delay = 0.15
+                elif hold_time < 2.0:
+                    min_delay = 0.12
+                elif hold_time < 3.0:
+                    min_delay = 0.09
+                elif hold_time < 4.0:
+                    min_delay = 0.06
+                else:
+                    min_delay = 0.04
+                
+                time_since_last_move = current_time - self._last_scroll_time
+                
+                # Skip this input if we moved too recently
+                if self._last_scroll_time > 0 and time_since_last_move < min_delay:
+                    consumed = True  # Still consume so we don't lose track
+                else:
+                    self.move_selection(direction * scroll_speed)
+                    self._last_scroll_time = current_time
+                    consumed = True
+                
+                # DON'T consume - let controller repeats continue
+                # ctrl.consume_dpad(direction_name)
+            else:
+                # No input - reset if enough time has passed (500ms to survive controller initial delay)
+                if self._last_scroll_time > 0 and current_time - self._last_scroll_time > 0.5:
+                    self._scroll_direction = None
+                
+            if ctrl.is_dpad_just_pressed("L"):
                 ctrl.consume_button("L")
                 self.move_selection(-10)
+                self._scroll_direction = None  # Reset acceleration
                 consumed = True
             if ctrl.is_button_just_pressed("R"):
                 ctrl.consume_button("R")
                 self.move_selection(10)
+                self._scroll_direction = None  # Reset acceleration
                 consumed = True
             if ctrl.is_dpad_just_pressed("left"):
                 ctrl.consume_dpad("left")
@@ -810,7 +982,14 @@ class PokedexModal:
     ):
         """Render text onto surf at pos with optional font, colour, and alignment arguments."""
         f = font or self.font
-        rtext = f.render(str(text), True, color)
+        text_str = str(text)
+        
+        # Check if text contains gender symbols (for Pokemon names like Nidoran♂/♀)
+        if contains_gender_symbol(text_str):
+            rtext = render_pokemon_name(f, text_str, color)
+        else:
+            rtext = f.render(text_str, True, color)
+        
         rect = rtext.get_rect()
         setattr(rect, align, pos)
         surf.blit(rtext, rect)
@@ -952,11 +1131,41 @@ class PokedexModal:
             self.selected_index + 1,
         )
 
-        def get_display_sprite(idx, cache, apply_seen_check=True):
-            """Get sprite, applying silhouette if not seen"""
+        def get_display_sprite(idx, size='full', apply_seen_check=True, animate=False):
+            """Get sprite surface, applying silhouette if not seen, and animating if GIF"""
             if idx < 0 or idx >= self.total:
                 return None
-            sprite = cache[idx]
+            
+            # Lazy-load sprite if needed
+            sprite_data = self._get_sprite(idx, size)
+            if sprite_data is None:
+                return None
+
+            # Handle GIFSprite objects from gif_sprite_handler
+            from gif_sprite_handler import GIFSprite
+            if isinstance(sprite_data, GIFSprite):
+                if animate:
+                    sprite_data.update(16)  # Update animation
+                sprite = sprite_data.get_current_frame()
+            # Get the current frame/image (legacy format)
+            elif isinstance(sprite_data, dict) and sprite_data.get('type') == 'gif':
+                # Animated GIF - update frame if animating
+                if animate:
+                    current_time = pygame.time.get_ticks()
+                    elapsed = current_time - sprite_data['last_update']
+                    frame_duration = sprite_data['durations'][sprite_data['frame_index']]
+                    
+                    if elapsed >= frame_duration:
+                        sprite_data['frame_index'] = (sprite_data['frame_index'] + 1) % len(sprite_data['frames'])
+                        sprite_data['last_update'] = current_time
+                
+                sprite = sprite_data['frames'][sprite_data['frame_index']]
+            elif isinstance(sprite_data, dict) and sprite_data.get('type') == 'static':
+                sprite = sprite_data['image']
+            else:
+                # Legacy static surface
+                sprite = sprite_data
+            
             if sprite is None:
                 return None
 
@@ -972,7 +1181,7 @@ class PokedexModal:
             return sprite.copy()
 
         if 0 <= prev_idx < self.total:
-            s_prev = get_display_sprite(prev_idx, self.sprite_cache_small)
+            s_prev = get_display_sprite(prev_idx, 'small', animate=False)
             if s_prev:
                 s_prev.set_alpha(FADE_ALPHA)
                 pr = s_prev.get_rect(
@@ -983,12 +1192,12 @@ class PokedexModal:
                 )
                 surf.blit(s_prev, pr)
         if 0 <= sel_idx < self.total:
-            s_sel = get_display_sprite(sel_idx, self.sprite_cache_full)
+            s_sel = get_display_sprite(sel_idx, 'full', animate=True)
             if s_sel:
                 sr = s_sel.get_rect(center=(cx, cy))
                 surf.blit(s_sel, sr)
         if 0 <= next_idx < self.total:
-            s_next = get_display_sprite(next_idx, self.sprite_cache_small)
+            s_next = get_display_sprite(next_idx, 'small', animate=False)
             if s_next:
                 s_next.set_alpha(FADE_ALPHA)
                 nr = s_next.get_rect(
@@ -1074,6 +1283,14 @@ class PokedexModal:
 
         surf.set_clip(prev_clip)
 
+        # Draw footer navigation hint (unless in detail view)
+        if not self.showing_detail and hasattr(self, 'footer_y'):
+            footer_text = "L: -10   R: +10   A: Details   B: Close"
+            footer_font = scaled_font(7)
+            footer_surf = footer_font.render(footer_text, True, (120, 120, 120))
+            footer_rect = footer_surf.get_rect(centerx=self.width // 2, top=self.footer_y)
+            surf.blit(footer_surf, footer_rect)
+
         # Draw detail overlay if showing
         if self.showing_detail:
             self._draw_detail_view(surf)
@@ -1109,17 +1326,53 @@ class PokedexModal:
         center_x = box_x + box_w // 2
 
         # ===== TOP SECTION - Sprite =====
-        sprite = self.sprite_cache_full[self.selected_index]
+        sprite_data = self._get_sprite(self.selected_index, 'full')
         sprite_y = box_y + int(box_h * 0.18)
-        if sprite:
-            # Scale sprite relative to box size (max ~22% of box height)
-            orig_w, orig_h = sprite.get_size()
-            max_sprite_size = int(box_h * 0.22)
-            scale_factor = min(max_sprite_size / orig_w, max_sprite_size / orig_h)
-            new_w, new_h = int(orig_w * scale_factor), int(orig_h * scale_factor)
-            scaled_sprite = pygame.transform.scale(sprite, (new_w, new_h))
-            sprite_rect = scaled_sprite.get_rect(center=(center_x, sprite_y))
-            surf.blit(scaled_sprite, sprite_rect)
+        if sprite_data:
+            # Handle GIFSprite objects from gif_sprite_handler
+            from gif_sprite_handler import GIFSprite
+            if isinstance(sprite_data, GIFSprite):
+                # Update GIF animation
+                sprite_data.update(16)  # ~60fps
+                sprite = sprite_data.get_current_frame()
+            # Get current frame if animated (legacy format)
+            elif isinstance(sprite_data, dict) and sprite_data.get('type') == 'gif':
+                current_time = pygame.time.get_ticks()
+                elapsed = current_time - sprite_data['last_update']
+                frame_duration = sprite_data['durations'][sprite_data['frame_index']]
+                
+                if elapsed >= frame_duration:
+                    sprite_data['frame_index'] = (sprite_data['frame_index'] + 1) % len(sprite_data['frames'])
+                    sprite_data['last_update'] = current_time
+                
+                sprite = sprite_data['frames'][sprite_data['frame_index']]
+            elif isinstance(sprite_data, dict) and sprite_data.get('type') == 'static':
+                sprite = sprite_data['image']
+            else:
+                sprite = sprite_data
+            
+            if sprite:
+                # Scale sprite relative to box size (max ~22% of box height)
+                orig_w, orig_h = sprite.get_size()
+                max_sprite_size = int(box_h * 0.22)
+                scale_factor = min(max_sprite_size / orig_w, max_sprite_size / orig_h)
+                
+                # Apply tiered max scale - more dramatic limits for uniformity
+                original_size = max(orig_w, orig_h)
+                if original_size < 40:
+                    max_scale = 1.5  # Very small sprites
+                elif original_size < 60:
+                    max_scale = 2.0  # Small sprites
+                else:
+                    max_scale = 2.75  # Normal/large sprites
+                
+                scale_factor = min(scale_factor, max_scale)
+                
+                new_w, new_h = int(orig_w * scale_factor), int(orig_h * scale_factor)
+                # Use crisp scaling for pixel art
+                scaled_sprite = pygame.transform.scale(sprite, (new_w, new_h))
+                sprite_rect = scaled_sprite.get_rect(center=(center_x, sprite_y))
+                surf.blit(scaled_sprite, sprite_rect)
 
         # ===== NAME (centered below sprite) =====
         title = f"#{poke_id:03d} {poke_name}"

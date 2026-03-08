@@ -40,11 +40,13 @@ _font_cache = {}
 
 def get_font(size):
     """
-    Get a pygame font with the current theme's font path.
+    Get a pygame font at exact *size* (no scaling applied).
     Caches fonts by (path, size) to avoid recreation.
 
+    For resolution-independent fonts, prefer ``scaled_font()`` from ui_scale.
+
     Args:
-        size: Font size in pixels
+        size: Font size in pixels (exact)
 
     Returns:
         pygame.font.Font object
@@ -66,3 +68,9 @@ def clear_font_cache():
     """Clear the font cache (call when theme changes font)"""
     global _font_cache
     _font_cache = {}
+    # Also clear ui_scale's font cache so themed fonts regenerate
+    try:
+        from ui_scale import clear_font_cache as _clear_scaled
+        _clear_scaled()
+    except ImportError:
+        pass

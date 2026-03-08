@@ -22,6 +22,7 @@ from config import SPRITES_DIR
 from gif_sprite_handler import get_sprite_cache
 from save_data_manager import get_manager
 from ui_components import Button
+from ui_scale import ui
 
 # Try to import Sinew storage
 try:
@@ -100,6 +101,16 @@ class PCBox(  # pylint: disable=too-many-instance-attributes
 
         # Get sprite cache
         self.sprite_cache = get_sprite_cache()
+
+        # GIF animation state for preview box
+        self._preview_gif_frames = None
+        self._preview_gif_durations = None
+        self._preview_gif_path = None
+        self._preview_gif_index = 0
+        self._preview_gif_timer = 0
+        
+        # GIF animation cache for grid cells
+        self._grid_gif_cache = {}
 
         # Get controller
         self.controller = get_controller()
@@ -224,7 +235,7 @@ class PCBox(  # pylint: disable=too-many-instance-attributes
             if os.path.exists(icon_path):
                 self.undo_icon = pygame.image.load(icon_path).convert_alpha()
                 # Scale to fit button (24x24 for a 32x32 button)
-                self.undo_icon = pygame.transform.smoothscale(self.undo_icon, (24, 24))
+                self.undo_icon = pygame.transform.smoothscale(self.undo_icon, (ui.s(24), ui.s(24)))
         except Exception as e:
             print(f"[PCBox] Failed to load undo icon: {e}")
 
@@ -266,10 +277,10 @@ class PCBox(  # pylint: disable=too-many-instance-attributes
         self.grid_cols = 6
         self.grid_rows = 5
         self.grid_rect = pygame.Rect(
-            self.sprite_area.right + 0.02 * width,
-            0.28 * height,
-            width - (self.sprite_area.right + 0.04 * width),
-            0.65 * height,
+            int(0.31 * width) - 10,
+            int(0.28 * height),
+            int(0.68 * width),
+            int(0.64 * height),
         )
 
         # ------------------- Party Panel -------------------
@@ -278,7 +289,7 @@ class PCBox(  # pylint: disable=too-many-instance-attributes
         self.party_panel_rect = pygame.Rect(
             self.sprite_area.right,  # start at sprite area right
             -height,  # start off-screen
-            (width - self.sprite_area.right) * 0.55,  # half of remaining screen
+            (width - self.sprite_area.right) * 0.70,  # 70% of remaining screen (was 0.55)
             height,
         )
-        self.party_panel_speed = 15
+        self.party_panel_speed = ui.s(15)

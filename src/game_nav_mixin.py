@@ -30,6 +30,7 @@ from game_detection import (
     get_game_availability,
 )
 from save_data_manager import get_manager
+from ui_scale import ui
 
 
 def _load_gif_frames(path, width, height):
@@ -433,7 +434,7 @@ class GameNavMixin:
         screen.blit(msg, msg_rect)
 
         bar_width = int(self.width * 0.6)
-        bar_height = 20
+        bar_height = ui.s(20)
         bar_x = (self.width - bar_width) // 2
         bar_y = int(self.height * 0.6)
 
@@ -451,7 +452,7 @@ class GameNavMixin:
 
         progress_text = title_font.render(f"{current}/{total}", True, (150, 150, 150))
         progress_rect = progress_text.get_rect(
-            center=(self.width // 2, bar_y + bar_height + 20)
+            center=(self.width // 2, bar_y + bar_height + ui.s(20))
         )
         screen.blit(progress_text, progress_rect)
 

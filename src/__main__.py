@@ -53,6 +53,7 @@ from scaler import Scaler
 from config import FONT_PATH, IS_HANDHELD
 from settings import load_sinew_settings as load_settings
 from game_screen import GameScreen
+from ui_scale import init_ui_scale
 
 
 def run():
@@ -73,11 +74,14 @@ def run():
     except Exception as e:
         print(f"[Main] Could not load theme preference: {e}")
 
-    VIRTUAL_WIDTH = 480
-    VIRTUAL_HEIGHT = 320
+    VIRTUAL_WIDTH = 640
+    VIRTUAL_HEIGHT = 480
 
-    WINDOW_WIDTH = 960
-    WINDOW_HEIGHT = 640
+    WINDOW_WIDTH = 1280
+    WINDOW_HEIGHT = 960
+
+    # Initialise resolution-independent UI scaling
+    init_ui_scale(VIRTUAL_WIDTH, VIRTUAL_HEIGHT)
 
     if IS_HANDHELD:
         start_fullscreen = True
@@ -99,7 +103,8 @@ def run():
     )
     screen = scaler.get_surface()
     clock = pygame.time.Clock()
-    font = pygame.font.Font(FONT_PATH, 18)
+    from ui_scale import scaled_font
+    font = scaled_font(18)
     controller = get_controller()
 
     game_screen = GameScreen(

@@ -16,6 +16,7 @@ import os
 import pygame
 
 from config import FONT_PATH, SETTINGS_FILE
+from ui_scale import ui, scaled_font
 from ui_colors import COLOR_HIGHLIGHT, COLOR_TEXT ,COLOR_BG, COLOR_BORDER
 
 
@@ -116,17 +117,10 @@ class ButtonMapper:
         self.visible = True
 
         # Fonts
-        try:
-            self.font_header = pygame.font.Font(FONT_PATH, 16)
-            self.font_text = pygame.font.Font(FONT_PATH, 11)
-            self.font_small = pygame.font.Font(FONT_PATH, 9)
-            self.font_tiny = pygame.font.Font(FONT_PATH, 7)
-        except Exception:
-            self.font_header = pygame.font.SysFont(None, 22)
-            self.font_text = pygame.font.SysFont(None, 16)
-            self.font_small = pygame.font.SysFont(None, 14)
-            self.font_tiny = pygame.font.SysFont(None, 11)
-
+        self.font_header = scaled_font(16)
+        self.font_text = scaled_font(11)
+        self.font_small = scaled_font(9)
+        self.font_tiny = scaled_font(7)
         # Get profile info from controller manager (if available)
         self._profile_info = None
         self._controller_name = None

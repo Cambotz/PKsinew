@@ -19,6 +19,7 @@ from config import (
     AUDIO_BUFFER_DEFAULT, AUDIO_BUFFER_DEFAULT_ARM, AUDIO_QUEUE_DEPTH_DEFAULT,
     VOLUME_DEFAULT, VOLUME_MIN, VOLUME_MAX, VOLUME_STEP,
 )
+from ui_scale import ui, scaled_font
 
 # Use the same ARM detection as the emulator so slider defaults match
 # the actual values _init_audio will use.
@@ -119,8 +120,8 @@ class ConfirmationPopup:
         self.selected = 1  # Default to No for safety
 
         # Fonts
-        self.font_text = pygame.font.Font(FONT_PATH, 12)
-        self.font_small = pygame.font.Font(FONT_PATH, 10)
+        self.font_text = scaled_font(12)
+        self.font_small = scaled_font(10)
 
     def handle_controller(self, ctrl):
         """Handle controller input"""
@@ -184,14 +185,14 @@ class ConfirmationPopup:
         yes_selected = self.selected == 0
 
         if yes_selected:
-            pygame.draw.rect(surf, ui_colors.COLOR_BUTTON, yes_rect, border_radius=5)
+            pygame.draw.rect(surf, ui_colors.COLOR_BUTTON, yes_rect, border_radius=ui.s(5))
             pygame.draw.rect(
-                surf, ui_colors.COLOR_SUCCESS, yes_rect, 2, border_radius=5
+                surf, ui_colors.COLOR_SUCCESS, yes_rect, 2, border_radius=ui.s(5)
             )
             yes_color = ui_colors.COLOR_SUCCESS
         else:
-            pygame.draw.rect(surf, ui_colors.COLOR_BUTTON, yes_rect, border_radius=5)
-            pygame.draw.rect(surf, ui_colors.COLOR_BORDER, yes_rect, 2, border_radius=5)
+            pygame.draw.rect(surf, ui_colors.COLOR_BUTTON, yes_rect, border_radius=ui.s(5))
+            pygame.draw.rect(surf, ui_colors.COLOR_BORDER, yes_rect, 2, border_radius=ui.s(5))
             yes_color = ui_colors.COLOR_TEXT
 
         yes_surf = self.font_text.render("Yes", True, yes_color)
@@ -204,12 +205,12 @@ class ConfirmationPopup:
         no_selected = self.selected == 1
 
         if no_selected:
-            pygame.draw.rect(surf, ui_colors.COLOR_BUTTON, no_rect, border_radius=5)
-            pygame.draw.rect(surf, ui_colors.COLOR_ERROR, no_rect, 2, border_radius=5)
+            pygame.draw.rect(surf, ui_colors.COLOR_BUTTON, no_rect, border_radius=ui.s(5))
+            pygame.draw.rect(surf, ui_colors.COLOR_ERROR, no_rect, 2, border_radius=ui.s(5))
             no_color = ui_colors.COLOR_ERROR
         else:
-            pygame.draw.rect(surf, ui_colors.COLOR_BUTTON, no_rect, border_radius=5)
-            pygame.draw.rect(surf, ui_colors.COLOR_BORDER, no_rect, 2, border_radius=5)
+            pygame.draw.rect(surf, ui_colors.COLOR_BUTTON, no_rect, border_radius=ui.s(5))
+            pygame.draw.rect(surf, ui_colors.COLOR_BORDER, no_rect, 2, border_radius=ui.s(5))
             no_color = ui_colors.COLOR_TEXT
 
         no_surf = self.font_text.render("No", True, no_color)
@@ -299,9 +300,9 @@ class PauseComboSelector:
         self._find_active_option()
 
         # Fonts
-        self.font_header = pygame.font.Font(FONT_PATH, 16)
-        self.font_text = pygame.font.Font(FONT_PATH, 12)
-        self.font_small = pygame.font.Font(FONT_PATH, 10)
+        self.font_header = scaled_font(16)
+        self.font_text = scaled_font(12)
+        self.font_small = scaled_font(10)
 
     def _find_active_option(self):
         """Find which option matches current setting"""
@@ -523,7 +524,7 @@ class PauseComboSelector:
 
         # Options with toggle switches
         start_y = 75
-        option_height = 32
+        option_height = ui.s(32)
 
         for i, option in enumerate(self.COMBO_OPTIONS):
             y = start_y + i * option_height
@@ -649,6 +650,7 @@ class Settings:
         scaler=None,
         reload_combo_callback=None,
         emulator_provider_callback=None,
+        use_integrated_mgba_callback=None,
     ):
         self.width = w
         self.height = h
@@ -664,6 +666,7 @@ class Settings:
             scaler=scaler,
             reload_combo_callback=reload_combo_callback,
             emulator_provider_callback=emulator_provider_callback,
+            use_integrated_mgba_callback=use_integrated_mgba_callback,
         )
         self.visible = True
 
@@ -680,6 +683,10 @@ class Settings:
     def draw(self, surf):
         """Delegate the draw call to the inner settings screen."""
         self.screen.draw(surf)
+
+    def revert_provider_toggle(self, use_external):
+        """Passthrough so emulator_session can flip the toggle and rebuild the mGBA tab."""
+        self.screen.revert_provider_toggle(use_external)
 
 
 # Alias for backwards compatibility
@@ -724,6 +731,8 @@ class KeyboardMapper:
         ("DOWN", "GBA Down"),
         ("LEFT", "GBA Left"),
         ("RIGHT", "GBA Right"),
+        ("FF_TOGGLE", "Fast-Fwd Toggle"),
+        ("FF_HOLD", "Fast-Fwd Hold"),
     ]
 
     # Default bindings (pygame key constants)
@@ -749,6 +758,8 @@ class KeyboardMapper:
         "DOWN": [pygame.K_DOWN, pygame.K_s],
         "LEFT": [pygame.K_LEFT, pygame.K_a],
         "RIGHT": [pygame.K_RIGHT, pygame.K_d],
+        "FF_TOGGLE": [pygame.K_F1],
+        "FF_HOLD": [pygame.K_TAB],
     }
 
     LISTEN_TIMEOUT = 5.0  # seconds
@@ -792,9 +803,9 @@ class KeyboardMapper:
         self._load_bindings()
 
         # Fonts
-        self.font_header = pygame.font.Font(FONT_PATH, 16)
-        self.font_text = pygame.font.Font(FONT_PATH, 11)
-        self.font_small = pygame.font.Font(FONT_PATH, 9)
+        self.font_header = scaled_font(16)
+        self.font_text = scaled_font(11)
+        self.font_small = scaled_font(9)
 
     def _load_bindings(self):
         """Load saved bindings from sinew_settings.json"""
@@ -813,6 +824,10 @@ class KeyboardMapper:
         settings = load_sinew_settings()
         settings["keyboard_nav_map"] = self.nav_map
         settings["keyboard_emulator_map"] = self.emu_map
+        # Also write FF bindings to their own top-level keys so the emulator
+        # can load them without knowing about the full emu_map structure.
+        settings["keyboard_ff_toggle_key"] = self.emu_map.get("FF_TOGGLE", [pygame.K_F1])
+        settings["keyboard_ff_hold_key"] = self.emu_map.get("FF_HOLD", [pygame.K_TAB])
         save_sinew_settings(settings)
         print("[KeyboardMapper] Saved keyboard bindings")
         if self.reload_kb_callback:
@@ -1004,7 +1019,7 @@ class KeyboardMapper:
         surf.blit(title_surf, title_surf.get_rect(centerx=self.width // 2, top=10))
 
         # Tabs
-        tab_y = 34
+        tab_y = 40  # Moved down from 34 to avoid overlap with title
         tab_w = (self.width - 40) // len(self.TABS)
         for i, tab in enumerate(self.TABS):
             tx = 20 + i * tab_w
@@ -1025,7 +1040,7 @@ class KeyboardMapper:
         actions = self._current_actions()
         mapping = self._current_map()
         row_h = 22  # Back to 22px
-        start_y = 72
+        start_y = 86  # Increased from 80 to account for tabs moving down
         col_label = 20
         col_keys = self.width // 2
 
@@ -1034,8 +1049,8 @@ class KeyboardMapper:
         hdr_keys = self.font_small.render(
             "Bound Keys  (A=bind, Bksp=clear)", True, ui_colors.COLOR_BORDER
         )
-        surf.blit(hdr_label, (col_label, start_y - 16))
-        surf.blit(hdr_keys, (col_keys, start_y - 16))
+        surf.blit(hdr_label, (col_label, start_y - 18))  # Adjusted from -16
+        surf.blit(hdr_keys, (col_keys, start_y - 18))  # Adjusted from -16
 
         # Calculate how many rows fit on screen
         available_height = (
@@ -1064,7 +1079,7 @@ class KeyboardMapper:
             )
 
             # Row background
-            row_rect = pygame.Rect(10, row_y - 2, self.width - 20, row_h - 2)
+            row_rect = pygame.Rect(10, row_y + 2, self.width - 20, row_h)  # Moved down by +2
             if is_listening:
                 pygame.draw.rect(surf, (60, 30, 10), row_rect, border_radius=3)
                 pygame.draw.rect(surf, (255, 140, 0), row_rect, 1, border_radius=3)
@@ -1079,7 +1094,7 @@ class KeyboardMapper:
             # Label
             label_col = ui_colors.COLOR_HIGHLIGHT if is_sel else ui_colors.COLOR_TEXT
             ls = self.font_text.render(label, True, label_col)
-            surf.blit(ls, (col_label, row_y))
+            surf.blit(ls, (col_label, row_y + 6))  # Adjusted to match the box position (+2 from box + 4 for centering)
 
             # Keys display
             if is_listening:
@@ -1095,7 +1110,7 @@ class KeyboardMapper:
                 ks = self.font_text.render(
                     self._keys_display(keys), True, (150, 220, 150)
                 )
-            surf.blit(ks, (col_keys, row_y))
+            surf.blit(ks, (col_keys, row_y + 6))  # Adjusted to match the box position (+2 from box + 4 for centering)
 
         # Scroll indicator if there are more items
         if len(actions) > visible_rows:
@@ -1133,6 +1148,7 @@ class MainSetup:
         scaler=None,
         reload_combo_callback=None,
         emulator_provider_callback=None,
+        use_integrated_mgba_callback=None,
     ):
         self.width = width
         self.height = height
@@ -1145,6 +1161,7 @@ class MainSetup:
         self.scaler = scaler
         self.reload_combo_callback = reload_combo_callback
         self.emulator_provider_callback = emulator_provider_callback
+        self.use_integrated_mgba_callback = use_integrated_mgba_callback
         self.controller = get_controller()
 
         # Sub-screen state
@@ -1164,9 +1181,9 @@ class MainSetup:
         self._toggle_debounce_ms = 300  # 300ms debounce
 
         # Fonts
-        self.font_header = pygame.font.Font(FONT_PATH, 18)
-        self.font_text = pygame.font.Font(FONT_PATH, 12)
-        self.font_small = pygame.font.Font(FONT_PATH, 10)
+        self.font_header = scaled_font(18)
+        self.font_text = scaled_font(12)
+        self.font_small = scaled_font(10)
 
         # Tab definitions
         self.tabs = ["General", "Input", "mGBA", "Info"]
@@ -1191,51 +1208,17 @@ class MainSetup:
                 },
                 {"name": "Mute Menu Music", "type": "toggle", "value": False},
                 {"name": "Themes", "type": "button"},
-                {"name": "Build/Rebuild Pokemon DB", "type": "button"},
+                {"name": "Sprite Pack Manager", "type": "button"},
             ],
             "Input": [
                 {"name": "Swap A/B Buttons", "type": "toggle", "value": False},
                 {"name": "Pause/Menu Combo", "type": "button"},
-                {"name": "Map Buttons", "type": "button"},
-                {"name": "Reset to Default", "type": "button"},
+                {"name": "Map Controller", "type": "button"},
+                {"name": "Reset Controller Defaults", "type": "button"},
                 {"name": "Map Keyboard Keys", "type": "button"},
                 {"name": "Reset Keyboard Defaults", "type": "button"},
             ],
-            "mGBA": [
-                {
-                    "name": "Fast-Forward",
-                    "type": "toggle",
-                    "value": False,
-                },
-                {
-                    "name": "Fast-Forward Speed",
-                    "type": "slider",
-                    "slider_index": 0,
-                    "labels": ["2x", "3x", "4x", "5x", "6x", "7x", "8x", "9x", "10x"],
-                    "speed_values": [2, 3, 4, 5, 6, 7, 8, 9, 10],
-                },
-                {
-                    "name": "Mute Emulator",
-                    "type": "toggle",
-                    "value": False,
-                },
-                {
-                    "name": "Audio Buffer",
-                    "type": "slider",
-                    "slider_index": AUDIO_BUFFER_OPTIONS.index(
-                        AUDIO_BUFFER_DEFAULT_ARM if _IS_ARM_AUDIO else AUDIO_BUFFER_DEFAULT
-                    ),
-                    "labels": [str(v) for v in AUDIO_BUFFER_OPTIONS],
-                    "audio_values": AUDIO_BUFFER_OPTIONS,
-                },
-                {
-                    "name": "Queue Depth",
-                    "type": "slider",
-                    "slider_index": AUDIO_QUEUE_OPTIONS.index(AUDIO_QUEUE_DEPTH_DEFAULT),
-                    "labels": [str(v) for v in AUDIO_QUEUE_OPTIONS],
-                    "audio_values": AUDIO_QUEUE_OPTIONS,
-                },
-            ],
+            "mGBA": self._build_mgba_tab_options(),
             "Info": [
                 {"name": "Sinew Version", "type": "label", "value": "v1.3.7"},
                 {"name": "Author", "type": "label", "value": "Cameron Penna"},
@@ -1278,7 +1261,8 @@ class MainSetup:
             elif opt["name"] == "Fullscreen":
                 opt["value"] = settings.get("fullscreen", False)
             elif opt["name"] == "Use External Providers":
-                opt["value"] = settings.get("use_emulator_provider", False)
+                from config import DEFAULT_USE_EXTERNAL_PROVIDERS
+                opt["value"] = settings.get("use_emulator_provider", DEFAULT_USE_EXTERNAL_PROVIDERS)
             elif opt["name"] == "Volume":
                 saved_vol = settings.get("master_volume", VOLUME_DEFAULT)
                 vol_values = opt.get("volume_values", list(range(VOLUME_MIN, VOLUME_MAX + 1,
@@ -1295,8 +1279,8 @@ class MainSetup:
 
         # Load mGBA tab settings
         for opt in self.tab_options["mGBA"]:
-            if opt["name"] == "Fast-Forward":
-                opt["value"] = settings.get("mgba_fastforward_enabled", False)
+            if opt["name"] == "Controller FF Buttons":
+                opt["value"] = settings.get("mgba_ctrl_ff_enabled", True)
             elif opt["name"] == "Fast-Forward Speed":
                 saved_idx = settings.get("mgba_fastforward_index", 0)
                 opt["slider_index"] = max(0, min(saved_idx, len(opt["speed_values"]) - 1))
@@ -1338,6 +1322,132 @@ class MainSetup:
                 print("[Settings] Audio settings were reverted to defaults by emulator")
         except Exception:
             pass
+
+    # ------------------------------------------------------------------
+    # mGBA tab — dynamic construction based on provider state
+    # ------------------------------------------------------------------
+
+    def _build_mgba_tab_options(self):
+        """
+        Build the mGBA tab option list.
+
+        When external providers are active the tab shows only the
+        'Use Integrated mGBA' toggle (so the user can switch back) plus
+        an info label explaining that options are hidden.
+
+        When integrated mGBA is active all audio/speed options are shown
+        plus a 'Use External Emulator' toggle (if external providers exist).
+        """
+        from config import DEFAULT_USE_EXTERNAL_PROVIDERS
+        settings = load_sinew_settings()
+        use_external = settings.get("use_emulator_provider", DEFAULT_USE_EXTERNAL_PROVIDERS)
+
+        # Integrated options (always built — shown or hidden depending on mode)
+        integrated_opts = [
+            {"name": "Controller FF Buttons", "type": "toggle", "value": True},
+            {
+                "name": "Fast-Forward Speed",
+                "type": "slider",
+                "slider_index": 0,
+                "labels": ["2x", "3x", "4x", "5x", "6x", "7x", "8x", "9x", "10x"],
+                "speed_values": [2, 3, 4, 5, 6, 7, 8, 9, 10],
+            },
+            {"name": "Mute Emulator", "type": "toggle", "value": False},
+            {
+                "name": "Audio Buffer",
+                "type": "slider",
+                "slider_index": AUDIO_BUFFER_OPTIONS.index(
+                    AUDIO_BUFFER_DEFAULT_ARM if _IS_ARM_AUDIO else AUDIO_BUFFER_DEFAULT
+                ),
+                "labels": [str(v) for v in AUDIO_BUFFER_OPTIONS],
+                "audio_values": AUDIO_BUFFER_OPTIONS,
+            },
+            {
+                "name": "Queue Depth",
+                "type": "slider",
+                "slider_index": AUDIO_QUEUE_OPTIONS.index(AUDIO_QUEUE_DEPTH_DEFAULT),
+                "labels": [str(v) for v in AUDIO_QUEUE_OPTIONS],
+                "audio_values": AUDIO_QUEUE_OPTIONS,
+            },
+        ]
+
+        if use_external:
+            # External mode: hide all mGBA options, show toggle-back + info
+            return [
+                {
+                    "name": "Use Integrated mGBA",
+                    "type": "toggle",
+                    "value": False,  # currently using external, so this is OFF
+                },
+                {
+                    "name": "Using External Emulator",
+                    "type": "label",
+                    "value": "mGBA options hidden",
+                },
+            ]
+        else:
+            # Integrated mode: show all options + toggle to switch to external
+            return [
+                {
+                    "name": "Use External Emulator",
+                    "type": "toggle",
+                    "value": False,  # currently using integrated, so this is OFF
+                },
+            ] + integrated_opts
+
+    def _rebuild_mgba_tab(self, use_external):
+        """
+        Rebuild the mGBA tab options in-place when the provider mode changes.
+        Preserves current slider/toggle values where possible, then resets
+        navigation so the cursor lands at the top of the rebuilt tab.
+        """
+        # Save current integrated values before rebuilding
+        old_opts = {o["name"]: o for o in self.tab_options.get("mGBA", [])}
+
+        # Rebuild
+        self.tab_options["mGBA"] = self._build_mgba_tab_options()
+
+        # Restore saved values into the new option list
+        settings = load_sinew_settings()
+        for opt in self.tab_options["mGBA"]:
+            name = opt["name"]
+            if name == "Controller FF Buttons":
+                opt["value"] = settings.get("mgba_ctrl_ff_enabled", True)
+            elif name == "Fast-Forward Speed":
+                saved_idx = settings.get("mgba_fastforward_index", 0)
+                opt["slider_index"] = max(0, min(saved_idx, len(opt.get("speed_values", [0])) - 1))
+            elif name == "Mute Emulator":
+                opt["value"] = settings.get("mgba_muted", False)
+            elif name == "Audio Buffer":
+                saved_buf = settings.get(
+                    "mgba_audio_buffer",
+                    AUDIO_BUFFER_DEFAULT_ARM if _IS_ARM_AUDIO else AUDIO_BUFFER_DEFAULT)
+                if saved_buf in AUDIO_BUFFER_OPTIONS:
+                    opt["slider_index"] = AUDIO_BUFFER_OPTIONS.index(saved_buf)
+            elif name == "Queue Depth":
+                saved_depth = settings.get("mgba_audio_queue_depth", AUDIO_QUEUE_DEPTH_DEFAULT)
+                if saved_depth in AUDIO_QUEUE_OPTIONS:
+                    opt["slider_index"] = AUDIO_QUEUE_OPTIONS.index(saved_depth)
+
+        # Reset navigation
+        if self.current_tab() == "mGBA":
+            self.selected_option = 0
+        self._update_option_nav()
+
+    def revert_provider_toggle(self, use_external):
+        """
+        Called by emulator_session when a provider switch is reverted or committed.
+        Flips the 'Use External Providers' toggle in the General tab to match
+        the actual state, and rebuilds the mGBA tab accordingly.
+        """
+        # Update General tab toggle
+        for opt in self.tab_options.get("General", []):
+            if opt["name"] == "Use External Providers":
+                opt["value"] = use_external
+                break
+
+        # Rebuild mGBA tab for the new state
+        self._rebuild_mgba_tab(use_external)
 
     def _update_option_nav(self):
         """Update NavigableList for current tab"""
@@ -1463,49 +1573,53 @@ class MainSetup:
             self.fullscreen_callback(value)
         elif name == "Mute Menu Music" and self.music_mute_callback:
             self.music_mute_callback(value)
+
         elif name == "Use External Providers":
-            try:
-                settings = load_sinew_settings()
-                settings["use_emulator_provider"] = value
-                save_sinew_settings(settings)
-                import builtins
+            # General tab toggle — delegate entirely to session; session owns
+            # saving and will call revert_provider_toggle() if needed.
+            if self.emulator_provider_callback:
+                self.emulator_provider_callback(value)
 
-                builtins.SINEW_USE_EMULATOR_PROVIDER = value
-                status = "ON" if value else "OFF"
-                print(f"[Settings] Use External Providers: {status}")
-                self._status_msg(f"External Emulators: {status}")
+        elif name == "Use External Emulator":
+            # mGBA tab: switch FROM integrated TO external binary
+            if self.emulator_provider_callback:
+                self.emulator_provider_callback(True)
 
-                # Trigger game re-scan in GameScreen
-                if self.emulator_provider_callback:
-                    self.emulator_provider_callback(value)
+        elif name == "Use Integrated mGBA":
+            # mGBA tab: switch FROM external binary TO integrated mGBA,
+            # but KEEP external paths (use_emulator_provider stays True if
+            # external paths exist — we're only changing the emulator, not paths).
+            if self.use_integrated_mgba_callback:
+                self.use_integrated_mgba_callback()
+            elif self.emulator_provider_callback:
+                # Fallback: no dedicated callback, treat as full toggle OFF
+                self.emulator_provider_callback(False)
 
-            except Exception as e:
-                print(f"[Settings] Failed to save emulator provider setting: {e}")
-        elif name == "Fast-Forward":
+        elif name == "Controller FF Buttons":
             self._save_mgba_fastforward_settings()
             self._apply_fastforward_to_emulator()
         elif name == "Mute Emulator":
             self._save_and_apply_mgba_mute(value)
 
     def _save_mgba_fastforward_settings(self):
-        """Persist fast-forward toggle + speed index to sinew_settings.json."""
-        enabled = False
+        """Persist controller FF enabled flag + speed index to sinew_settings.json."""
+        ctrl_ff_enabled = True
         speed_index = 0
         speed_values = [2, 3, 4, 5, 6, 7, 8, 9, 10]
         for opt in self.tab_options.get("mGBA", []):
-            if opt["name"] == "Fast-Forward":
-                enabled = opt.get("value", False)
+            if opt["name"] == "Controller FF Buttons":
+                ctrl_ff_enabled = opt.get("value", True)
             elif opt["name"] == "Fast-Forward Speed":
                 speed_index = opt.get("slider_index", 0)
                 speed_values = opt.get("speed_values", speed_values)
-        multiplier = speed_values[speed_index] if enabled else 1
         try:
             s = load_sinew_settings()
-            s["mgba_fastforward_enabled"] = enabled
+            s["mgba_ctrl_ff_enabled"] = ctrl_ff_enabled
             s["mgba_fastforward_index"] = speed_index
             s["mgba_fastforward_speed"] = speed_values[speed_index]
             save_sinew_settings(s)
-            print(f"[Settings] Fast-Forward: {'ON' if enabled else 'OFF'} @ {speed_values[speed_index]}x")  # pylint: disable=line-too-long  # noqa: E501
+            status = "ON" if ctrl_ff_enabled else "OFF"
+            print(f"[Settings] Controller FF Buttons: {status} @ {speed_values[speed_index]}x")
         except Exception as e:
             print(f"[Settings] Failed to save fast-forward settings: {e}")
 
@@ -1529,25 +1643,20 @@ class MainSetup:
         return None
 
     def _apply_fastforward_to_emulator(self):
-        """Push the current fast-forward state to the running emulator via builtins."""
-        enabled = False
-        speed_index = 0
-        speed_values = [2, 3, 4, 5, 6, 7, 8, 9, 10]
+        """Push the controller FF enabled state to the running emulator via builtins."""
+        ctrl_ff_enabled = True
         for opt in self.tab_options.get("mGBA", []):
-            if opt["name"] == "Fast-Forward":
-                enabled = opt.get("value", False)
-            elif opt["name"] == "Fast-Forward Speed":
-                speed_index = opt.get("slider_index", 0)
-                speed_values = opt.get("speed_values", speed_values)
-        multiplier = speed_values[speed_index] if enabled else 1
+            if opt["name"] == "Controller FF Buttons":
+                ctrl_ff_enabled = opt.get("value", True)
+                break
         try:
             emu = self._get_integrated_mgba_emulator()
-            if emu is not None and hasattr(emu, "set_fast_forward"):
-                emu.set_fast_forward(multiplier)
-                label = f"{multiplier}x" if enabled else "Off"
-                print(f"[Settings] Applied fast-forward to emulator: {label}")
+            if emu is not None and hasattr(emu, "set_ctrl_ff_enabled"):
+                emu.set_ctrl_ff_enabled(ctrl_ff_enabled)
+                status = "ON" if ctrl_ff_enabled else "OFF"
+                print(f"[Settings] Controller FF Buttons applied to emulator: {status}")
         except Exception as e:
-            print(f"[Settings] Could not apply fast-forward to emulator: {e}")
+            print(f"[Settings] Could not apply controller FF state to emulator: {e}")
 
     # ---- Volume (General tab) ----
 
@@ -1687,13 +1796,13 @@ class MainSetup:
                 )
             else:
                 print("[Settings] Themes screen not available")
-        elif name == "Build/Rebuild Pokemon DB":
-            print("[Settings] Opening Pokemon DB builder...")
+        elif name == "Sprite Pack Manager":
+            print("[Settings] Opening Sprite Pack Manager...")
             if self.db_builder_callback:
                 self.db_builder_callback()
             else:
-                print("[Settings] DB builder callback not available")
-        elif name == "Map Buttons":
+                print("[Settings] Sprite Pack Manager callback not available")
+        elif name == "Map Controller":
             if BUTTON_MAPPER_AVAILABLE:
                 print("[Settings] Opening button mapper...")
                 self._set_sub_screen(
@@ -1732,7 +1841,7 @@ class MainSetup:
             km = KeyboardMapper(self.width, self.height)
             km._reset_to_defaults()
             self._status_msg("Keyboard defaults restored")
-        elif name == "Reset to Default":
+        elif name == "Reset Controller Defaults":
             print("[Settings] Resetting controller to defaults...")
             if self.controller:
                 # Reset to default mapping
@@ -2476,25 +2585,25 @@ class MainSetup:
 
         # Title
         title = self.font_header.render("Sinew Setup", True, ui_colors.COLOR_TEXT)
-        surf.blit(title, (20, 15))
+        surf.blit(title, (ui.s(20), ui.s(15)))
 
         # Tab bar background
-        tab_bar_rect = pygame.Rect(0, 45, self.width, 30)
+        tab_bar_rect = pygame.Rect(0, ui.s(45), self.width, ui.s(30))
         pygame.draw.rect(surf, ui_colors.COLOR_HEADER, tab_bar_rect)
-        pygame.draw.line(surf, ui_colors.COLOR_BORDER, (0, 75), (self.width, 75), 1)
+        pygame.draw.line(surf, ui_colors.COLOR_BORDER, (0, ui.s(75)), (self.width, ui.s(75)), 1)
 
         # Tabs
-        tab_x = 15
+        tab_x = ui.s(15)
         for i, tab in enumerate(self.tabs):
             is_selected = i == self.selected_tab
             is_focused = is_selected and self.tab_focus
 
             # Tab background for selected
             tab_surf = self.font_text.render(tab, True, ui_colors.COLOR_TEXT)
-            tab_width = tab_surf.get_width() + 16
+            tab_width = tab_surf.get_width() + ui.s(16)
 
             if is_selected:
-                tab_rect = pygame.Rect(tab_x - 8, 48, tab_width, 24)
+                tab_rect = pygame.Rect(tab_x - ui.s(8), ui.s(48), tab_width, ui.s(24))
                 pygame.draw.rect(
                     surf, ui_colors.COLOR_BUTTON, tab_rect, border_radius=3
                 )
@@ -2508,8 +2617,8 @@ class MainSetup:
                 )
                 tab_surf = self.font_text.render(tab, True, text_color)
 
-            surf.blit(tab_surf, (tab_x, 52))
-            tab_x += tab_width + 8
+            surf.blit(tab_surf, (tab_x, ui.s(52)))
+            tab_x += tab_width + ui.s(8)
 
         # Navigation hints
         if self.tab_focus:
@@ -2517,11 +2626,11 @@ class MainSetup:
         else:
             hint_text = "L/R"
         hint_surf = self.font_small.render(hint_text, True, ui_colors.COLOR_BORDER)
-        surf.blit(hint_surf, (self.width - hint_surf.get_width() - 10, 52))
+        surf.blit(hint_surf, (self.width - hint_surf.get_width() - ui.s(10), ui.s(52)))
 
         # Draw options for current tab
-        y_start = 85
-        option_height = 32
+        y_start = ui.s(85)
+        option_height = ui.s(32)
         max_visible = (self.height - y_start - 30) // option_height
 
         options = self.current_options()
@@ -2729,15 +2838,9 @@ class ChangelogScreen:
         self.scroll = 0
 
         # Fonts
-        try:
-            self.font_header = pygame.font.Font(FONT_PATH, 16)
-            self.font_text = pygame.font.Font(FONT_PATH, 11)
-            self.font_small = pygame.font.Font(FONT_PATH, 9)
-        except Exception:
-            self.font_header = pygame.font.SysFont(None, 22)
-            self.font_text = pygame.font.SysFont(None, 16)
-            self.font_small = pygame.font.SysFont(None, 12)
-
+        self.font_header = scaled_font(16)
+        self.font_text = scaled_font(11)
+        self.font_small = scaled_font(9)
         self.lines = self._load_changelog()
 
     def _load_changelog(self):
@@ -2843,18 +2946,18 @@ class ChangelogScreen:
         surf.blit(close_hint, (self.width - close_hint.get_width() - 15, 15))
 
         # Content area
-        content_rect = pygame.Rect(10, 45, self.width - 20, self.height - 75)
-        pygame.draw.rect(surf, ui_colors.COLOR_HEADER, content_rect, border_radius=5)
-        pygame.draw.rect(surf, ui_colors.COLOR_BORDER, content_rect, 1, border_radius=5)
+        content_rect = pygame.Rect(ui.s(10), ui.s(45), self.width - ui.s(20), self.height - ui.s(75))
+        pygame.draw.rect(surf, ui_colors.COLOR_HEADER, content_rect, border_radius=ui.s(5))
+        pygame.draw.rect(surf, ui_colors.COLOR_BORDER, content_rect, 1, border_radius=ui.s(5))
 
-        line_height = 16
-        max_lines = (content_rect.height - 20) // line_height
-        y = content_rect.y + 10
+        line_height = ui.s(16)
+        max_lines = (content_rect.height - ui.s(20)) // line_height
+        y = content_rect.y + ui.s(10)
 
         for _, (text, style) in enumerate(
             self.lines[self.scroll : self.scroll + max_lines]
         ):
-            if y > content_rect.bottom - 15:
+            if y > content_rect.bottom - ui.s(15):
                 break
             if style == "subheader":
                 color = ui_colors.COLOR_HIGHLIGHT
@@ -2863,19 +2966,19 @@ class ChangelogScreen:
                 color = ui_colors.COLOR_TEXT
                 font = self.font_small
             if text:
-                surf.blit(font.render(text, True, color), (content_rect.x + 15, y))
+                surf.blit(font.render(text, True, color), (content_rect.x + ui.s(15), y))
             y += line_height
 
         # Scroll indicators
         if self.scroll > 0:
             surf.blit(
                 self.font_text.render("^", True, ui_colors.COLOR_HIGHLIGHT),
-                (content_rect.right - 20, content_rect.y + 5),
+                (content_rect.right - ui.s(20), content_rect.y + ui.s(5)),
             )
         if self.scroll + max_lines < len(self.lines):
             surf.blit(
                 self.font_text.render("v", True, ui_colors.COLOR_HIGHLIGHT),
-                (content_rect.right - 20, content_rect.bottom - 20),
+                (content_rect.right - ui.s(20), content_rect.bottom - ui.s(20)),
             )
 
         # Hint
@@ -2898,15 +3001,9 @@ class AboutLegalScreen:
         self.close_callback = close_callback
 
         # Fonts
-        try:
-            self.font_header = pygame.font.Font(FONT_PATH, 16)
-            self.font_text = pygame.font.Font(FONT_PATH, 11)
-            self.font_small = pygame.font.Font(FONT_PATH, 9)
-        except Exception:
-            self.font_header = pygame.font.SysFont(None, 22)
-            self.font_text = pygame.font.SysFont(None, 16)
-            self.font_small = pygame.font.SysFont(None, 12)
-
+        self.font_header = scaled_font(16)
+        self.font_text = scaled_font(11)
+        self.font_small = scaled_font(9)
         # Tabs
         self.tabs = ["About", "License", "Third-Party", "Acknowledgments"]
         self.selected_tab = 0
@@ -3297,18 +3394,18 @@ class AboutLegalScreen:
             tab_x += tab_width + 5
 
         # Content area
-        content_rect = pygame.Rect(10, 70, self.width - 20, self.height - 100)
-        pygame.draw.rect(surf, ui_colors.COLOR_HEADER, content_rect, border_radius=5)
-        pygame.draw.rect(surf, ui_colors.COLOR_BORDER, content_rect, 1, border_radius=5)
+        content_rect = pygame.Rect(ui.s(10), ui.s(70), self.width - ui.s(20), self.height - ui.s(100))
+        pygame.draw.rect(surf, ui_colors.COLOR_HEADER, content_rect, border_radius=ui.s(5))
+        pygame.draw.rect(surf, ui_colors.COLOR_BORDER, content_rect, 1, border_radius=ui.s(5))
 
         # Draw content
         current_tab = self.tabs[self.selected_tab]
         lines = self.rendered_content.get(current_tab, [])
         scroll = self.scroll_offsets[current_tab]
 
-        y = content_rect.y + 10
-        line_height = 16
-        max_lines = (content_rect.height - 20) // line_height
+        y = content_rect.y + ui.s(10)
+        line_height = ui.s(16)
+        max_lines = (content_rect.height - ui.s(20)) // line_height
 
         # Track clickable links
         self._link_rects = []
@@ -3317,7 +3414,7 @@ class AboutLegalScreen:
         link_indices = self._link_indices.get(current_tab, [])
 
         for i, (text, style) in enumerate(lines[scroll : scroll + max_lines]):
-            if y > content_rect.bottom - 15:
+            if y > content_rect.bottom - ui.s(15):
                 break
 
             actual_line_index = scroll + i
@@ -3348,13 +3445,13 @@ class AboutLegalScreen:
 
             if text:
                 text_surf = font.render(text, True, color)
-                text_x = content_rect.x + 15
+                text_x = content_rect.x + ui.s(15)
 
                 # Draw selection indicator for selected link
                 if is_selected_link:
                     # Draw arrow indicator
                     arrow = self.font_small.render(">", True, (255, 255, 100))
-                    surf.blit(arrow, (content_rect.x + 5, y))
+                    surf.blit(arrow, (content_rect.x + ui.s(5), y))
 
                 surf.blit(text_surf, (text_x, y))
 
@@ -3371,11 +3468,11 @@ class AboutLegalScreen:
         # Scroll indicators
         if scroll > 0:
             up_arrow = self.font_text.render("^", True, ui_colors.COLOR_HIGHLIGHT)
-            surf.blit(up_arrow, (content_rect.right - 20, content_rect.y + 5))
+            surf.blit(up_arrow, (content_rect.right - ui.s(20), content_rect.y + ui.s(5)))
 
         if scroll + max_lines < len(lines):
             down_arrow = self.font_text.render("v", True, ui_colors.COLOR_HIGHLIGHT)
-            surf.blit(down_arrow, (content_rect.right - 20, content_rect.bottom - 20))
+            surf.blit(down_arrow, (content_rect.right - ui.s(20), content_rect.bottom - ui.s(20)))
 
         # Navigation hints
         if self.tab_focus:

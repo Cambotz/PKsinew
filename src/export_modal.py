@@ -13,6 +13,7 @@ import pygame
 
 import ui_colors  # Import module to get dynamic theme colors
 from config import FONT_PATH
+from ui_scale import ui, scaled_font
 
 # Try to import save data manager and name lookups
 try:
@@ -85,15 +86,9 @@ class ExportModal:
         self.visible = True
 
         # Fonts
-        try:
-            self.font_header = pygame.font.Font(FONT_PATH, 14)
-            self.font_text = pygame.font.Font(FONT_PATH, 10)
-            self.font_small = pygame.font.Font(FONT_PATH, 8)
-        except Exception:
-            self.font_header = pygame.font.SysFont(None, 20)
-            self.font_text = pygame.font.SysFont(None, 14)
-            self.font_small = pygame.font.SysFont(None, 12)
-
+        self.font_header = scaled_font(14)
+        self.font_text = scaled_font(10)
+        self.font_small = scaled_font(8)
         # Tabs
         self.tabs = ["Trainer & Items", "Pokemon", "Export"]
         self.selected_tab = 0
@@ -858,7 +853,7 @@ class ExportModal:
         surf.blit(info_surf, (rect.x + 15, y))
         y += 22
 
-        option_height = 26
+        option_height = ui.s(26)
         for i, opt in enumerate(self.export_options):
             is_selected = not self.tab_focus and self.selected_option == i
 

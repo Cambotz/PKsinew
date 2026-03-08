@@ -14,6 +14,7 @@ import pygame
 
 import ui_colors
 from config import ACH_SAVE_PATH, FONT_PATH, SETTINGS_FILE, SPRITES_DIR
+from ui_scale import ui, scaled_font
 from controller import get_controller
 
 # Lazy imports to avoid circular import issues
@@ -36,7 +37,7 @@ class AchievementNotification:
 
     SLIDE_DURATION = 0.3  # Seconds to slide in/out
     DISPLAY_DURATION = 3.0  # Seconds to stay visible
-    NOTIFICATION_HEIGHT = 60
+    NOTIFICATION_HEIGHT = 70
 
     STATE_HIDDEN = 0
     STATE_SLIDING_IN = 1
@@ -62,15 +63,9 @@ class AchievementNotification:
         self.y_offset = -self.NOTIFICATION_HEIGHT  # Start off-screen
 
         # Fonts
-        try:
-            self.font_title = pygame.font.Font(FONT_PATH, 12)
-            self.font_text = pygame.font.Font(FONT_PATH, 9)
-            self.font_sinew = pygame.font.Font(FONT_PATH, 24)
-        except Exception:
-            self.font_title = pygame.font.SysFont(None, 18)
-            self.font_text = pygame.font.SysFont(None, 14)
-            self.font_sinew = pygame.font.SysFont(None, 32)
-
+        self.font_title = scaled_font(12)
+        self.font_text = scaled_font(9)
+        self.font_sinew = scaled_font(24)
         # Initialize empty icon dict (icons loaded on-demand)
         self.game_icons = {}
 
@@ -2198,17 +2193,10 @@ class AchievementsScreen:
         self.controller = get_controller()
 
         # Fonts
-        try:
-            self.font_header = pygame.font.Font(FONT_PATH, 16)
-            self.font_text = pygame.font.Font(FONT_PATH, 11)
-            self.font_small = pygame.font.Font(FONT_PATH, 9)
-            self.font_sinew = pygame.font.Font(FONT_PATH, 16)
-        except Exception:
-            self.font_header = pygame.font.SysFont(None, 22)
-            self.font_text = pygame.font.SysFont(None, 16)
-            self.font_small = pygame.font.SysFont(None, 12)
-            self.font_sinew = pygame.font.SysFont(None, 20)
-
+        self.font_header = scaled_font(16)
+        self.font_text = scaled_font(11)
+        self.font_small = scaled_font(9)
+        self.font_sinew = scaled_font(16)
         # Initialize empty icon dict (icons loaded on-demand)
         self.game_icons = {}
 
@@ -2223,7 +2211,7 @@ class AchievementsScreen:
         # Navigation
         self.selected_achievement = 0
         self.scroll_offset = 0
-        self.achievements_per_page = 5
+        self.achievements_per_page = 6
 
         # Detail popup
         self.detail_popup = None
@@ -2236,7 +2224,7 @@ class AchievementsScreen:
     def _get_game_icon(self, game_name):
         """Get game icon, loading it lazily if not already cached"""
         if game_name not in self.game_icons:
-            icon_size = 24  # Size for the list icons
+            icon_size = ui.s(36)  # Size for the list icons (fits in 40px box with padding)
             filename = self.GAME_ICON_FILES.get(game_name)
             if filename:
                 icon_path = os.path.join(SPRITES_DIR, "icons", filename)
@@ -2510,7 +2498,7 @@ class AchievementsScreen:
 
         # Draw achievements list
         y_start = 70
-        item_height = 42
+        item_height = 58
 
         if not self.achievements:
             no_ach = self.font_text.render("No achievements", True, (100, 100, 100))
@@ -2572,15 +2560,13 @@ class AchievementsScreen:
                     pygame.draw.rect(surf, ui_colors.COLOR_BORDER, box_rect, 1)
 
                 # Status icon - use game icon
-                icon_rect = pygame.Rect(box_rect.x + 5, box_rect.y + 5, 28, 28)
+                # Center icon vertically in the box (box is 55px tall, icon is 40px)
+                icon_size = 40
+                icon_padding = (item_height - 3 - icon_size) // 2  # Center vertically
+                icon_rect = pygame.Rect(box_rect.x + 8, box_rect.y + icon_padding, icon_size, icon_size)
                 game = achievement.get("game", "Sinew")
 
-                if is_unlocked:
-                    pygame.draw.rect(surf, (255, 215, 0), icon_rect, border_radius=3)
-                else:
-                    pygame.draw.rect(surf, (60, 60, 60), icon_rect, border_radius=3)
-
-                # Draw game icon or Sinew "S"
+                # Draw game icon or Sinew "S" (no background box)
                 icon = self._get_game_icon(game)  # Lazy load icon
                 if icon:
                     # Center the icon
@@ -2597,17 +2583,15 @@ class AchievementsScreen:
                         surf.blit(icon, (icon_x, icon_y))
                 else:
                     # Sinew - draw "S"
-                    s_color = (50, 50, 0) if is_unlocked else (80, 80, 80)
+                    s_color = (255, 215, 0) if is_unlocked else (120, 120, 120)
                     s_text = self.font_sinew.render("S", True, s_color)
                     s_rect = s_text.get_rect(center=icon_rect.center)
                     surf.blit(s_text, s_rect)
 
-                pygame.draw.rect(surf, ui_colors.COLOR_BORDER, icon_rect, 1)
-
                 # Achievement name (no truncation)
                 name_color = ui_colors.COLOR_TEXT if is_unlocked else (120, 120, 120)
                 name_surf = self.font_text.render(achievement["name"], True, name_color)
-                surf.blit(name_surf, (box_rect.x + 40, box_rect.y + 4))
+                surf.blit(name_surf, (box_rect.x + 56, box_rect.y + 8))
 
                 # Progress or description
                 if is_unlocked:
@@ -2615,15 +2599,15 @@ class AchievementsScreen:
                     desc_color = (150, 150, 150)
                     desc_text = achievement.get("desc", "")
                     desc_surf = self.font_small.render(desc_text, True, desc_color)
-                    surf.blit(desc_surf, (box_rect.x + 40, box_rect.y + 20))
+                    surf.blit(desc_surf, (box_rect.x + 56, box_rect.y + 26))
                 else:
                     # Show progress for locked achievements
                     progress = self.manager.get_achievement_progress(achievement)
                     if progress:
                         current, required, percentage = progress
                         # Progress bar background
-                        bar_x = box_rect.x + 40
-                        bar_y = box_rect.y + 22
+                        bar_x = box_rect.x + 56
+                        bar_y = box_rect.y + 28
                         bar_width = 120
                         bar_height = 8
 
@@ -2662,13 +2646,13 @@ class AchievementsScreen:
                         desc_color = (80, 80, 80)
                         desc_text = achievement.get("desc", "")
                         desc_surf = self.font_small.render(desc_text, True, desc_color)
-                        surf.blit(desc_surf, (box_rect.x + 40, box_rect.y + 20))
+                        surf.blit(desc_surf, (box_rect.x + 56, box_rect.y + 26))
 
                 # Points (top right corner)
                 points = achievement.get("points", 0)
                 pts_color = (255, 215, 0) if is_unlocked else (80, 80, 80)
                 pts_surf = self.font_small.render(f"{points}pts", True, pts_color)
-                surf.blit(pts_surf, (box_rect.right - 45, box_rect.y + 4))
+                surf.blit(pts_surf, (box_rect.right - 45, box_rect.y + 8))
 
                 # Reward indicator (under points, if has reward)
                 # has_reward and reward_claimed already calculated at top of loop

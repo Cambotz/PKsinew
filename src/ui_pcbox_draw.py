@@ -25,7 +25,10 @@ from config import (
     get_egg_sprite_path,
     get_sprite_path,
 )
+from sprite_paths import get_sprite_dirs_for_game
 from ui_components import scale_surface_preserve_aspect
+from ui_scale import ui, scaled_font
+from text_utils import render_pokemon_name, contains_gender_symbol
 
 # Optional dependencies — matched exactly to pc_box.py guard pattern
 try:
@@ -52,6 +55,181 @@ class PCBoxDrawMixin:
     """Mixin providing all rendering methods for PCBox."""
 
     # ------------------------------------------------------------------ #
+    #  Sprite scaling helpers                                              #
+    # ------------------------------------------------------------------ #
+
+    def _scale_sprite_crisp(self, surf_img, target_w, target_h):
+        """
+        Scale sprite using nearest-neighbor for crisp pixel art, with smart scale limiting
+        (Same logic as Pokedex)
+        """
+        iw, ih = surf_img.get_size()
+        if iw == 0 or ih == 0:
+            return pygame.Surface((target_w, target_h), pygame.SRCALPHA)
+        
+        # Calculate scale ratio to fit within target
+        ratio = min(target_w / iw, target_h / ih)
+        
+        # Apply tiered max scale based on original sprite size
+        original_size = max(iw, ih)
+        if original_size < 40:
+            max_scale = 1.5  # Very small sprites
+        elif original_size < 60:
+            max_scale = 2.0  # Small sprites
+        else:
+            max_scale = 2.75  # Normal/large sprites
+        
+        ratio = min(ratio, max_scale)
+        
+        new_w = max(1, int(iw * ratio))
+        new_h = max(1, int(ih * ratio))
+        # Use scale (nearest-neighbor) instead of smoothscale for pixel art
+        return pygame.transform.scale(surf_img, (new_w, new_h))
+    
+    def _get_sprite_dirs(self):
+        """Get sprite directories for current game (or global if no game)"""
+        current_game = None
+        if hasattr(self, 'get_current_game_callback') and self.get_current_game_callback:
+            current_game = self.get_current_game_callback()
+        
+        return get_sprite_dirs_for_game(current_game)
+    
+    def _get_best_sprite_path(self, species_id, shiny=False, prefer_gif=True):
+        """
+        Get best available sprite path with proper priority.
+        Results are cached to avoid redundant filesystem checks.
+        
+        Returns: (path, is_gif) or (None, False)
+        """
+        # Get current game name FIRST (for cache key)
+        game_name = None
+        if hasattr(self, 'get_current_game_callback') and self.get_current_game_callback:
+            game_name = self.get_current_game_callback()
+        
+        # Create cache if it doesn't exist
+        if not hasattr(self, '_sprite_path_cache'):
+            self._sprite_path_cache = {}
+        
+        # Check cache first - INCLUDE GAME NAME in key to prevent cross-contamination
+        cache_key = (game_name, species_id, shiny, prefer_gif)
+        if cache_key in self._sprite_path_cache:
+            return self._sprite_path_cache[cache_key]
+        
+        # Get game pack sprite path (PNG)
+        game_png_path = None
+        try:
+            from sprite_paths import get_sprite_path_for_game
+            game_png_path = get_sprite_path_for_game(
+                species_id,
+                game_name,
+                shiny,
+                fallback_to_global=False  # Don't fallback yet, we'll do it manually
+            )
+        except Exception:
+            pass
+        
+        # Get directories for GIF checking
+        game_normal_dir, game_shiny_dir = self._get_sprite_dirs()
+        game_sprite_dir = game_shiny_dir if shiny else game_normal_dir
+        game_gif_path = os.path.join(game_sprite_dir, f"{species_id:03d}.gif")
+        
+        # Check game pack (prefer GIF if requested)
+        if prefer_gif and os.path.exists(game_gif_path) and os.path.isfile(game_gif_path):
+            result = (game_gif_path, True)  # Game pack GIF
+            self._sprite_path_cache[cache_key] = result
+            return result
+        
+        if game_png_path and os.path.exists(game_png_path):
+            result = (game_png_path, False)  # Game pack PNG
+            self._sprite_path_cache[cache_key] = result
+            return result
+        
+        # Fallback to global pack only if we're not already on global
+        if game_name:
+            # Get global pack paths
+            global_png_path = None
+            try:
+                from sprite_paths import get_sprite_path_for_game
+                global_png_path = get_sprite_path_for_game(
+                    species_id,
+                    None,  # Global pack
+                    shiny,
+                    fallback_to_global=False
+                )
+            except Exception:
+                pass
+            
+            global_normal_dir, global_shiny_dir = get_sprite_dirs_for_game(None)
+            global_sprite_dir = global_shiny_dir if shiny else global_normal_dir
+            global_gif_path = os.path.join(global_sprite_dir, f"{species_id:03d}.gif")
+            
+            # Check global pack (prefer GIF if requested)
+            if prefer_gif and os.path.exists(global_gif_path) and os.path.isfile(global_gif_path):
+                result = (global_gif_path, True)  # Global pack GIF
+                self._sprite_path_cache[cache_key] = result
+                return result
+            
+            if global_png_path and os.path.exists(global_png_path):
+                result = (global_png_path, False)  # Global pack PNG
+                self._sprite_path_cache[cache_key] = result
+                return result
+        
+        result = (None, False)  # Nothing found
+        self._sprite_path_cache[cache_key] = result
+        return result
+    
+    def clear_sprite_cache(self):
+        """Clear sprite path cache (call when switching games/packs)"""
+        if hasattr(self, '_sprite_path_cache'):
+            self._sprite_path_cache.clear()
+        if hasattr(self, '_pokemon_sprite_info_cache'):
+            self._pokemon_sprite_info_cache.clear()
+        if hasattr(self, '_static_gif_cache'):
+            self._static_gif_cache.clear()
+        if hasattr(self, '_grid_gif_cache'):
+            self._grid_gif_cache.clear()
+        if hasattr(self, '_party_gif_cache'):
+            self._party_gif_cache.clear()
+
+    def _load_gif_frames(self, gif_path, target_w, target_h):
+        """
+        Load GIF frames with nearest-neighbor scaling
+        Returns: (frames_list, durations_list) or (None, None)
+        """
+        if not os.path.exists(gif_path):
+            print(f"[PCBox] GIF not found: {gif_path}")
+            return None, None
+        
+        try:
+            from PIL import Image, ImageSequence
+            pil_img = Image.open(gif_path)
+            frames = []
+            durations = []
+            
+            for frame in ImageSequence.Iterator(pil_img):
+                frame_rgba = frame.convert('RGBA')
+                data = frame_rgba.tobytes()
+                surf = pygame.image.fromstring(data, frame_rgba.size, frame_rgba.mode).convert_alpha()
+                
+                # Scale with nearest-neighbor
+                scaled = self._scale_sprite_crisp(surf, target_w, target_h)
+                frames.append(scaled)
+                durations.append(frame.info.get('duration', 100))
+            
+            pil_img.close()
+            
+            # Debug output
+            if frames:
+                print(f"[PCBox] Loaded GIF: {os.path.basename(gif_path)} - {len(frames)} frames")
+                if len(frames) == 1:
+                    print(f"[PCBox] WARNING: GIF only has 1 frame (static image)")
+            
+            return frames, durations
+        except Exception as e:
+            print(f"[PCBox] Error loading GIF {gif_path}: {e}")
+            return None, None
+
+    # ------------------------------------------------------------------ #
     #  Resume banner                                                       #
     # ------------------------------------------------------------------ #
 
@@ -72,12 +250,12 @@ class PCBoxDrawMixin:
         full_text = f'"{game_name}" running  •  Hold {combo_name} to resume'
 
         # Banner dimensions - shorter and centered box
-        banner_height = 21
+        banner_height = ui.s(21)
         banner_width = int(self.width * 0.85)
         banner_x = (self.width - banner_width) // 2
-        banner_y = 4
-        padding = 12
-        border_radius = 6
+        banner_y = ui.s(4)
+        padding = ui.s(12)
+        border_radius = ui.s(6)
 
         # Update pulse time
         self._resume_banner_pulse_time += 0.08
@@ -107,13 +285,7 @@ class PCBoxDrawMixin:
         )
 
         # Render text using the same font as the rest of the app
-        try:
-            banner_font = pygame.font.Font(FONT_PATH, 10)
-        except Exception:
-            try:
-                banner_font = pygame.font.Font(None, 18)
-            except Exception:
-                banner_font = pygame.font.SysFont(None, 18)
+        banner_font = scaled_font(10)
 
         # Pulsing text color
         text_r = int(200 + 55 * pulse)
@@ -139,7 +311,7 @@ class PCBoxDrawMixin:
             )
 
             # Update scroll offset
-            scroll_width = text_width + 60  # Add gap before repeat
+            scroll_width = text_width + ui.s(60)  # Add gap before repeat
             self._resume_banner_scroll_offset += self._resume_banner_scroll_speed
             if self._resume_banner_scroll_offset >= scroll_width:
                 self._resume_banner_scroll_offset = 0
@@ -180,20 +352,20 @@ class PCBoxDrawMixin:
 
             if size == "small":
                 # "HACK" text for small slots
-                tiny_font = pygame.font.Font(FONT_PATH, 6)
+                tiny_font = scaled_font(6)
                 hack_text = tiny_font.render("HACK", True, (255, 100, 100))
                 hack_rect = hack_text.get_rect(
-                    centerx=rect.centerx, bottom=rect.bottom - 2
+                    centerx=rect.centerx, bottom=rect.bottom - ui.s(2)
                 )
                 surf.blit(hack_text, hack_rect)
             else:
                 # "ROM HACK" banner for large display
-                banner_font = pygame.font.Font(FONT_PATH, 10)
+                banner_font = scaled_font(10)
                 hack_text = banner_font.render("ROM HACK", True, (255, 80, 80))
-                hack_rect = hack_text.get_rect(centerx=rect.centerx, top=rect.top + 5)
+                hack_rect = hack_text.get_rect(centerx=rect.centerx, top=rect.top + ui.s(5))
 
                 # Draw background for text
-                bg_rect = hack_rect.inflate(10, 4)
+                bg_rect = hack_rect.inflate(ui.s(10), ui.s(4))
                 pygame.draw.rect(surf, (60, 0, 0), bg_rect)
                 pygame.draw.rect(surf, (255, 80, 80), bg_rect, 1)
                 surf.blit(hack_text, hack_rect)
@@ -267,28 +439,113 @@ class PCBoxDrawMixin:
                 pulse_color = self._get_altering_cave_pulse_color()
                 pygame.draw.rect(surf, pulse_color, rect, 2)
 
-            # Draw Pokemon sprite (gen3 PNG) if available
+            # Draw Pokemon sprite (gen3 PNG or animated GIF) if available
             if poke and not poke.get("empty") and not poke.get("egg"):
 
-                # Use helper method that works for both game and Sinew Pokemon
-                sprite_path = self._get_pokemon_sprite_path(poke)
-
-                if sprite_path and os.path.exists(sprite_path):
-                    try:
-                        sprite = pygame.image.load(sprite_path).convert_alpha()
-                        # Scale sprite to fit in cell (leave small margin)
-                        cell_size = min(rect.width, rect.height)
-                        sprite_size = int(cell_size * 0.8)
-                        sprite = pygame.transform.smoothscale(
-                            sprite, (sprite_size, sprite_size)
-                        )
-                        sprite_rect = sprite.get_rect(center=rect.center)
-                        surf.blit(sprite, sprite_rect)
-                    except Exception:
-                        pass  # If sprite fails to load, just show colored cell
+                # Get Pokemon ID and shiny status
+                poke_id = poke.get("species", 0)  # National dex number
+                is_shiny = poke.get("is_shiny", False) or poke.get("shiny", False)
+                
+                # Calculate target size with margin
+                cell_size = min(rect.width, rect.height)
+                sprite_size = int(cell_size * 0.8)
+                
+                sprite_drawn = False
+                
+                # Cache sprite info per Pokemon personality (unique ID)
+                personality = poke.get("personality", 0)
+                pokemon_cache_key = f"poke_{poke_id}_{personality}_{is_shiny}"
+                
+                # Get sprite info from cache or compute it
+                if not hasattr(self, '_pokemon_sprite_info_cache'):
+                    self._pokemon_sprite_info_cache = {}
+                
+                if pokemon_cache_key not in self._pokemon_sprite_info_cache:
+                    # First time seeing this Pokemon - get its sprite
+                    prefer_gif = True  # Always check for GIF first
+                    sprite_path, is_gif = self._get_best_sprite_path(poke_id, is_shiny, prefer_gif=prefer_gif)
+                    self._pokemon_sprite_info_cache[pokemon_cache_key] = {
+                        'path': sprite_path,
+                        'is_gif': is_gif
+                    }
+                
+                sprite_info = self._pokemon_sprite_info_cache[pokemon_cache_key]
+                sprite_path = sprite_info['path']
+                is_gif = sprite_info['is_gif']
+                
+                # Try animated GIF if this slot is hovered/selected and we have a GIF
+                if is_controller_selected and is_gif and sprite_path:
+                        # Cache key for this grid slot
+                        cache_key = f"grid_{i}"
+                        if not hasattr(self, '_grid_gif_cache'):
+                            self._grid_gif_cache = {}
+                        
+                        # Load GIF if not cached or path changed
+                        if cache_key not in self._grid_gif_cache or self._grid_gif_cache[cache_key]['path'] != sprite_path:
+                            frames, durations = self._load_gif_frames(sprite_path, sprite_size, sprite_size)
+                            if frames:
+                                self._grid_gif_cache[cache_key] = {
+                                    'path': sprite_path,
+                                    'frames': frames,
+                                    'durations': durations,
+                                    'index': 0,
+                                    'timer': 0
+                                }
+                        
+                        # Animate and draw
+                        if cache_key in self._grid_gif_cache:
+                            gif_data = self._grid_gif_cache[cache_key]
+                            if gif_data['frames']:
+                                # Update animation timer
+                                gif_data['timer'] += 16
+                                current_duration = gif_data['durations'][gif_data['index']]
+                                
+                                if gif_data['timer'] >= current_duration:
+                                    gif_data['timer'] = 0
+                                    gif_data['index'] = (gif_data['index'] + 1) % len(gif_data['frames'])
+                                
+                                # Draw current frame (centered)
+                                frame = gif_data['frames'][gif_data['index']]
+                                sprite_rect = frame.get_rect(center=rect.center)
+                                surf.blit(frame, sprite_rect)
+                                sprite_drawn = True
+                
+                # Static sprite (not selected/hovered)
+                if not sprite_drawn and sprite_path:
+                    if is_gif:
+                        # Show first frame of GIF (static)
+                        cache_key = f"static_{poke_id:03d}_{is_shiny}"
+                        if not hasattr(self, '_static_gif_cache'):
+                            self._static_gif_cache = {}
+                        
+                        # Load and cache first frame if not cached
+                        if cache_key not in self._static_gif_cache:
+                            try:
+                                frames, _ = self._load_gif_frames(sprite_path, sprite_size, sprite_size)
+                                if frames and len(frames) > 0:
+                                    self._static_gif_cache[cache_key] = frames[0]
+                            except Exception:
+                                self._static_gif_cache[cache_key] = None
+                        
+                        # Draw cached static frame
+                        if cache_key in self._static_gif_cache and self._static_gif_cache[cache_key]:
+                            first_frame = self._static_gif_cache[cache_key]
+                            sprite_rect = first_frame.get_rect(center=rect.center)
+                            surf.blit(first_frame, sprite_rect)
+                            sprite_drawn = True
+                    else:
+                        # PNG sprite
+                        try:
+                            sprite = pygame.image.load(sprite_path).convert_alpha()
+                            sprite = scale_surface_preserve_aspect(sprite, sprite_size, sprite_size)
+                            sprite_rect = sprite.get_rect(center=rect.center)
+                            surf.blit(sprite, sprite_rect)
+                            sprite_drawn = True
+                        except Exception:
+                            pass  # If sprite fails to load, just show colored cell
 
                 # Draw ROM HACK overlay for Pokemon from ROM hacks
-                if poke.get("rom_hack"):
+                if sprite_drawn and poke.get("rom_hack"):
                     self._draw_rom_hack_overlay(surf, rect, size="small")
 
             # For eggs, draw egg sprite
@@ -298,18 +555,16 @@ class PCBoxDrawMixin:
                 if os.path.exists(egg_path):
                     try:
                         egg_sprite = pygame.image.load(egg_path).convert_alpha()
-                        # Scale egg sprite to fit in cell
+                        # Scale egg sprite to fit in cell with aspect ratio preserved
                         cell_size = min(rect.width, rect.height)
                         sprite_size = int(cell_size * 0.8)
-                        egg_sprite = pygame.transform.smoothscale(
-                            egg_sprite, (sprite_size, sprite_size)
-                        )
+                        egg_sprite = scale_surface_preserve_aspect(egg_sprite, sprite_size, sprite_size)
                         sprite_rect = egg_sprite.get_rect(center=rect.center)
                         surf.blit(egg_sprite, sprite_rect)
                     except Exception:
                         # Fallback to text if sprite fails
                         try:
-                            tiny_font = pygame.font.Font(FONT_PATH, 8)
+                            tiny_font = scaled_font(8)
                             text = "EGG"
                             text_surf = tiny_font.render(
                                 text, True, ui_colors.COLOR_TEXT
@@ -321,7 +576,7 @@ class PCBoxDrawMixin:
                 else:
                     # No egg sprite, show text
                     try:
-                        tiny_font = pygame.font.Font(FONT_PATH, 8)
+                        tiny_font = scaled_font(8)
                         text = "EGG"
                         text_surf = tiny_font.render(text, True, ui_colors.COLOR_TEXT)
                         text_rect = text_surf.get_rect(center=rect.center)
@@ -340,7 +595,7 @@ class PCBoxDrawMixin:
     def _draw_sinew_scrollbar(self, surf):
         """Draw scrollbar for Sinew storage's 120-slot boxes."""
         # Scrollbar position - inside right edge of grid
-        scrollbar_width = 12
+        scrollbar_width = ui.s(12)
         scrollbar_x = self.grid_rect.right - scrollbar_width - 3
         scrollbar_y = self.grid_rect.top + 2
         scrollbar_height = self.grid_rect.height - 4
@@ -373,7 +628,7 @@ class PCBoxDrawMixin:
 
         # Draw row indicator text below grid
         try:
-            tiny_font = pygame.font.Font(FONT_PATH, 8)
+            tiny_font = scaled_font(8)
             start_row = self.sinew_scroll_offset + 1
             end_row = min(
                 self.sinew_scroll_offset + self.sinew_visible_rows,
@@ -382,7 +637,7 @@ class PCBoxDrawMixin:
             indicator_text = f"Rows {start_row}-{end_row}/{self.sinew_total_rows}"
             text_surf = tiny_font.render(indicator_text, True, ui_colors.COLOR_TEXT)
             text_rect = text_surf.get_rect(
-                right=self.grid_rect.right, top=self.grid_rect.bottom + 3
+                right=self.grid_rect.right, top=self.grid_rect.bottom + ui.s(3)
             )
             surf.blit(text_surf, text_rect)
         except Exception:
@@ -416,7 +671,7 @@ class PCBoxDrawMixin:
         # Draw "Game Running" warning banner if this game is being emulated
         warning_banner_height = 0
         if self.is_current_game_running():
-            warning_banner_height = 25
+            warning_banner_height = ui.s(25)
             # Draw warning banner at top
             banner_rect = pygame.Rect(0, 0, self.width, warning_banner_height)
             # Dark error background using theme
@@ -429,7 +684,7 @@ class PCBoxDrawMixin:
             pygame.draw.rect(surf, ui_colors.COLOR_ERROR, banner_rect, 1)
 
             try:
-                warning_font = pygame.font.Font(None, 18)
+                warning_font = scaled_font(12)
                 warning_text = (
                     f"{self.get_current_game()} is running - transfers disabled"
                 )
@@ -477,10 +732,9 @@ class PCBoxDrawMixin:
             # Check if it's an egg
             if self.selected_pokemon.get("egg"):
                 # Show egg sprite (try PNG, then GIF)
+                normal_dir, _ = self._get_sprite_dirs()
                 egg_png_path = get_egg_sprite_path("gen3")
-                egg_gif_path = os.path.join(
-                    SPRITES_DIR, "showdown", "normal", "egg.gif"
-                )
+                egg_gif_path = os.path.join(normal_dir, "egg.gif")
 
                 # Try gen3 PNG first
                 if os.path.exists(egg_png_path):
@@ -499,40 +753,110 @@ class PCBoxDrawMixin:
                     sprite_width = int(self.sprite_area.width * 0.9)
                     sprite_height = int(self.sprite_area.height * 0.9)
 
-                    gif_sprite = self.sprite_cache.get_gif_sprite(
-                        egg_gif_path, size=(sprite_width, sprite_height)
-                    )
-
-                    if gif_sprite and gif_sprite.loaded:
-                        gif_sprite.update(dt)
-                        gif_sprite.draw(surf, self.sprite_area)
-                        self.current_gif_sprite = gif_sprite
+                    # Load or get cached GIF frames
+                    if self._preview_gif_path != egg_gif_path:
+                        self._preview_gif_frames, self._preview_gif_durations = self._load_gif_frames(
+                            egg_gif_path, sprite_width, sprite_height
+                        )
+                        self._preview_gif_path = egg_gif_path
+                        self._preview_gif_index = 0
+                        self._preview_gif_timer = 0
+                    
+                    # Animate
+                    if self._preview_gif_frames:
+                        self._preview_gif_timer += dt
+                        current_duration = self._preview_gif_durations[self._preview_gif_index]
+                        
+                        if self._preview_gif_timer >= current_duration:
+                            self._preview_gif_timer = 0
+                            self._preview_gif_index = (self._preview_gif_index + 1) % len(self._preview_gif_frames)
+                        
+                        # Draw current frame centered
+                        frame = self._preview_gif_frames[self._preview_gif_index]
+                        rect = frame.get_rect(center=self.sprite_area.center)
+                        surf.blit(frame, rect.topleft)
             else:
-                # Regular Pokemon - use GEN3 sprite (PNG) for the big display
-                sprite_path = self._get_pokemon_sprite_path(self.selected_pokemon)
-                if sprite_path and os.path.exists(sprite_path):
-                    try:
-                        # Load PNG sprite
-                        poke_sprite = pygame.image.load(sprite_path).convert_alpha()
-                        # Scale to fit display area, preserving aspect ratio
+                # Regular Pokemon - try GIF first for animation, fallback to PNG
+                # Use "species" key (the national dex number) not "species_id"
+                poke_id = self.selected_pokemon.get("species", 0)
+                
+                # Skip if no valid Pokemon (species = 0 means empty/invalid)
+                if poke_id == 0:
+                    # No Pokemon selected or invalid species - don't try to load sprites
+                    if self.current_sprite_image:
+                        rect = self.current_sprite_image.get_rect(
+                            center=self.sprite_area.center
+                        )
+                        surf.blit(self.current_sprite_image, rect.topleft)
+                else:
+                    # Valid Pokemon - load sprite
+                    poke_id = self.selected_pokemon.get("species", 0)
+                    is_shiny = self.selected_pokemon.get("is_shiny", False) or self.selected_pokemon.get("shiny", False)
+                    
+                    # Get best sprite (prioritize GIF for animation)
+                    sprite_path, is_gif = self._get_best_sprite_path(poke_id, is_shiny, prefer_gif=True)
+                    
+                    sprite_drawn = False
+                    
+                    if is_gif and sprite_path:
+                        # Animated GIF sprite
                         sprite_width = int(self.sprite_area.width * 0.9)
                         sprite_height = int(self.sprite_area.height * 0.9)
-                        poke_sprite = scale_surface_preserve_aspect(poke_sprite, sprite_width,
-                            sprite_height)
-                        rect = poke_sprite.get_rect(center=self.sprite_area.center)
-                        surf.blit(poke_sprite, rect.topleft)
-                    except Exception:
-                        # Fallback to cached image if loading fails
-                        if self.current_sprite_image:
-                            rect = self.current_sprite_image.get_rect(
-                                center=self.sprite_area.center
+                        
+                        # Check if we need to load (path changed or not loaded yet)
+                        need_load = (
+                            not hasattr(self, '_preview_gif_path') or
+                            self._preview_gif_path != sprite_path or
+                            self._preview_gif_frames is None
+                        )
+                        
+                        if need_load:
+                            self._preview_gif_frames, self._preview_gif_durations = self._load_gif_frames(
+                                sprite_path, sprite_width, sprite_height
                             )
-                            surf.blit(self.current_sprite_image, rect.topleft)
-                elif self.current_sprite_image:
-                    rect = self.current_sprite_image.get_rect(
-                        center=self.sprite_area.center
-                    )
-                    surf.blit(self.current_sprite_image, rect.topleft)
+                            self._preview_gif_path = sprite_path
+                            self._preview_gif_index = 0
+                            self._preview_gif_timer = 0
+                        
+                        # Animate
+                        if self._preview_gif_frames and len(self._preview_gif_frames) > 0:
+                            self._preview_gif_timer += dt
+                            current_duration = self._preview_gif_durations[self._preview_gif_index]
+                            
+                            if self._preview_gif_timer >= current_duration:
+                                self._preview_gif_timer = 0
+                                self._preview_gif_index = (self._preview_gif_index + 1) % len(self._preview_gif_frames)
+                            
+                            # Draw current frame centered
+                            frame = self._preview_gif_frames[self._preview_gif_index]
+                            rect = frame.get_rect(center=self.sprite_area.center)
+                            surf.blit(frame, rect.topleft)
+                            sprite_drawn = True
+                    
+                    # Fallback to static PNG if GIF didn't work
+                    if not sprite_drawn and not is_gif and sprite_path and os.path.exists(sprite_path):
+                        try:
+                            poke_sprite = pygame.image.load(sprite_path).convert_alpha()
+                            sprite_width = int(self.sprite_area.width * 0.9)
+                            sprite_height = int(self.sprite_area.height * 0.9)
+                            poke_sprite = self._scale_sprite_crisp(poke_sprite, sprite_width, sprite_height)
+                            rect = poke_sprite.get_rect(center=self.sprite_area.center)
+                            surf.blit(poke_sprite, rect.topleft)
+                            sprite_drawn = True
+                        except Exception:
+                            # Fallback to cached image if loading fails
+                            if self.current_sprite_image:
+                                rect = self.current_sprite_image.get_rect(
+                                    center=self.sprite_area.center
+                                )
+                                surf.blit(self.current_sprite_image, rect.topleft)
+                    
+                    # Last resort: use cached image
+                    if not sprite_drawn and self.current_sprite_image:
+                        rect = self.current_sprite_image.get_rect(
+                            center=self.sprite_area.center
+                        )
+                        surf.blit(self.current_sprite_image, rect.topleft)
 
                 # Draw ROM HACK overlay for Pokemon from ROM hacks
                 if self.selected_pokemon.get("rom_hack"):
@@ -568,7 +892,7 @@ class PCBoxDrawMixin:
         if self.selected_pokemon and not self.selected_pokemon.get("empty"):
             # Create slightly bigger font for info text
             try:
-                info_font = pygame.font.Font(FONT_PATH, 14)
+                info_font = scaled_font(14)
             except Exception:
                 info_font = self.font
 
@@ -618,25 +942,31 @@ class PCBoxDrawMixin:
 
             # Draw text lines with wrapping inside the info box
             try:
-                padding = 8
+                padding = ui.s(8)
                 y_offset = self.info_area.y + padding
-                line_height = 16
+                line_height = ui.s(16)
 
                 for line in lines:
                     # Ensure text fits in the box width
                     max_width = self.info_area.width - (padding * 2)
 
-                    # Simple text wrapping - truncate if too long
-                    text_surf = info_font.render(line, True, ui_colors.COLOR_TEXT)
+                    # Render with gender symbol support
+                    if contains_gender_symbol(line):
+                        text_surf = render_pokemon_name(info_font, line, ui_colors.COLOR_TEXT)
+                    else:
+                        text_surf = info_font.render(line, True, ui_colors.COLOR_TEXT)
 
                     # If text is too wide, try to fit it
                     if text_surf.get_width() > max_width:
                         # Truncate with ellipsis
                         while len(line) > 3 and text_surf.get_width() > max_width:
                             line = line[:-1]
-                            text_surf = info_font.render(
-                                line + "...", True, ui_colors.COLOR_TEXT
-                            )
+                            if contains_gender_symbol(line):
+                                text_surf = render_pokemon_name(info_font, line + "...", ui_colors.COLOR_TEXT)
+                            else:
+                                text_surf = info_font.render(
+                                    line + "...", True, ui_colors.COLOR_TEXT
+                                )
 
                     # Center horizontally in info area
                     text_x = (
@@ -655,10 +985,10 @@ class PCBoxDrawMixin:
         elif self.sinew_mode:
             # Show Sinew storage stats when no Pokemon selected
             try:
-                info_font = pygame.font.Font(FONT_PATH, 10)
-                padding = 8
+                info_font = scaled_font(10)
+                padding = ui.s(8)
                 y_offset = self.info_area.y + padding
-                line_height = 14
+                line_height = ui.s(14)
 
                 # Get storage stats
                 if self.sinew_storage:
@@ -680,7 +1010,7 @@ class PCBoxDrawMixin:
 
                 for line in lines:
                     if line == "":
-                        y_offset += 4
+                        y_offset += ui.s(4)
                         continue
                     text_surf = info_font.render(line, True, ui_colors.COLOR_TEXT)
                     text_x = (
@@ -729,7 +1059,7 @@ class PCBoxDrawMixin:
             pygame.draw.rect(surf, (r // 2, g // 2, b // 2), disabled_rect)
             pygame.draw.rect(surf, (r, g, b), disabled_rect, 2)
             try:
-                btn_font = pygame.font.Font(FONT_PATH, 10)
+                btn_font = scaled_font(10)
                 text = "No Party"
                 # Dimmed text color
                 tr, tg, tb = (
@@ -758,71 +1088,62 @@ class PCBoxDrawMixin:
         #  Undo button (centered between sprite and grid)                  #
         # ---------------------------------------------------------------- #
         if self.undo_available:
-            # Get top-left grid cell position
-            grid_rects = self.get_grid_rects()
-            if grid_rects:
-                top_left_cell = grid_rects[0]
+            # Position: bottom-right corner of sprite preview area
+            undo_size = ui.s(32)
+            padding = ui.s(5)
+            undo_x = self.sprite_area.right - undo_size - padding
+            undo_y = self.sprite_area.bottom - undo_size - padding
+            undo_rect = pygame.Rect(undo_x, undo_y, undo_size, undo_size)
 
-                # Calculate gap between sprite area and grid
-                gap = top_left_cell.left - self.sprite_area.right
+            # Store rect for click detection
+            self.undo_button_rect = undo_rect
 
-                # Position: centered in the gap, vertically aligned with top-left cell
-                undo_size = 28
-                undo_x = self.sprite_area.right + (gap - undo_size) // 2
-                undo_y = top_left_cell.centery - undo_size // 2
-                undo_rect = pygame.Rect(undo_x, undo_y, undo_size, undo_size)
-
-                # Store rect for click detection
-                self.undo_button_rect = undo_rect
-
-                # Draw button background using theme colors
-                is_undo_focused = self.focus_mode == "undo_button"
-                if is_undo_focused:
-                    pygame.draw.rect(surf, ui_colors.COLOR_BUTTON_HOVER, undo_rect)
-                    pygame.draw.rect(surf, ui_colors.COLOR_HIGHLIGHT, undo_rect, 3)
-                else:
-                    pygame.draw.rect(surf, ui_colors.COLOR_BUTTON, undo_rect)
-                    pygame.draw.rect(surf, ui_colors.COLOR_BORDER, undo_rect, 2)
-
-                # Draw undo icon (tinted to theme color)
-                try:
-                    if self.undo_icon:
-                        # Get current theme text color
-                        current_color = (
-                            ui_colors.COLOR_TEXT[:3]
-                            if len(ui_colors.COLOR_TEXT) >= 3
-                            else (255, 255, 255)
-                        )
-
-                        # Re-tint icon if color changed or not yet tinted
-                        if (
-                            self._undo_icon_last_color != current_color
-                            or self.undo_icon_tinted is None
-                        ):
-                            self._undo_icon_last_color = current_color
-                            # Create tinted copy
-                            self.undo_icon_tinted = self.undo_icon.copy()
-                            # Apply color tint by filling with color and using BLEND_RGB_MULT
-                            self.undo_icon_tinted.fill(
-                                current_color + (0,),
-                                special_flags=pygame.BLEND_RGB_MULT,
-                            )
-
-                        # Draw the tinted icon centered in button
-                        icon_rect = self.undo_icon_tinted.get_rect(
-                            center=undo_rect.center
-                        )
-                        surf.blit(self.undo_icon_tinted, icon_rect)
-                    else:
-                        # Fallback to "U" text if icon not loaded
-                        undo_font = pygame.font.Font(FONT_PATH, 14)
-                        u_surf = undo_font.render("U", True, ui_colors.COLOR_TEXT)
-                        u_rect = u_surf.get_rect(center=undo_rect.center)
-                        surf.blit(u_surf, u_rect)
-                except Exception:
-                    pass
+            # Draw button background using theme colors
+            is_undo_focused = self.focus_mode == "undo_button"
+            if is_undo_focused:
+                pygame.draw.rect(surf, ui_colors.COLOR_BUTTON_HOVER, undo_rect)
+                pygame.draw.rect(surf, ui_colors.COLOR_HIGHLIGHT, undo_rect, 3)
             else:
-                self.undo_button_rect = None
+                pygame.draw.rect(surf, ui_colors.COLOR_BUTTON, undo_rect)
+                pygame.draw.rect(surf, ui_colors.COLOR_BORDER, undo_rect, 2)
+
+            # Draw undo icon (tinted to theme color)
+            try:
+                if self.undo_icon:
+                    # Get current theme text color
+                    current_color = (
+                        ui_colors.COLOR_TEXT[:3]
+                        if len(ui_colors.COLOR_TEXT) >= 3
+                        else (255, 255, 255)
+                    )
+
+                    # Re-tint icon if color changed or not yet tinted
+                    if (
+                        self._undo_icon_last_color != current_color
+                        or self.undo_icon_tinted is None
+                    ):
+                        self._undo_icon_last_color = current_color
+                        # Create tinted copy
+                        self.undo_icon_tinted = self.undo_icon.copy()
+                        # Apply color tint by filling with color and using BLEND_RGB_MULT
+                        self.undo_icon_tinted.fill(
+                            current_color + (0,),
+                            special_flags=pygame.BLEND_RGB_MULT,
+                        )
+
+                    # Draw the tinted icon centered in button
+                    icon_rect = self.undo_icon_tinted.get_rect(
+                        center=undo_rect.center
+                    )
+                    surf.blit(self.undo_icon_tinted, icon_rect)
+                else:
+                    # Fallback to "U" text if icon not loaded
+                    undo_font = scaled_font(14)
+                    u_surf = undo_font.render("U", True, ui_colors.COLOR_TEXT)
+                    u_rect = u_surf.get_rect(center=undo_rect.center)
+                    surf.blit(u_surf, u_rect)
+            except Exception:
+                pass
         else:
             self.undo_button_rect = None
 
@@ -835,7 +1156,7 @@ class PCBoxDrawMixin:
         #  Controller hints                                                 #
         # ---------------------------------------------------------------- #
         try:
-            hint_font = pygame.font.Font(FONT_PATH, 8)
+            hint_font = scaled_font(8)
             if self.sinew_mode:
                 hints = "L/R: Scroll  A: Select  B: Back"
             elif self.party_panel_open:
@@ -849,7 +1170,7 @@ class PCBoxDrawMixin:
                 else (120, 120, 120)
             )
             hint_surf = hint_font.render(hints, True, (tr // 2, tg // 2, tb // 2))
-            surf.blit(hint_surf, (10, self.height - 15))
+            surf.blit(hint_surf, (ui.s(10), self.height - ui.s(15)))
         except Exception:
             pass
 
@@ -882,8 +1203,8 @@ class PCBoxDrawMixin:
             )
 
             # Top/bottom padding
-            top_pad = 10
-            bottom_pad = 10
+            top_pad = ui.s(10)
+            bottom_pad = ui.s(10)
             inner_height = panel_rect.height - top_pad - bottom_pad
             inner_y = panel_rect.y + top_pad
 
@@ -956,34 +1277,117 @@ class PCBoxDrawMixin:
                 if poke:
 
                     if not poke.get("egg"):
-                        # Try to draw sprite - use helper that works for both game and Sinew
-                        sprite_path = self._get_pokemon_sprite_path(poke)
-                        if sprite_path and os.path.exists(sprite_path):
-                            try:
-                                sprite = self.sprite_cache.get_png_sprite(
-                                    sprite_path, size=None
-                                )
-                                if sprite:
-                                    # Scale to fit slot with margin
-                                    sprite_size = int(
-                                        min(slot.width, slot.height) * 0.7
-                                    )
-                                    sprite = scale_surface_preserve_aspect(
-                                        sprite, sprite_size, sprite_size
-                                    )
+                        # Get Pokemon ID and shiny status
+                        poke_id = poke.get("species", 0)
+                        is_shiny = poke.get("is_shiny", False) or poke.get("shiny", False)
+                        
+                        # Calculate sprite size
+                        max_sprite_w = int(slot.width * 0.7)
+                        max_sprite_h = int(slot.height * 0.7)
+                        sprite_size = min(max_sprite_w, max_sprite_h)
+                        
+                        sprite_drawn = False
+                        
+                        # Check if this is the hovered/selected party Pokemon
+                        is_hovered = (i == self.party_selected and self.party_panel_open)
+                        
+                        # Cache sprite info per Pokemon
+                        personality = poke.get("personality", 0)
+                        pokemon_cache_key = f"party_poke_{poke_id}_{personality}_{is_shiny}"
+                        
+                        if not hasattr(self, '_pokemon_sprite_info_cache'):
+                            self._pokemon_sprite_info_cache = {}
+                        
+                        if pokemon_cache_key not in self._pokemon_sprite_info_cache:
+                            # First time - get sprite
+                            prefer_gif = True
+                            sprite_path, is_gif = self._get_best_sprite_path(poke_id, is_shiny, prefer_gif=prefer_gif)
+                            self._pokemon_sprite_info_cache[pokemon_cache_key] = {
+                                'path': sprite_path,
+                                'is_gif': is_gif
+                            }
+                        
+                        sprite_info = self._pokemon_sprite_info_cache[pokemon_cache_key]
+                        sprite_path = sprite_info['path']
+                        is_gif = sprite_info['is_gif']
+                        
+                        if is_hovered and is_gif and sprite_path:
+                                # Load or get cached GIF for this slot
+                                cache_key = f"party_{i}"
+                                if not hasattr(self, '_party_gif_cache'):
+                                    self._party_gif_cache = {}
+                                
+                                if cache_key not in self._party_gif_cache or self._party_gif_cache[cache_key]['path'] != sprite_path:
+                                    frames, durations = self._load_gif_frames(sprite_path, sprite_size, sprite_size)
+                                    if frames:
+                                        self._party_gif_cache[cache_key] = {
+                                            'path': sprite_path,
+                                            'frames': frames,
+                                            'durations': durations,
+                                            'index': 0,
+                                            'timer': 0
+                                        }
+                                
+                                # Animate
+                                if cache_key in self._party_gif_cache:
+                                    gif_data = self._party_gif_cache[cache_key]
+                                    if gif_data['frames']:
+                                        gif_data['timer'] += 16  # Assume ~16ms per frame
+                                        current_duration = gif_data['durations'][gif_data['index']]
+                                        
+                                        if gif_data['timer'] >= current_duration:
+                                            gif_data['timer'] = 0
+                                            gif_data['index'] = (gif_data['index'] + 1) % len(gif_data['frames'])
+                                        
+                                        # Draw current frame
+                                        frame = gif_data['frames'][gif_data['index']]
+                                        sprite_rect = frame.get_rect(center=slot.center)
+                                        surf.blit(frame, sprite_rect)
+                                        sprite_drawn = True
+                        
+                        # Static sprite (not hovered)
+                        if not sprite_drawn and sprite_path:
+                            if is_gif:
+                                # Show first frame of GIF (static)
+                                cache_key = f"static_{poke_id:03d}_{is_shiny}"
+                                if not hasattr(self, '_static_gif_cache'):
+                                    self._static_gif_cache = {}
+                                
+                                # Load and cache first frame if not cached
+                                if cache_key not in self._static_gif_cache:
+                                    try:
+                                        frames, _ = self._load_gif_frames(sprite_path, sprite_size, sprite_size)
+                                        if frames and len(frames) > 0:
+                                            self._static_gif_cache[cache_key] = frames[0]
+                                    except Exception:
+                                        self._static_gif_cache[cache_key] = None
+                                
+                                # Draw cached static frame
+                                if cache_key in self._static_gif_cache and self._static_gif_cache[cache_key]:
+                                    first_frame = self._static_gif_cache[cache_key]
+                                    sprite_rect = first_frame.get_rect(center=slot.center)
+                                    surf.blit(first_frame, sprite_rect)
+                                    sprite_drawn = True
+                            else:
+                                # PNG sprite
+                                try:
+                                    sprite = pygame.image.load(sprite_path).convert_alpha()
+                                    sprite = scale_surface_preserve_aspect(sprite, sprite_size, sprite_size)
                                     sprite_rect = sprite.get_rect(center=slot.center)
                                     surf.blit(sprite, sprite_rect)
-                            except Exception:
-                                pass  # If sprite fails, fall back to text
-
-                            # Draw ROM HACK overlay for Pokemon from ROM hacks
-                            if poke.get("rom_hack"):
-                                self._draw_rom_hack_overlay(surf, slot, size="small")
-                        else:
-                            # No sprite, draw text instead
+                                    sprite_drawn = True
+                                except Exception:
+                                    pass  # If sprite fails, fall back to text
+                        
+                        # Draw ROM HACK overlay for Pokemon from ROM hacks
+                        if sprite_drawn and poke.get("rom_hack"):
+                            self._draw_rom_hack_overlay(surf, slot, size="small")
+                        
+                        # If no sprite drawn, show text fallback
+                        if not sprite_drawn:
                             try:
                                 text = self.manager.format_pokemon_display(poke)
-                                tiny_font = pygame.font.Font(FONT_PATH, 10)
+                                tiny_font = scaled_font(10)
                                 text_surf = tiny_font.render(
                                     text[:8], True, ui_colors.COLOR_TEXT
                                 )
@@ -1016,7 +1420,7 @@ class PCBoxDrawMixin:
                             except Exception:
                                 # Fallback to text if sprite fails
                                 try:
-                                    tiny_font = pygame.font.Font(FONT_PATH, 10)
+                                    tiny_font = scaled_font(10)
                                     text_surf = tiny_font.render(
                                         "EGG", True, ui_colors.COLOR_TEXT
                                     )
@@ -1027,7 +1431,7 @@ class PCBoxDrawMixin:
                         else:
                             # No egg sprite, show text
                             try:
-                                tiny_font = pygame.font.Font(FONT_PATH, 10)
+                                tiny_font = scaled_font(10)
                                 text_surf = tiny_font.render(
                                     "EGG", True, ui_colors.COLOR_TEXT
                                 )
@@ -1060,16 +1464,16 @@ class PCBoxDrawMixin:
 
         # Draw "MOVE MODE" indicator at bottom
         try:
-            font = pygame.font.Font(FONT_PATH, 12)
+            font = scaled_font(12)
             mode_text = font.render(
                 "MOVE MODE - Select empty slot", True, (255, 255, 100)
             )
             text_rect = mode_text.get_rect(
-                centerx=self.width // 2, bottom=self.height - 10
+                centerx=self.width // 2, bottom=self.height - ui.s(10)
             )
 
             # Background for text
-            bg_rect = text_rect.inflate(20, 10)
+            bg_rect = text_rect.inflate(ui.s(20), ui.s(10))
             pygame.draw.rect(surf, (0, 0, 0, 200), bg_rect)
             pygame.draw.rect(surf, (255, 255, 100), bg_rect, 2)
             surf.blit(mode_text, text_rect)
@@ -1088,12 +1492,12 @@ class PCBoxDrawMixin:
         y = self.grid_rect.y + row * cell_h + cell_h // 2
 
         # Draw the sprite with slight offset and transparency effect
-        sprite_rect = self.moving_sprite.get_rect(center=(x, y - 10))
+        sprite_rect = self.moving_sprite.get_rect(center=(x, y - ui.s(10)))
 
         # Draw shadow
-        shadow = pygame.Surface((40, 20), pygame.SRCALPHA)
-        pygame.draw.ellipse(shadow, (0, 0, 0, 100), (0, 0, 40, 20))
-        surf.blit(shadow, (sprite_rect.centerx - 20, sprite_rect.bottom - 5))
+        shadow = pygame.Surface((ui.s(40), ui.s(20)), pygame.SRCALPHA)
+        pygame.draw.ellipse(shadow, (0, 0, 0, 100), (0, 0, ui.s(40), ui.s(20)))
+        surf.blit(shadow, (sprite_rect.centerx - ui.s(20), sprite_rect.bottom - ui.s(5)))
 
         # Draw sprite
         surf.blit(self.moving_sprite, sprite_rect)
@@ -1104,8 +1508,8 @@ class PCBoxDrawMixin:
             return
 
         # Menu dimensions
-        menu_width = 120
-        menu_height = len(self.options_menu_items) * 30 + 20
+        menu_width = ui.s(120)
+        menu_height = len(self.options_menu_items) * ui.s(30) + ui.s(20)
         menu_x = self.width // 2 - menu_width // 2
         menu_y = self.height // 2 - menu_height // 2
 
@@ -1116,26 +1520,26 @@ class PCBoxDrawMixin:
 
         # Draw menu items
         try:
-            font = pygame.font.Font(FONT_PATH, 14)
+            font = scaled_font(14)
 
             for i, item in enumerate(self.options_menu_items):
-                item_y = menu_y + 15 + i * 30
+                item_y = menu_y + ui.s(15) + i * ui.s(30)
 
                 # Highlight selected item
                 if i == self.options_menu_selected:
                     highlight_rect = pygame.Rect(
-                        menu_x + 5, item_y - 5, menu_width - 10, 28
+                        menu_x + ui.s(5), item_y - ui.s(5), menu_width - ui.s(10), ui.s(28)
                     )
                     pygame.draw.rect(surf, ui_colors.COLOR_BUTTON_HOVER, highlight_rect)
                     pygame.draw.rect(surf, ui_colors.COLOR_HIGHLIGHT, highlight_rect, 2)
 
                     # Draw cursor
                     cursor = font.render(">", True, ui_colors.COLOR_HIGHLIGHT)
-                    surf.blit(cursor, (menu_x + 10, item_y))
+                    surf.blit(cursor, (menu_x + ui.s(10), item_y))
 
                 # Draw item text
                 text = font.render(item, True, ui_colors.COLOR_TEXT)
-                surf.blit(text, (menu_x + 30, item_y))
+                surf.blit(text, (menu_x + ui.s(30), item_y))
         except Exception:
             pass
 
@@ -1150,8 +1554,8 @@ class PCBoxDrawMixin:
         surf.blit(dark_overlay, (0, 0))
 
         # Dialog dimensions
-        dialog_width = 300
-        dialog_height = 140
+        dialog_width = ui.s(300)
+        dialog_height = ui.s(140)
         dialog_x = self.width // 2 - dialog_width // 2
         dialog_y = self.height // 2 - dialog_height // 2
 
@@ -1161,25 +1565,25 @@ class PCBoxDrawMixin:
         pygame.draw.rect(surf, ui_colors.COLOR_BORDER, dialog_rect, 3)
 
         try:
-            font = pygame.font.Font(FONT_PATH, 12)
-            small_font = pygame.font.Font(FONT_PATH, 14)
+            font = scaled_font(12)
+            small_font = scaled_font(14)
 
             # Draw message (multiline)
             lines = self.confirmation_dialog_message.split("\n")
             for i, line in enumerate(lines):
                 text = font.render(line, True, ui_colors.COLOR_TEXT)
                 text_rect = text.get_rect(
-                    centerx=dialog_x + dialog_width // 2, top=dialog_y + 15 + i * 20
+                    centerx=dialog_x + dialog_width // 2, top=dialog_y + ui.s(15) + i * ui.s(20)
                 )
                 surf.blit(text, text_rect)
 
             # Draw Yes/No buttons
-            button_y = dialog_y + dialog_height - 40
+            button_y = dialog_y + dialog_height - ui.s(40)
             yes_x = dialog_x + dialog_width // 4
             no_x = dialog_x + 3 * dialog_width // 4
 
             # Yes button
-            yes_rect = pygame.Rect(yes_x - 40, button_y - 5, 80, 30)
+            yes_rect = pygame.Rect(yes_x - ui.s(40), button_y - ui.s(5), ui.s(80), ui.s(30))
             if self.confirmation_selected == 0:
                 pygame.draw.rect(surf, ui_colors.COLOR_SUCCESS, yes_rect)
                 pygame.draw.rect(surf, ui_colors.COLOR_HIGHLIGHT, yes_rect, 2)
@@ -1191,7 +1595,7 @@ class PCBoxDrawMixin:
             surf.blit(yes_text, yes_text_rect)
 
             # No button
-            no_rect = pygame.Rect(no_x - 40, button_y - 5, 80, 30)
+            no_rect = pygame.Rect(no_x - ui.s(40), button_y - ui.s(5), ui.s(80), ui.s(30))
             if self.confirmation_selected == 1:
                 pygame.draw.rect(surf, ui_colors.COLOR_ERROR, no_rect)
                 pygame.draw.rect(surf, ui_colors.COLOR_HIGHLIGHT, no_rect, 2)
@@ -1215,8 +1619,8 @@ class PCBoxDrawMixin:
         surf.blit(dark_overlay, (0, 0))
 
         # Dialog dimensions
-        dialog_width = 340
-        dialog_height = 160
+        dialog_width = ui.s(340)
+        dialog_height = ui.s(160)
         dialog_x = self.width // 2 - dialog_width // 2
         dialog_y = self.height // 2 - dialog_height // 2
 
@@ -1226,9 +1630,9 @@ class PCBoxDrawMixin:
         pygame.draw.rect(surf, ui_colors.COLOR_BORDER, dialog_rect, 3)
 
         try:
-            font = pygame.font.Font(FONT_PATH, 12)
-            title_font = pygame.font.Font(FONT_PATH, 14)
-            small_font = pygame.font.Font(FONT_PATH, 14)
+            font = scaled_font(12)
+            title_font = scaled_font(14)
+            small_font = scaled_font(14)
 
             evo_info = self.evolution_dialog_info
             pokemon = self.evolution_dialog_pokemon
@@ -1239,24 +1643,29 @@ class PCBoxDrawMixin:
             # Title
             title_text = title_font.render("What?", True, ui_colors.COLOR_HOVER_TEXT)
             title_rect = title_text.get_rect(
-                centerx=dialog_x + dialog_width // 2, top=dialog_y + 12
+                centerx=dialog_x + dialog_width // 2, top=dialog_y + ui.s(12)
             )
             surf.blit(title_text, title_rect)
 
             # Evolution message
             msg1 = f"{pokemon_name} is evolving!"
-            msg1_text = font.render(msg1, True, ui_colors.COLOR_TEXT)
+            if contains_gender_symbol(msg1):
+                msg1_text = render_pokemon_name(font, msg1, ui_colors.COLOR_TEXT)
+            else:
+                msg1_text = font.render(msg1, True, ui_colors.COLOR_TEXT)
             msg1_rect = msg1_text.get_rect(
-                centerx=dialog_x + dialog_width // 2, top=dialog_y + 40
+                centerx=dialog_x + dialog_width // 2, top=dialog_y + ui.s(40)
             )
             surf.blit(msg1_text, msg1_rect)
 
             # Arrow and evolution target
-            arrow_text = font.render(
-                f"-> {evo_info['to_name']}", True, ui_colors.COLOR_SUCCESS
-            )
+            arrow_msg = f"-> {evo_info['to_name']}"
+            if contains_gender_symbol(arrow_msg):
+                arrow_text = render_pokemon_name(font, arrow_msg, ui_colors.COLOR_SUCCESS)
+            else:
+                arrow_text = font.render(arrow_msg, True, ui_colors.COLOR_SUCCESS)
             arrow_rect = arrow_text.get_rect(
-                centerx=dialog_x + dialog_width // 2, top=dialog_y + 62
+                centerx=dialog_x + dialog_width // 2, top=dialog_y + ui.s(62)
             )
             surf.blit(arrow_text, arrow_rect)
 
@@ -1273,17 +1682,17 @@ class PCBoxDrawMixin:
                     item_msg, True, (tr * 2 // 3, tg * 2 // 3, tb * 2 // 3)
                 )
                 item_rect = item_text.get_rect(
-                    centerx=dialog_x + dialog_width // 2, top=dialog_y + 84
+                    centerx=dialog_x + dialog_width // 2, top=dialog_y + ui.s(84)
                 )
                 surf.blit(item_text, item_rect)
 
             # Draw Evolve/Stop buttons
-            button_y = dialog_y + dialog_height - 40
+            button_y = dialog_y + dialog_height - ui.s(40)
             evolve_x = dialog_x + dialog_width // 4
             stop_x = dialog_x + 3 * dialog_width // 4
 
             # Evolve button
-            evolve_rect = pygame.Rect(evolve_x - 50, button_y - 5, 100, 30)
+            evolve_rect = pygame.Rect(evolve_x - ui.s(50), button_y - ui.s(5), ui.s(100), ui.s(30))
             if self.evolution_selected == 0:
                 pygame.draw.rect(surf, ui_colors.COLOR_SUCCESS, evolve_rect)
                 pygame.draw.rect(surf, ui_colors.COLOR_HIGHLIGHT, evolve_rect, 2)
@@ -1295,7 +1704,7 @@ class PCBoxDrawMixin:
             surf.blit(evolve_text, evolve_text_rect)
 
             # Stop button
-            stop_rect = pygame.Rect(stop_x - 50, button_y - 5, 100, 30)
+            stop_rect = pygame.Rect(stop_x - ui.s(50), button_y - ui.s(5), ui.s(100), ui.s(30))
             if self.evolution_selected == 1:
                 pygame.draw.rect(surf, ui_colors.COLOR_ERROR, stop_rect)
                 pygame.draw.rect(surf, ui_colors.COLOR_HIGHLIGHT, stop_rect, 2)
@@ -1330,8 +1739,8 @@ class PCBoxDrawMixin:
         surf.blit(dark_overlay, (0, 0))
 
         # Dialog dimensions
-        dialog_width = 380
-        dialog_height = 180
+        dialog_width = ui.s(380)
+        dialog_height = ui.s(180)
         dialog_x = self.width // 2 - dialog_width // 2
         dialog_y = self.height // 2 - dialog_height // 2
 
@@ -1342,14 +1751,14 @@ class PCBoxDrawMixin:
         pygame.draw.rect(surf, (150, 100, 200), dialog_rect, 3)
 
         try:
-            font = pygame.font.Font(FONT_PATH, 11)
-            title_font = pygame.font.Font(FONT_PATH, 13)
-            small_font = pygame.font.Font(FONT_PATH, 12)
+            font = scaled_font(11)
+            title_font = scaled_font(13)
+            small_font = scaled_font(12)
 
             # Title with wavy effect
             title_text = title_font.render("~ Echoes ~", True, (200, 150, 255))
             title_rect = title_text.get_rect(
-                centerx=dialog_x + dialog_width // 2, top=dialog_y + 12
+                centerx=dialog_x + dialog_width // 2, top=dialog_y + ui.s(12)
             )
             surf.blit(title_text, title_rect)
 
@@ -1360,19 +1769,19 @@ class PCBoxDrawMixin:
 
             msg1_text = font.render(msg1, True, (220, 220, 255))
             msg1_rect = msg1_text.get_rect(
-                centerx=dialog_x + dialog_width // 2, top=dialog_y + 45
+                centerx=dialog_x + dialog_width // 2, top=dialog_y + ui.s(45)
             )
             surf.blit(msg1_text, msg1_rect)
 
             msg2_text = font.render(msg2, True, (180, 180, 220))
             msg2_rect = msg2_text.get_rect(
-                centerx=dialog_x + dialog_width // 2, top=dialog_y + 65
+                centerx=dialog_x + dialog_width // 2, top=dialog_y + ui.s(65)
             )
             surf.blit(msg2_text, msg2_rect)
 
             msg3_text = font.render(msg3, True, (255, 255, 200))
             msg3_rect = msg3_text.get_rect(
-                centerx=dialog_x + dialog_width // 2, top=dialog_y + 95
+                centerx=dialog_x + dialog_width // 2, top=dialog_y + ui.s(95)
             )
             surf.blit(msg3_text, msg3_rect)
 
@@ -1384,17 +1793,17 @@ class PCBoxDrawMixin:
                     f"({claimed}/7 discovered)", True, (150, 150, 180)
                 )
                 progress_rect = progress_text.get_rect(
-                    centerx=dialog_x + dialog_width // 2, top=dialog_y + 115
+                    centerx=dialog_x + dialog_width // 2, top=dialog_y + ui.s(115)
                 )
                 surf.blit(progress_text, progress_rect)
 
             # Draw Yes/No buttons
-            button_y = dialog_y + dialog_height - 40
+            button_y = dialog_y + dialog_height - ui.s(40)
             yes_x = dialog_x + dialog_width // 4
             no_x = dialog_x + 3 * dialog_width // 4
 
             # Yes button
-            yes_rect = pygame.Rect(yes_x - 50, button_y - 5, 100, 30)
+            yes_rect = pygame.Rect(yes_x - ui.s(50), button_y - ui.s(5), ui.s(100), ui.s(30))
             if self.altering_cave_selected == 0:
                 pygame.draw.rect(surf, (100, 80, 180), yes_rect)
                 pygame.draw.rect(surf, (200, 150, 255), yes_rect, 2)
@@ -1406,7 +1815,7 @@ class PCBoxDrawMixin:
             surf.blit(yes_text, yes_text_rect)
 
             # No button
-            no_rect = pygame.Rect(no_x - 50, button_y - 5, 100, 30)
+            no_rect = pygame.Rect(no_x - ui.s(50), button_y - ui.s(5), ui.s(100), ui.s(30))
             if self.altering_cave_selected == 1:
                 pygame.draw.rect(surf, (80, 60, 60), no_rect)
                 pygame.draw.rect(surf, (180, 100, 100), no_rect, 2)
@@ -1427,13 +1836,13 @@ class PCBoxDrawMixin:
         surf.blit(dark_overlay, (0, 0))
 
         # Spinner dimensions - more compact to fit screen
-        spinner_width = 220
-        spinner_height = 260
+        spinner_width = ui.s(220)
+        spinner_height = ui.s(260)
         spinner_x = self.width // 2 - spinner_width // 2
-        spinner_y = self.height // 2 - spinner_height // 2 + 10  # Slight offset down
+        spinner_y = self.height // 2 - spinner_height // 2 + ui.s(10)  # Slight offset down
 
         # Ensure it doesn't go off screen
-        spinner_y = max(10, spinner_y)
+        spinner_y = max(ui.s(10), spinner_y)
 
         # Draw spinner frame (slot machine style)
         frame_rect = pygame.Rect(spinner_x, spinner_y, spinner_width, spinner_height)
@@ -1441,21 +1850,21 @@ class PCBoxDrawMixin:
         pygame.draw.rect(surf, (150, 100, 200), frame_rect, 3)
 
         try:
-            title_font = pygame.font.Font(FONT_PATH, 10)
-            font = pygame.font.Font(FONT_PATH, 9)
+            title_font = scaled_font(10)
+            font = scaled_font(9)
 
             # Title - inside the frame
             title = title_font.render("WHAT NEVER WAS", True, (200, 150, 255))
             title_rect = title.get_rect(
-                centerx=spinner_x + spinner_width // 2, top=spinner_y + 10
+                centerx=spinner_x + spinner_width // 2, top=spinner_y + ui.s(10)
             )
             surf.blit(title, title_rect)
 
             # Reel window (center area where Pokemon scroll)
-            window_width = 140
-            window_height = 140
+            window_width = ui.s(140)
+            window_height = ui.s(140)
             window_x = spinner_x + (spinner_width - window_width) // 2
-            window_y = spinner_y + 35
+            window_y = spinner_y + ui.s(35)
             window_rect = pygame.Rect(window_x, window_y, window_width, window_height)
 
             # Window background
@@ -1472,7 +1881,7 @@ class PCBoxDrawMixin:
                     remaining = ALTERING_CAVE_POKEMON.copy()
 
             if remaining:
-                item_height = 56  # Height per Pokemon sprite
+                item_height = ui.s(56)  # Height per Pokemon sprite
                 total_height = len(remaining) * item_height
 
                 # Wrap offset for continuous scrolling
@@ -1502,18 +1911,53 @@ class PCBoxDrawMixin:
                     # Get sprite - try multiple paths
                     species_id = poke["species"]
                     sprite = None
-                    # Build sprite paths
-                    sprite_paths = [get_sprite_path(species_id, sprite_type="gen3")]
-
-                    for sprite_path in sprite_paths:
-                        if os.path.exists(sprite_path):
+                    # Get current game name for per-game sprite pack support
+                    game_name = None
+                    if hasattr(self, 'get_current_game_callback') and self.get_current_game_callback:
+                        game_name = self.get_current_game_callback()
+                    
+                    is_shiny = poke.get("is_shiny", False) or poke.get("shiny", False)
+                    
+                    # Try sprite_paths system with fallback to global
+                    try:
+                        from sprite_paths import get_sprite_path_for_game
+                        sprite_path = get_sprite_path_for_game(
+                            species_id, 
+                            game_name, 
+                            is_shiny,
+                            fallback_to_global=True  # If species not in pack, use global
+                        )
+                        
+                        # Debug: log what we got
+                        if sprite_path:
+                            print(f"[PCBox Grid] Species {species_id}, game={game_name}, path={sprite_path}, exists={os.path.exists(sprite_path)}")
+                        else:
+                            print(f"[PCBox Grid] Species {species_id}, game={game_name}, NO PATH RETURNED")
+                        
+                        if sprite_path and os.path.exists(sprite_path):
                             try:
                                 sprite = pygame.image.load(sprite_path).convert_alpha()
                                 # Scale to 48x48, preserving aspect ratio
-                                sprite = scale_surface_preserve_aspect(sprite, 48, 48)
-                                break
-                            except Exception:
-                                continue
+                                sprite = scale_surface_preserve_aspect(sprite, ui.s(48), ui.s(48))
+                            except Exception as e:
+                                print(f"[PCBox Grid] Failed to load sprite {sprite_path}: {e}")
+                    except Exception as e:
+                        print(f"[PCBox Grid] sprite_paths failed for species {species_id}: {e}")
+                        import traceback
+                        traceback.print_exc()
+                    
+                    # Legacy fallback if sprite_paths fails
+                    if not sprite:
+                        sprite_paths = [get_sprite_path(species_id, sprite_type="gen3")]
+                        for sprite_path in sprite_paths:
+                            if os.path.exists(sprite_path):
+                                try:
+                                    sprite = pygame.image.load(sprite_path).convert_alpha()
+                                    # Scale to 48x48, preserving aspect ratio
+                                    sprite = scale_surface_preserve_aspect(sprite, ui.s(48), ui.s(48))
+                                    break
+                                except Exception:
+                                    continue
 
                     if sprite:
                         sprite_rect = sprite.get_rect(
@@ -1521,8 +1965,8 @@ class PCBoxDrawMixin:
                         )
                         clip_surf.blit(sprite, sprite_rect)
                     else:
-                        # Fallback: draw Pokemon name
-                        name_text = font.render(poke["name"], True, (200, 200, 255))
+                        # Fallback: draw Pokemon name with gender symbol support
+                        name_text = render_pokemon_name(font, poke["name"], (200, 200, 255))
                         name_rect = name_text.get_rect(
                             center=((window_width - 4) // 2, int(y_pos))
                         )
@@ -1535,16 +1979,16 @@ class PCBoxDrawMixin:
                 indicator_y = center_y
                 # Left arrow
                 arrow_points_l = [
-                    (window_x - 12, indicator_y),
-                    (window_x - 4, indicator_y - 8),
-                    (window_x - 4, indicator_y + 8),
+                    (window_x - ui.s(12), indicator_y),
+                    (window_x - ui.s(4), indicator_y - ui.s(8)),
+                    (window_x - ui.s(4), indicator_y + ui.s(8)),
                 ]
                 pygame.draw.polygon(surf, (255, 200, 100), arrow_points_l)
                 # Right arrow
                 arrow_points_r = [
-                    (window_x + window_width + 12, indicator_y),
-                    (window_x + window_width + 4, indicator_y - 8),
-                    (window_x + window_width + 4, indicator_y + 8),
+                    (window_x + window_width + ui.s(12), indicator_y),
+                    (window_x + window_width + ui.s(4), indicator_y - ui.s(8)),
+                    (window_x + window_width + ui.s(4), indicator_y + ui.s(8)),
                 ]
                 pygame.draw.polygon(surf, (255, 200, 100), arrow_points_r)
 
@@ -1572,7 +2016,7 @@ class PCBoxDrawMixin:
                 elif not self.altering_cave_spinner_show_result:
                     self.altering_cave_spinner_show_result = True
 
-            status_y = spinner_y + spinner_height - 65
+            status_y = spinner_y + spinner_height - ui.s(65)
 
             if (
                 self.altering_cave_spinner_show_result
@@ -1594,19 +2038,19 @@ class PCBoxDrawMixin:
                 # Press A prompt
                 prompt_text = font.render("Press A", True, (200, 200, 200))
                 prompt_rect = prompt_text.get_rect(
-                    centerx=spinner_x + spinner_width // 2, top=status_y + 20
+                    centerx=spinner_x + spinner_width // 2, top=status_y + ui.s(20)
                 )
                 surf.blit(prompt_text, prompt_rect)
             elif self.altering_cave_spinner_speed > 0:
                 spin_text = font.render("Spinning...", True, (255, 255, 200))
                 spin_rect = spin_text.get_rect(
-                    centerx=spinner_x + spinner_width // 2, top=status_y + 10
+                    centerx=spinner_x + spinner_width // 2, top=status_y + ui.s(10)
                 )
                 surf.blit(spin_text, spin_rect)
             elif not self.altering_cave_spinner_stopped:
                 wait_text = font.render("...", True, (200, 200, 200))
                 wait_rect = wait_text.get_rect(
-                    centerx=spinner_x + spinner_width // 2, top=status_y + 10
+                    centerx=spinner_x + spinner_width // 2, top=status_y + ui.s(10)
                 )
                 surf.blit(wait_text, wait_rect)
 
@@ -1647,9 +2091,9 @@ class PCBoxDrawMixin:
             alpha = int(255 * (self.warning_message_timer / 30))
 
         # Warning box dimensions
-        warning_width = 280
+        warning_width = ui.s(280)
         lines = self.warning_message.split("\n")
-        warning_height = 30 + len(lines) * 22
+        warning_height = ui.s(30) + len(lines) * ui.s(22)
         warning_x = self.width // 2 - warning_width // 2
         warning_y = self.height // 2 - warning_height // 2
 
@@ -1672,13 +2116,13 @@ class PCBoxDrawMixin:
         )
 
         try:
-            font = pygame.font.Font(FONT_PATH, 12)
+            font = scaled_font(12)
 
             # Draw warning text
             for i, line in enumerate(lines):
                 text = font.render(line, True, ui_colors.COLOR_ERROR)
                 text.set_alpha(alpha)
-                text_rect = text.get_rect(centerx=warning_width // 2, top=15 + i * 22)
+                text_rect = text.get_rect(centerx=warning_width // 2, top=ui.s(15) + i * ui.s(22))
                 warning_surf.blit(text, text_rect)
         except Exception:
             pass

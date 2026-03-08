@@ -13,8 +13,8 @@ import platform
 import sys
 
 # ===== Display Settings =====
-WINDOW_WIDTH = 480
-WINDOW_HEIGHT = 320  # 3.5" screen
+WINDOW_WIDTH = 640
+WINDOW_HEIGHT = 480  # 4:3 aspect ratio
 SCREEN_WIDTH = WINDOW_WIDTH  # Alias for compatibility
 SCREEN_HEIGHT = WINDOW_HEIGHT
 FPS = 60
@@ -73,20 +73,23 @@ ACH_SAVE_PATH = os.path.join(SAVES_DIR, "sinew", "achievements_progress.json")
 ACH_REWARDS_PATH = os.path.join(DATA_DIR, "achievements", "rewards", "rewards.json")
 SETTINGS_FILE = os.path.join(SAVES_DIR, "sinew", "sinew_settings.json")
 
-# Sprite directories
+# Sprite directories (organized by pack)
 THEMES_DIR = os.path.join(DATA_DIR, "themes")
 SPRITES_DIR = os.path.join(DATA_DIR, "sprites")
+PACKS_DIR = os.path.join(SPRITES_DIR, "packs")  # All sprite packs live here
 
-GEN3_SPRITES_DIR = os.path.join(SPRITES_DIR, "gen3")
+# Legacy paths - kept for backward compatibility
+# These point to the default pack but should use sprite_paths.py for dynamic resolution
+GEN3_SPRITES_DIR = os.path.join(PACKS_DIR, "gen3_emerald")
 GEN3_NORMAL_DIR = os.path.join(GEN3_SPRITES_DIR, "normal")
 GEN3_SHINY_DIR = os.path.join(GEN3_SPRITES_DIR, "shiny")
 
-SHOWDOWN_SPRITES_DIR = os.path.join(SPRITES_DIR, "showdown")
+SHOWDOWN_SPRITES_DIR = os.path.join(PACKS_DIR, "showdown")
 SHOWDOWN_NORMAL_DIR = os.path.join(SHOWDOWN_SPRITES_DIR, "normal")
 SHOWDOWN_SHINY_DIR = os.path.join(SHOWDOWN_SPRITES_DIR, "shiny")
 
-GEN3_BOX_DIR = os.path.join(SPRITES_DIR, "gen3box")
-GEN3_BOX_ANIM_DIR = os.path.join(SPRITES_DIR, "gen3box")
+GEN3_BOX_DIR = os.path.join(PACKS_DIR, "gen3box")
+GEN3_BOX_ANIM_DIR = os.path.join(PACKS_DIR, "gen3box")
 
 GEN8_ICONS_DIR = os.path.join(SPRITES_DIR, "gen8", "icons")
 
@@ -201,6 +204,30 @@ def _detect_cfw():
 
 
 CFW_NAME = _detect_cfw() if IS_HANDHELD else None
+
+
+def _is_retropie():
+    """
+    Detect if running on a RetroPie installation.
+    RetroPie can run on any Raspberry Pi OS (ID=debian or ID=raspbian),
+    identified by the presence of the runcommand launcher.
+    """
+    return os.path.exists("/opt/retropie/supplementary/runcommand/runcommand.sh")
+
+
+IS_RETROPIE = _is_retropie()
+
+
+def _default_use_external_providers():
+    """
+    Return True if external providers should be ON by default.
+    Applies to: any handheld CFW device, or a RetroPie installation.
+    Desktop users start with integrated mGBA and can opt in manually.
+    """
+    return IS_HANDHELD or IS_RETROPIE
+
+
+DEFAULT_USE_EXTERNAL_PROVIDERS = _default_use_external_providers()
 
 
 def _detect_video_driver():

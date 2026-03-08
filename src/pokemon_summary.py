@@ -7,9 +7,12 @@ Pokemon Summary Screen - Emerald Style
 
 import json
 import os
-from config import POKEMON_DB_PATH
+from config import POKEMON_DB_PATH, TITLE_SPRITES_DIR
 
 import pygame
+
+# Import text utilities for gender symbol rendering
+from text_utils import render_pokemon_name, contains_gender_symbol
 
 # Import config for paths
 try:
@@ -218,8 +221,14 @@ def extract_missing_data(pokemon):
 
         # Extract origins info from Misc block (bytes 2-3)
         origins = struct.unpack("<H", decrypted[misc_pos + 2 : misc_pos + 4])[0]
-        if not pokemon.get("met_level"):
+        
+        # Only extract if not already set or invalid
+        existing_met_level = pokemon.get("met_level", 0)
+        if not existing_met_level or existing_met_level == 0:
             pokemon["met_level"] = origins & 0x7F  # bits 0-6
+            
+        if not pokemon.get("game_of_origin"):
+            pokemon["game_of_origin"] = (origins >> 7) & 0xF  # bits 7-10
 
     except Exception as e:
         # If extraction fails, just return pokemon as-is
@@ -254,6 +263,29 @@ def get_base_stats(species_id):
     return _base_stats_cache.get(species_id, {})
 
 
+def get_game_info(game_version_code):
+    """
+    Get game name and icon path from Gen3 game version code.
+    
+    Gen3 game version codes:
+    1 = Sapphire, 2 = Ruby, 3 = Emerald
+    4 = FireRed, 5 = LeafGreen
+    15 = Colosseum/XD (Gamecube)
+    
+    Returns:
+        tuple: (game_name, icon_path) or (None, None) if unknown
+    """
+    game_map = {
+        1: ("Sapphire", os.path.join(TITLE_SPRITES_DIR, "sapphire.gif")),
+        2: ("Ruby", os.path.join(TITLE_SPRITES_DIR, "ruby.gif")),
+        3: ("Emerald", os.path.join(TITLE_SPRITES_DIR, "emerald.gif")),
+        4: ("FireRed", os.path.join(TITLE_SPRITES_DIR, "firered.gif")),
+        5: ("LeafGreen", os.path.join(TITLE_SPRITES_DIR, "leafgreen.gif")),
+        15: ("Colosseum", None),  # No icon for Gamecube games
+    }
+    return game_map.get(game_version_code, (None, None))
+
+
 def calculate_hp(base_hp, iv_hp, ev_hp, level):
     """
     Calculate HP stat using Gen 3 formula.
@@ -275,6 +307,8 @@ def calculate_stat(base, iv, ev, level, nature_multiplier=1.0):
     stat = ((iv + 2 * base + (ev // 4)) * level) // 100 + 5
     stat = int(stat * nature_multiplier)
     return max(1, stat)
+
+
 
 
 # Nature stat effects (+10% / -10%)
@@ -439,7 +473,8 @@ class PokemonSummary:
         # Extract any missing data from raw_bytes (met_location, contest_stats)
         self.pokemon = extract_missing_data(pokemon.copy() if pokemon else pokemon)
         self.width = width
-        self.height = height
+        # Use 70% of screen height for compact card-style layout (similar to trainer card)
+        self.height = int(height * 0.70)
         self.font = font
         self.close_callback = close_callback
         self.manager = manager
@@ -479,13 +514,55 @@ class PokemonSummary:
         self.title_font = ui_colors.get_font(self.title_font_size)
 
     def _load_sprite(self):
-        """Load Pokemon sprite - try multiple sources"""
+        """Load Pokemon sprite - try multiple sources using new sprite pack system"""
         self.sprite = None
 
         if not self.pokemon:
             return
+        
+        # Get species and shiny status (check both field names for compatibility)
+        species = self.pokemon.get("species", 0)
+        if not species:
+            # Also try 'species_id' or 'national_dex'
+            species = self.pokemon.get("species_id", 0) or self.pokemon.get("national_dex", 0)
+        
+        is_shiny = self.pokemon.get("is_shiny", False) or self.pokemon.get("shiny", False)
+        
+        # Get current game name for per-game sprite pack support
+        game_name = None
+        if self.manager and hasattr(self.manager, 'game_name'):
+            game_name = self.manager.game_name
 
-        # Method 1: Use manager's get_gen3_sprite_path
+        # Method 1: Use gif_sprite_handler for pack-aware animated sprite loading
+        if species and species > 0:
+            try:
+                from gif_sprite_handler import get_pokemon_sprite_with_fallback
+                
+                sprite = get_pokemon_sprite_with_fallback(
+                    species_id=species,
+                    game_name=game_name,
+                    shiny=is_shiny,
+                    prefer_gif=True,  # Prefer GIF for animation
+                    size=(96, 96)
+                )
+                
+                # Check if we got a GIFSprite (animated) or Surface (static)
+                if sprite:
+                    from gif_sprite_handler import GIFSprite
+                    if isinstance(sprite, GIFSprite):
+                        # Store GIF sprite for animation
+                        self.sprite = sprite
+                        self.is_animated = True
+                    else:
+                        # Static surface
+                        self.sprite = sprite
+                        self.is_animated = False
+                    return
+                    
+            except Exception as e:
+                print(f"[PokemonSummary] gif_sprite_handler failed: {e}")
+
+        # Method 2: Use manager's get_gen3_sprite_path (legacy fallback)
         if self.manager:
             try:
                 sprite_path = self.manager.get_gen3_sprite_path(self.pokemon)
@@ -496,14 +573,7 @@ class PokemonSummary:
             except Exception as e:
                 print(f"[PokemonSummary] Manager sprite load failed: {e}")
 
-        # Method 2: Try to load directly from species ID
-        species = self.pokemon.get("species", 0)
-        if not species:
-            # Also try 'species_id' or 'national_dex'
-            species = self.pokemon.get("species_id", 0) or self.pokemon.get(
-                "national_dex", 0
-            )
-
+        # Method 3: Try to load directly from species ID using config (legacy fallback)
         if species and species > 0:
             sprite_paths = [config.get_sprite_path(species, sprite_type="gen3")]
 
@@ -516,7 +586,7 @@ class PokemonSummary:
                     except Exception:
                         pass
 
-        # Method 3: Check if sprite was passed in pokemon data directly
+        # Method 4: Check if sprite was passed in pokemon data directly
         if self.pokemon.get("sprite"):
             try:
                 sprite = self.pokemon.get("sprite")
@@ -526,7 +596,7 @@ class PokemonSummary:
             except Exception:
                 pass
 
-        # Method 4: Try raw dict's sprite_path if available
+        # Method 5: Try raw dict's sprite_path if available
         raw = self.pokemon.get("raw", {})
         if raw:
             species = raw.get("species", 0)
@@ -599,21 +669,43 @@ class PokemonSummary:
         # Refresh fonts in case theme changed
         self._refresh_fonts()
 
-        surf.fill(ui_colors.COLOR_BG)
+        # Draw semi-transparent dark overlay over the entire background
+        overlay = pygame.Surface(surf.get_size(), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 180))  # Semi-transparent black
+        surf.blit(overlay, (0, 0))
+
+        # Create a smaller surface for the compact card layout
+        card_surf = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+        card_surf.fill(ui_colors.COLOR_BG)
 
         # Draw tabs
-        self._draw_tabs(surf)
+        self._draw_tabs(card_surf)
 
         # Draw content based on current tab
         if self.current_tab == self.TAB_INFO:
-            self._draw_info_page(surf)
+            self._draw_info_page(card_surf)
         elif self.current_tab == self.TAB_MOVES:
-            self._draw_moves_page(surf)
+            self._draw_moves_page(card_surf)
         elif self.current_tab == self.TAB_CONTEST:
-            self._draw_contest_page(surf)
+            self._draw_contest_page(card_surf)
 
         # Draw border
-        pygame.draw.rect(surf, ui_colors.COLOR_BORDER, surf.get_rect(), 2)
+        pygame.draw.rect(card_surf, ui_colors.COLOR_BORDER, card_surf.get_rect(), 2)
+        
+        # Center the card on the provided surface
+        full_w, full_h = surf.get_size()
+        x = (full_w - self.width) // 2
+        y = (full_h - self.height) // 2
+        surf.blit(card_surf, (x, y))
+    
+    def update(self, dt):
+        """Update animations"""
+        # Update GIF sprite animation if present
+        if hasattr(self, 'is_animated') and self.is_animated and self.sprite:
+            try:
+                self.sprite.update(dt)
+            except Exception:
+                pass
 
     def _draw_tabs(self, surf):
         """Draw the tab bar"""
@@ -651,6 +743,9 @@ class PokemonSummary:
         display_name = (
             nickname if nickname and nickname != species_name else species_name
         )
+        
+        # Get gender (0=male, 1=female, 2=genderless)
+        gender = self.pokemon.get("gender", 2)
 
         ivs = self.pokemon.get("ivs", {}) or {}
         evs = self.pokemon.get("evs", {}) or {}
@@ -664,31 +759,52 @@ class PokemonSummary:
         pygame.draw.rect(surf, ui_colors.COLOR_BORDER, sprite_box, 1)
 
         if self.sprite:
-            scaled_sprite = pygame.transform.scale(
-                self.sprite, (sprite_size - 4, sprite_size - 4)
-            )
-            sprite_rect = scaled_sprite.get_rect(center=sprite_box.center)
-            surf.blit(scaled_sprite, sprite_rect)
+            from gif_sprite_handler import GIFSprite
+            
+            # Get the surface to draw (current frame for GIF, or the surface itself)
+            if isinstance(self.sprite, GIFSprite):
+                sprite_surf = self.sprite.get_current_frame()
+            else:
+                sprite_surf = self.sprite
+            
+            if sprite_surf:
+                scaled_sprite = pygame.transform.scale(
+                    sprite_surf, (sprite_size - 4, sprite_size - 4)
+                )
+                sprite_rect = scaled_sprite.get_rect(center=sprite_box.center)
+                surf.blit(scaled_sprite, sprite_rect)
 
         # Basic info (middle - next to sprite)
         info_x = sprite_box.right + pad
         info_y = y
 
-        # Name - BIGGER font
-        name_text = self.font.render(
-            display_name.upper()[:10], True, ui_colors.COLOR_TEXT
+        # Name with gender symbol - BIGGER font
+        # Use helper to render gender symbols as colored M/F
+        name_text = render_pokemon_name(
+            self.font, display_name.upper()[:10], ui_colors.COLOR_TEXT
         )
         surf.blit(name_text, (info_x, info_y))
+        
+        # Gender symbol next to name (M/F in appropriate color) - only for non-Nidoran
+        # Skip if name already has gender symbol (Nidoran M/F)
+        if gender == 0 and not contains_gender_symbol(display_name):  # Male
+            gender_color = (100, 149, 237)  # Cornflower blue
+            gender_text = self.small_font.render("M", True, gender_color)
+            surf.blit(gender_text, (info_x + name_text.get_width() + 4, info_y + 2))
+        elif gender == 1 and not contains_gender_symbol(display_name):  # Female
+            gender_color = (255, 182, 193)  # Light pink
+            gender_text = self.small_font.render("F", True, gender_color)
+            surf.blit(gender_text, (info_x + name_text.get_width() + 4, info_y + 2))
 
-        # No. and Lv on same line
-        info_y += 22
+        # No. and Lv on same line (increased spacing from 26 to 32 for more breathing room)
+        info_y += 32
         dex_text = self.small_font.render(f"No.{dex_num:03d}", True, (180, 180, 180))
         level_text = self.small_font.render(f"Lv.{level}", True, ui_colors.COLOR_TEXT)
         surf.blit(dex_text, (info_x, info_y))
         surf.blit(level_text, (info_x + 55, info_y))
 
-        # Nature
-        info_y += 16
+        # Nature (increased spacing from 16 to 20)
+        info_y += 20
         nature = self.pokemon.get("nature", 0)
         personality = self.pokemon.get("personality", 0)
         if isinstance(nature, int):
@@ -723,15 +839,24 @@ class PokemonSummary:
         nature_text = self.small_font.render(f"{nature}", True, ui_colors.COLOR_TEXT)
         surf.blit(nature_text, (info_x, info_y))
 
-        # EXP (below nature, next to sprite)
-        info_y += 16
+        # EXP (increased spacing from 16 to 20)
+        info_y += 20
         exp = self.pokemon.get("experience", 0) or 0
         exp_str = str(exp) if exp < 100000 else f"{exp//1000}k"
         exp_text = self.small_font.render(f"EXP:{exp_str}", True, (180, 180, 180))
         surf.blit(exp_text, (info_x, info_y))
 
-        # OT / ID / ITEM / MET (right column - at 66% across)
-        right_col_x = int(self.width * 0.66)
+        # Shiny indicator (sparkling gold text below EXP)
+        is_shiny = self.pokemon.get("is_shiny", False) or self.pokemon.get("shiny", False)
+        if is_shiny:
+            info_y += 18
+            # Sparkling gold color - use asterisk instead of Unicode star
+            gold_color = (255, 215, 0)
+            shiny_text = self.small_font.render("SHINY *", True, gold_color)
+            surf.blit(shiny_text, (info_x, info_y))
+
+        # OT / ID / ITEM / MET / MET LEVEL / GAME (right column - at 60% across for more space)
+        right_col_x = int(self.width * 0.60)
         right_y = y
 
         ot_name = self.pokemon.get("ot_name", "???") or "???"
@@ -742,43 +867,80 @@ class PokemonSummary:
         sid = (ot_id >> 16) & 0xFFFF  # Upper 16 bits
         held_item = self.pokemon.get("held_item", 0) or 0
         met_location = self.pokemon.get("met_location", 0) or 0
+        met_level = self.pokemon.get("met_level", 0) or 0
+        game_version = self.pokemon.get("game_of_origin", 0) or 0
 
-        # OT
-        ot_text = self.small_font.render(f"OT:{ot_name[:6]}", True, (180, 180, 180))
+        # OT - no truncation
+        ot_text = self.small_font.render(f"OT:{ot_name}", True, (180, 180, 180))
         surf.blit(ot_text, (right_col_x, right_y))
-        right_y += 14
+        right_y += 18  # Increased from 14 to 18
 
         # ID (TID/SID format for Gen 3)
         id_text = self.small_font.render(
             f"ID:{tid:05d}/{sid:05d}", True, (180, 180, 180)
         )
         surf.blit(id_text, (right_col_x, right_y))
-        right_y += 14
+        right_y += 18  # Increased from 14 to 18
 
-        # Item (if held) - show name
+        # Item (if held) - show full name
         if held_item > 0:
             item_name = get_item_name(held_item)
-            # Truncate long names
-            if len(item_name) > 12:
-                item_name = item_name[:11] + "."
             item_text = self.small_font.render(item_name, True, (180, 180, 180))
             surf.blit(item_text, (right_col_x, right_y))
-        right_y += 14
+        right_y += 18  # Increased from 14 to 18
 
-        # Met location
+        # Met location - full name
         if self.pokemon.get("egg"):
-            met_text = self.small_font.render("Egg", True, (180, 180, 180))
-        elif met_location is not None:  # Changed from > 0 to handle location 0
+            met_text = self.small_font.render("Met: Egg", True, (180, 180, 180))
+        elif met_location is not None:
             location_name = get_location_name(met_location, self.game_type)
-            # Truncate long location names
-            if len(location_name) > 12:
-                location_name = location_name[:11] + "."
-            met_text = self.small_font.render(location_name, True, (180, 180, 180))
+            met_text = self.small_font.render(f"Met: {location_name}", True, (180, 180, 180))
         else:
-            met_text = self.small_font.render("Unknown", True, (180, 180, 180))
+            met_text = self.small_font.render("Met: Unknown", True, (180, 180, 180))
         surf.blit(met_text, (right_col_x, right_y))
+        right_y += 18  # Increased from 14 to 18
 
-        y = sprite_box.bottom + pad
+        # Met level (only show if valid: 1-100 and not an egg)
+        if met_level > 0 and met_level <= 100 and not self.pokemon.get("egg"):
+            met_level_text = self.small_font.render(f"Met Lv.{met_level}", True, (180, 180, 180))
+            surf.blit(met_level_text, (right_col_x, right_y))
+        right_y += 18  # Increased from 14 to 18
+
+        # Game of origin - show icon if available
+        if game_version > 0:
+            game_name, icon_path = get_game_info(game_version)
+            if icon_path and os.path.exists(icon_path):
+                try:
+                    # Load and display game icon (small, 16x16)
+                    from gif_sprite_handler import load_gif_or_static
+                    game_icon_data = load_gif_or_static(icon_path)
+                    if game_icon_data:
+                        # Extract first frame if GIF
+                        if isinstance(game_icon_data, tuple):
+                            game_icon_surf = game_icon_data[0][0] if game_icon_data[0] else None
+                        else:
+                            game_icon_surf = game_icon_data
+                        
+                        if game_icon_surf:
+                            # Scale to 16x16
+                            icon_size = 16
+                            scaled_icon = pygame.transform.scale(game_icon_surf, (icon_size, icon_size))
+                            surf.blit(scaled_icon, (right_col_x, right_y))
+                            # Game name next to icon
+                            if game_name:
+                                game_text = self.small_font.render(game_name, True, (180, 180, 180))
+                                surf.blit(game_text, (right_col_x + icon_size + 4, right_y))
+                except Exception as e:
+                    # Fallback to text-only if icon load fails
+                    if game_name:
+                        game_text = self.small_font.render(f"From: {game_name}", True, (180, 180, 180))
+                        surf.blit(game_text, (right_col_x, right_y))
+            elif game_name:
+                # No icon, just show name
+                game_text = self.small_font.render(f"From: {game_name}", True, (180, 180, 180))
+                surf.blit(game_text, (right_col_x, right_y))
+
+        y = sprite_box.bottom + pad * 2  # Add extra padding before HP bar
 
         # ===== HP BAR =====
         hp = self.pokemon.get("current_hp")

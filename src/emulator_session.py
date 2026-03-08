@@ -103,10 +103,40 @@ class EmulatorSessionMixin:
             return
 
         # Dispatch through the provider system.
-        # Providers are probed in registration order; IntegratedMgbaProvider
-        # is the guaranteed last-resort fallback when present.
         if not self.emulator_manager or not self.emulator_manager.active_provider:
-            print("[Sinew] No emulator provider available.")
+            # No provider — show error and revert to integrated
+            from game_dialogs import ProviderErrorDialog
+            from settings import save_sinew_settings_merged as _ssm
+            import builtins
+
+            def _revert():
+                self.settings['use_emulator_provider'] = False
+                builtins.SINEW_USE_EMULATOR_PROVIDER = False
+                _ssm({'use_emulator_provider': False})
+                try:
+                    from emulator_manager import EmulatorManager
+                    self.emulator_manager = EmulatorManager(use_external_providers=False)
+                except Exception:
+                    pass
+                # Sync settings modal if open
+                if hasattr(self, '_pending_settings_modal') and self._pending_settings_modal:
+                    try:
+                        self._pending_settings_modal.revert_provider_toggle(False)
+                    except Exception:
+                        pass
+                self.modal_instance = None
+
+            _pw, _ph = 400, 240
+            self.modal_instance = ProviderErrorDialog(
+                _pw, _ph, screen_size=(self.width, self.height),
+                title="No Emulator Provider Found",
+                lines=[
+                    "No provider is available to launch this game.",
+                    "",
+                    "Switching to Sinew integrated mGBA.",
+                ],
+                on_accept=_revert,
+            )
             return
 
         if not self._launch_via_provider(rom_path, sav_path):
@@ -302,45 +332,317 @@ class EmulatorSessionMixin:
     # External emulator toggle handler
     # ------------------------------------------------------------------
 
+    def _on_use_integrated_mgba(self):
+        """
+        Called from the mGBA tab's 'Use Integrated mGBA' toggle.
+
+        Switches the active *emulator* to integrated mGBA without changing
+        the file paths.  If external paths exist (provider had a roms_dir
+        different from ROMS_DIR) we keep use_emulator_provider = True so
+        the external ROMs/saves remain visible — we just run them through
+        the built-in core instead of an external binary.
+
+        The General tab 'Use External Providers' toggle is NOT flipped.
+        The mGBA tab is rebuilt to show the integrated options.
+        """
+        from game_dialogs import ProviderSwitchDialog
+        from config import ROMS_DIR, SAVES_DIR
+
+        _pw, _ph = 400, 240
+
+        # Determine whether external paths were in use
+        info = (self.emulator_manager.get_provider_info()
+                if self.emulator_manager else None)
+        had_external_paths = bool(
+            info and info.get("roms_dir") and info["roms_dir"] != ROMS_DIR
+        )
+
+        roms  = (info["roms_dir"] if had_external_paths else ROMS_DIR) if info else ROMS_DIR
+        saves = (info["saves_dir"] or SAVES_DIR) if info else SAVES_DIR
+
+        lines = [
+            "Switching to Sinew integrated mGBA.",
+        ]
+        if had_external_paths:
+            lines += [
+                "External paths kept:",
+                f"ROM paths:  {roms}",
+                f"Save paths: {saves}",
+            ]
+        else:
+            lines += [
+                f"ROM paths:  {ROMS_DIR}",
+                f"Save paths: {SAVES_DIR}",
+            ]
+
+        def _commit():
+            import builtins
+            from settings import save_sinew_settings_merged as _ssm
+            try:
+                from emulator_manager import EmulatorManager
+                # Rebuild with external providers OFF (integrated only)
+                new_manager = EmulatorManager(use_external_providers=False)
+                self.emulator_manager = new_manager
+            except Exception:
+                pass
+
+            # Keep use_emulator_provider ON if external paths exist — paths
+            # haven't changed, only the emulator binary has.
+            if not had_external_paths:
+                self.settings['use_emulator_provider'] = False
+                builtins.SINEW_USE_EMULATOR_PROVIDER = False
+                _ssm({'use_emulator_provider': False})
+
+            # Sync settings UI: mGBA tab → integrated options, General toggle unchanged
+            if hasattr(self, '_pending_settings_modal') and self._pending_settings_modal:
+                try:
+                    # Pass current use_emulator_provider value so General toggle is correct
+                    self._pending_settings_modal.revert_provider_toggle(
+                        self.settings.get('use_emulator_provider', False)
+                    )
+                except Exception:
+                    pass
+            self.modal_instance = None
+
+        if hasattr(self, '_pending_settings_modal') and self._pending_settings_modal:
+            self._pending_settings_modal = self._pending_settings_modal
+
+        dialog = ProviderSwitchDialog(
+            _pw, _ph, screen_size=(self.width, self.height),
+            title="Switching to Integrated mGBA",
+            lines=lines,
+            on_accept=_commit,
+        )
+        if hasattr(self, 'modal_instance') and hasattr(self.modal_instance,
+                                                        'revert_provider_toggle'):
+            self._pending_settings_modal = self.modal_instance
+        self.modal_instance = dialog
+
     def _on_emulator_provider_toggled(self, enabled):
-        """Rebuild the game list when the user toggles the emulator provider setting."""
+        """Rebuild the game list when the user toggles the emulator provider setting.
+
+        Shows a ProviderSwitchDialog before committing, and a ProviderErrorDialog
+        if no external provider could be found (reverting the toggle automatically).
+
+        Also handles two edge cases:
+          - External ON but provider resolves to IntegratedMgba + no external paths
+            → treat as toggle OFF, show "using integrated" notice
+          - External ON but provider resolves to IntegratedMgba + external paths exist
+            → treat as toggle ON with those paths
+        """
+        from game_dialogs import ProviderSwitchDialog, ProviderErrorDialog
+        from config import ROMS_DIR, SAVES_DIR
+
+        # Small centred popup — not full screen
+        _pw, _ph = 400, 240
+
         try:
             screen = pygame.display.get_surface()
         except Exception:
             screen = self._loading_screen
 
+        # Capture current provider info BEFORE building the new manager —
+        # once we reinitialise with external off, the provider info is gone.
+        current_info = (self.emulator_manager.get_provider_info()
+                        if self.emulator_manager else None)
+
+        # ----------------------------------------------------------------
+        # Step 1 — build / reinitialise the EmulatorManager with the new flag
+        # ----------------------------------------------------------------
+        try:
+            from emulator_manager import EmulatorManager
+            new_manager = EmulatorManager(use_external_providers=enabled)
+        except ImportError:
+            new_manager = None
+
+        # ----------------------------------------------------------------
+        # Step 2 — analyse what we got and resolve edge cases
+        # ----------------------------------------------------------------
+        def _revert_ui(to_external):
+            """Flip the settings UI toggle back without triggering the callback."""
+            if self.modal_instance and hasattr(self.modal_instance, 'revert_provider_toggle'):
+                self.modal_instance.revert_provider_toggle(to_external)
+
+        if enabled:
+            # --- Turning ON ---
+            if new_manager and new_manager.active_provider:
+                info = new_manager.get_provider_info()
+                provider_name = info["name"]
+                is_integrated = not info["is_external"]
+                roms  = info["roms_dir"] or ROMS_DIR
+                saves = info["saves_dir"] or SAVES_DIR
+                has_external_paths = (
+                    info["roms_dir"] and
+                    info["roms_dir"] != ROMS_DIR and
+                    os.path.exists(info["roms_dir"])
+                )
+
+                if is_integrated and not has_external_paths:
+                    # Edge case A: no real external provider AND no external paths
+                    # → silently treat as toggle OFF
+                    dialog_title = "Using Integrated mGBA"
+                    lines = [
+                        "No external provider or paths found.",
+                        "",
+                        "Staying on Sinew integrated mGBA.",
+                        f"ROM paths:  {ROMS_DIR}",
+                        f"Save paths: {SAVES_DIR}",
+                    ]
+                    def _revert_to_integrated_a():
+                        _revert_ui(False)
+                        self._commit_provider_toggle(False, new_manager, screen)
+                    dialog = ProviderSwitchDialog(_pw, _ph, screen_size=(self.width, self.height),
+                        title=dialog_title, lines=lines,
+                        on_accept=_revert_to_integrated_a,
+                    )
+
+                elif is_integrated and has_external_paths:
+                    # Edge case B: integrated provider but external paths exist
+                    # → treat as toggle ON (external paths, internal emulator)
+                    # Override the provider paths to the external dirs
+                    if hasattr(new_manager.active_provider, 'roms_dir'):
+                        new_manager.active_provider.roms_dir = info["roms_dir"]
+                    dialog_title = "Using External Paths"
+                    lines = [
+                        "Emulator:   Sinew integrated mGBA",
+                        f"ROM paths:  {info['roms_dir']}",
+                        f"Save paths: {saves}",
+                    ]
+                    dialog = ProviderSwitchDialog(_pw, _ph, screen_size=(self.width, self.height),
+                        title=dialog_title, lines=lines,
+                        on_accept=lambda: self._commit_provider_toggle(
+                            True, new_manager, screen),
+                    )
+
+                elif not has_external_paths and not is_integrated:
+                    # External provider found but its paths don't exist yet
+                    # → switch provider but fall back to Sinew paths
+                    if hasattr(new_manager.active_provider, 'roms_dir'):
+                        new_manager.active_provider.roms_dir = ROMS_DIR
+                    if hasattr(new_manager.active_provider, 'saves_dir'):
+                        new_manager.active_provider.saves_dir = SAVES_DIR
+                    dialog_title = "External Paths Not Found"
+                    lines = [
+                        f"Emulator:  {provider_name}",
+                        f"Expected:  {info['roms_dir']}",
+                        "",
+                        "Paths not found — using Sinew paths.",
+                        f"ROM paths:  {ROMS_DIR}",
+                    ]
+                    dialog = ProviderErrorDialog(_pw, _ph, screen_size=(self.width, self.height),
+                        title=dialog_title, lines=lines,
+                        on_accept=lambda: self._commit_provider_toggle(
+                            True, new_manager, screen),
+                    )
+
+                else:
+                    # Normal external provider with valid paths
+                    dialog_title = "Switching to External Emulator"
+                    lines = [
+                        f"Emulator:  {provider_name}",
+                        f"ROM paths:  {roms}",
+                        f"Save paths: {saves}",
+                    ]
+                    dialog = ProviderSwitchDialog(_pw, _ph, screen_size=(self.width, self.height),
+                        title=dialog_title, lines=lines,
+                        on_accept=lambda: self._commit_provider_toggle(
+                            True, new_manager, screen),
+                    )
+
+            else:
+                # No provider at all — revert
+                def _revert_no_provider():
+                    _revert_ui(False)
+                    import builtins
+                    from settings import save_sinew_settings_merged as _ssm
+                    self.settings['use_emulator_provider'] = False
+                    builtins.SINEW_USE_EMULATOR_PROVIDER = False
+                    _ssm({'use_emulator_provider': False})
+                    try:
+                        from emulator_manager import EmulatorManager as _EM
+                        self.emulator_manager = _EM(use_external_providers=False)
+                    except Exception:
+                        pass
+                    self.modal_instance = None
+
+                dialog = ProviderErrorDialog(_pw, _ph, screen_size=(self.width, self.height),
+                    title="No External Provider Found",
+                    lines=[
+                        "No compatible external emulator",
+                        "was detected on this system.",
+                        "",
+                        "Reverting to Sinew integrated mGBA.",
+                    ],
+                    on_accept=_revert_no_provider,
+                )
+
+        else:
+            # --- Turning OFF (switching back to integrated mGBA) ---
+            had_external_paths = bool(
+                current_info and
+                current_info.get("roms_dir") and
+                current_info["roms_dir"] != ROMS_DIR
+            )
+
+            if had_external_paths:
+                path_label = "integrated (Sinew) files"
+            else:
+                path_label = "integrated (Sinew) files"
+
+            lines = [
+                "Switching to Sinew integrated mGBA.",
+                f"Using: {path_label}",
+                "",
+                f"ROM paths:  {ROMS_DIR}",
+                f"Save paths: {SAVES_DIR}",
+            ]
+            dialog = ProviderSwitchDialog(_pw, _ph, screen_size=(self.width, self.height),
+                title="Switching to Integrated mGBA",
+                lines=lines,
+                on_accept=lambda: self._commit_provider_toggle(
+                    False, new_manager, screen),
+            )
+
+        # ----------------------------------------------------------------
+        # Step 3 — show the dialog as a modal overlay, keeping a ref to
+        # the Settings modal so we can sync its toggles after accept
+        # ----------------------------------------------------------------
+        if hasattr(self.modal_instance, 'revert_provider_toggle'):
+            self._pending_settings_modal = self.modal_instance
+        else:
+            self._pending_settings_modal = None
+        self.modal_instance = dialog
+
+    def _commit_provider_toggle(self, enabled, new_manager, screen):
+        """
+        Called after the user accepts a provider switch dialog.
+        Applies the new manager, rescans games, reloads save data,
+        and tells the settings modal to reflect the final state.
+        """
+        import builtins
+        from config import ROMS_DIR, SAVES_DIR
+        from settings import save_sinew_settings_merged as _ssm
+
+        self.modal_instance = None
+
+        # Apply the new manager
+        self.emulator_manager = new_manager
+
+        builtins.SINEW_USE_EMULATOR_PROVIDER = enabled
+        self.settings['use_emulator_provider'] = enabled
+        _ssm({'use_emulator_provider': enabled})
+
+        # If the settings modal is still open, sync its toggles and mGBA tab
+        # (find it via modal stack — GameScreen re-opens settings after dialog)
+        if hasattr(self, '_pending_settings_modal') and self._pending_settings_modal:
+            try:
+                self._pending_settings_modal.revert_provider_toggle(enabled)
+            except Exception:
+                pass
+
         if screen:
             message = "Scanning external ROMs..." if enabled else "Scanning internal ROMs..."
             self._draw_loading_screen(screen, message, 0, 3)
-
-        if enabled and not self.emulator_manager:
-            try:
-                from emulator_manager import EmulatorManager
-                self.emulator_manager = EmulatorManager(use_external_providers=enabled)
-                if self.emulator_manager.active_provider:
-                    print(
-                        f"[EmulatorManager] Provider initialized: {type(
-                            self.emulator_manager.active_provider).__name__}"
-                    )
-                else:
-                    print("[EmulatorManager] No provider matched this environment")
-            except ImportError:
-                print(
-                    "[EmulatorManager] emulator_manager.py not found — provider unavailable")
-        elif self.emulator_manager and not self.emulator_manager.is_running:
-            # Reinitialize to apply the new external-providers flag
-            try:
-                from emulator_manager import EmulatorManager
-                self.emulator_manager = EmulatorManager(use_external_providers=enabled)
-                if self.emulator_manager.active_provider:
-                    print(
-                        f"[EmulatorManager] Re-initialized: {type(
-                            self.emulator_manager.active_provider).__name__}"
-                    )
-                else:
-                    print("[EmulatorManager] No provider matched after re-init")
-            except ImportError:
-                print("[EmulatorManager] emulator_manager.py not found — provider unavailable")
 
         from config import _save_scan_cache
         _rom_scan_cache.clear()
@@ -356,9 +658,6 @@ class EmulatorSessionMixin:
 
         self._init_games()
 
-        # Reset navigation to Sinew (index 0) — the game list has changed and
-        # the previously selected index may now be out of bounds or point to the
-        # wrong game entirely.
         self.current_game = 0
         self.menu_index = 0
 
@@ -378,7 +677,8 @@ class EmulatorSessionMixin:
                             BACKUPS_DIR, f"{name}_ext_backup_{ts}{ext}"
                         )
                         shutil.copy2(sav, backup_path)
-                        print(f"[EmulatorManager] Backed up {bname} -> {os.path.basename(backup_path)}")
+                        print(f"[EmulatorManager] Backed up {bname} -> "
+                              f"{os.path.basename(backup_path)}")
                     except Exception as e:
                         print(f"[EmulatorManager] Backup failed for {gname}: {e}")
 
@@ -402,8 +702,6 @@ class EmulatorSessionMixin:
             self._draw_loading_screen(screen, "Done!", 3, 3)
             pygame.time.wait(200)
 
-        # Always reload the current game/background after a provider switch
-        # since current_game was reset to 0 (Sinew).
         self.load_game_and_background()
 
         toggled = 'ON' if enabled else 'OFF'

@@ -346,6 +346,27 @@ class EmulatorManager:
             return False
         return True
 
+    def get_provider_info(self):
+        """
+        Return a dict describing the active provider and its paths.
+        Used by the UI to build the ProviderSwitchDialog message lines.
+
+        Keys:
+            name        — class name of the active provider, or "None"
+            roms_dir    — roms_dir attribute of the provider, or None
+            saves_dir   — saves_dir attribute of the provider, or None
+            is_external — True if provider is not integrated mGBA
+        """
+        if not self.active_provider:
+            return {"name": "None", "roms_dir": None, "saves_dir": None, "is_external": False}
+        p = self.active_provider
+        return {
+            "name": type(p).__name__,
+            "roms_dir": getattr(p, "roms_dir", None),
+            "saves_dir": getattr(p, "saves_dir", None),
+            "is_external": not getattr(p, "is_integrated", False),
+        }
+
     def terminate(self):
         """Terminate the currently active emulator process via the active provider."""
         if self.process and self.active_provider:

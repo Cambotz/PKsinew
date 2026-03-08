@@ -27,6 +27,7 @@ import pygame
 
 import ui_colors
 from config import FONT_PATH
+from ui_scale import ui, scaled_font
 
 
 class NotificationsMixin:
@@ -65,12 +66,12 @@ class NotificationsMixin:
         combo_name = self._get_pause_combo_name()
         full_text = f'"{game_name}" running  •  Hold {combo_name} to resume'
 
-        banner_height = 21
+        banner_height = ui.s(21)
         banner_width = int(self.width * 0.85)
         banner_x = (self.width - banner_width) // 2
-        banner_y = 4
-        padding = 12
-        border_radius = 6
+        banner_y = ui.s(4)
+        padding = ui.s(12)
+        border_radius = ui.s(6)
 
         self._resume_banner_pulse_time += 0.08
         pulse = (math.sin(self._resume_banner_pulse_time) + 1) / 2  # 0 → 1
@@ -92,14 +93,7 @@ class NotificationsMixin:
             border_radius=border_radius,
         )
 
-        try:
-            banner_font = pygame.font.Font(FONT_PATH, 10)
-        except Exception:
-            try:
-                banner_font = pygame.font.Font(None, 18)
-            except Exception:
-                banner_font = pygame.font.SysFont(None, 18)
-
+        banner_font = scaled_font(10)
         text_r = int(200 + 55 * pulse)
         text_g = int(180 + 55 * pulse)
         text_b = int(100 + 50 * pulse)
@@ -113,7 +107,7 @@ class NotificationsMixin:
             surf.blit(text_surf, (text_x, text_y))
         else:
             clip_rect = pygame.Rect(banner_x + padding, banner_y, available_width, banner_height)
-            scroll_width = text_width + 60
+            scroll_width = text_width + ui.s(60)
             self._resume_banner_scroll_offset += self._resume_banner_scroll_speed
             if self._resume_banner_scroll_offset >= scroll_width:
                 self._resume_banner_scroll_offset = 0
@@ -137,14 +131,14 @@ class NotificationsMixin:
         self._notification_text = text
         self._notification_subtext = subtext
         self._notification_timer = self._notification_duration
-        self._notification_y = -80  # Start above the screen
+        self._notification_y = ui.s(-80)  # Start above the screen
 
     def _update_notification(self, dt):
         """Advance the notification slide animation each frame."""
         if self._notification_timer <= 0:
             # Slide back up and hide
             self._notification_y -= dt * 0.3
-            if self._notification_y < -80:
+            if self._notification_y < ui.s(-80):
                 self._notification_text = None
                 self._notification_subtext = None
         else:
@@ -159,8 +153,8 @@ class NotificationsMixin:
         if self._notification_text is None:
             return
 
-        box_width = min(self.width - 40, 400)
-        box_height = 60 if self._notification_subtext else 40
+        box_width = min(self.width - ui.s(40), ui.s(400))
+        box_height = ui.s(60) if self._notification_subtext else ui.s(40)
         box_x = (self.width - box_width) // 2
         box_y = int(self._notification_y)
 
@@ -170,21 +164,21 @@ class NotificationsMixin:
         # Shadow
         pygame.draw.rect(
             surf, (0, 10, 20),
-            pygame.Rect(box_x + 3, box_y + 3, box_width, box_height),
-            border_radius=8,
+            pygame.Rect(box_x + ui.s(3), box_y + ui.s(3), box_width, box_height),
+            border_radius=ui.s(8),
         )
 
         # Box
         box_rect = pygame.Rect(box_x, box_y, box_width, box_height)
-        pygame.draw.rect(surf, ui_colors.COLOR_HEADER, box_rect, border_radius=8)
-        pygame.draw.rect(surf, ui_colors.COLOR_BORDER, box_rect, 2, border_radius=8)
+        pygame.draw.rect(surf, ui_colors.COLOR_HEADER, box_rect, border_radius=ui.s(8))
+        pygame.draw.rect(surf, ui_colors.COLOR_BORDER, box_rect, 2, border_radius=ui.s(8))
 
-        font = self.font if self.font else pygame.font.Font(None, 24)
+        font = self.font if self.font else scaled_font(24)
 
         text_surf = font.render(self._notification_text, True, ui_colors.COLOR_TEXT)
-        surf.blit(text_surf, text_surf.get_rect(centerx=box_x + box_width // 2, top=box_y + 8))
+        surf.blit(text_surf, text_surf.get_rect(centerx=box_x + box_width // 2, top=box_y + ui.s(8)))
 
         if self._notification_subtext:
             sub_color = tuple(max(0, c - 40) for c in ui_colors.COLOR_TEXT)
             sub_surf = font.render(self._notification_subtext, True, sub_color)
-            surf.blit(sub_surf, sub_surf.get_rect(centerx=box_x + box_width // 2, top=box_y + 32))
+            surf.blit(sub_surf, sub_surf.get_rect(centerx=box_x + box_width // 2, top=box_y + ui.s(32)))

@@ -167,25 +167,62 @@ def get_active_block(save_data):
     """
     Determine which save block (A or B) is active.
 
+    Gen3 saves have two slots. The one with the higher save index is more
+    recent.  However, an uninitialized (blank) slot reads as 0xFFFFFFFF
+    which would naively appear to be the highest possible index.  We must
+    also handle the (theoretical) 32-bit wraparound case.
+
     Args:
         save_data: Save file data
 
     Returns:
         int: Offset to active block (0x0000 or 0xE000)
     """
-    # Save index is at offset 0xFFC within each section
-    # Check section 0 of each block
+    # Save index is at offset 0xFFC within each section.
+    # Read from the first physical sector of each slot.
 
     # Block A (offset 0x0000)
     block_a_idx = struct.unpack("<I", save_data[0x0FFC:0x1000])[0]
 
-    # Block B (offset 0xE000)
-    block_b_idx = struct.unpack("<I", save_data[0xEFFC:0xF000])[0]
+    # Block B (offset 0xE000) — may not exist in 64KB saves
+    if len(save_data) >= 0xF000:
+        block_b_idx = struct.unpack("<I", save_data[0xEFFC:0xF000])[0]
+    else:
+        block_b_idx = 0  # No slot B in undersized saves
 
-    # Higher save index = more recent = active
-    if block_b_idx > block_a_idx:
+    # Validate each slot by checking if the first sector has a valid section ID.
+    # A blank/uninitialized slot has 0xFFFF at offset 0xFF4 (invalid section ID).
+    slot_a_valid = False
+    slot_b_valid = False
+
+    if len(save_data) >= 0xFF6:
+        sid_a = struct.unpack("<H", save_data[0x0FF4:0x0FF6])[0]
+        slot_a_valid = 0 <= sid_a <= 13
+
+    if len(save_data) >= 0xEFF6:
+        sid_b = struct.unpack("<H", save_data[0xEFF4:0xEFF6])[0]
+        slot_b_valid = 0 <= sid_b <= 13
+
+    # If only one slot is valid, use that one
+    if slot_a_valid and not slot_b_valid:
+        return 0x0000
+    if slot_b_valid and not slot_a_valid:
         return 0xE000
-    return 0x0000
+    if not slot_a_valid and not slot_b_valid:
+        return 0x0000  # Both blank — default to A
+
+    # Both valid: compare save indices with wraparound handling
+    # (matches the parser's find_active_save_slot logic)
+    if block_a_idx == block_b_idx:
+        return 0x0000  # Tie — default to A
+    if block_a_idx > block_b_idx:
+        if (block_a_idx - block_b_idx) > 0x80000000:
+            return 0xE000  # B wrapped around, B is newer
+        return 0x0000  # A is genuinely newer
+    # block_b_idx > block_a_idx
+    if (block_b_idx - block_a_idx) > 0x80000000:
+        return 0x0000  # A wrapped around, A is newer
+    return 0xE000  # B is genuinely newer
 
 
 # =============================================================================
@@ -761,11 +798,12 @@ def validate_save_file(filepath):
     game_code = struct.unpack("<I", data[section0 + 0xAC : section0 + 0xB0])[0]
 
     if game_code == 0:
-        game_type = "RSE"
+        game_type = "RS"
     elif game_code == 1:
         game_type = "FRLG"
     else:
-        game_type = "Unknown"
+        # Non-zero, non-1: likely Emerald security key
+        game_type = "E"
 
     return (True, game_type, f"Valid {game_type} save file")
 
@@ -1313,7 +1351,13 @@ def transfer_pokemon_with_pokedex(
 # ITEM WRITING FUNCTIONS
 # =============================================================================
 
-# Item Pocket offsets
+# Item Pocket offsets — per-game-group
+# IMPORTANT: Ruby/Sapphire and Emerald have DIFFERENT pocket layouts!
+# Emerald expanded item/key-item pockets from 20 → 30 slots, which
+# shifts every subsequent pocket.  Using RS offsets for Emerald (or vice
+# versa) will read/write items at the wrong memory locations.
+#
+# Offset source: PKHeX (PlayerBag3RS.cs, PlayerBag3E.cs, PlayerBag3FRLG.cs)
 ITEM_POCKET_OFFSETS = {
     "FRLG": {
         "items": (0x0310, 42),
@@ -1322,14 +1366,50 @@ ITEM_POCKET_OFFSETS = {
         "tms_hms": (0x0464, 58),
         "berries": (0x054C, 43),
     },
-    "RSE": {
+    "RS": {
         "items": (0x0560, 20),
         "key_items": (0x05B0, 20),
         "pokeballs": (0x0600, 16),
         "tms_hms": (0x0640, 64),
         "berries": (0x0740, 46),
     },
+    "E": {
+        "items": (0x0560, 30),       # 30 slots (not 20!)
+        "key_items": (0x05D8, 30),   # shifted because items pocket is larger
+        "pokeballs": (0x0650, 16),
+        "tms_hms": (0x0690, 64),
+        "berries": (0x0790, 46),
+    },
 }
+# Backward-compat alias: old code passing "RSE" gets RS offsets (safe default)
+ITEM_POCKET_OFFSETS["RSE"] = ITEM_POCKET_OFFSETS["RS"]
+
+
+def _normalize_item_game_type(game_type):
+    """
+    Normalize a game_type string for item pocket offset lookups.
+
+    Resolves to 'RS', 'E', or 'FRLG' — never the collapsed 'RSE',
+    so that Ruby/Sapphire and Emerald use their correct pocket offsets.
+
+    Args:
+        game_type: Any accepted game type string
+
+    Returns:
+        str: 'RS', 'E', or 'FRLG'
+    """
+    if game_type in ("RS", "R", "S", "Ruby", "Sapphire"):
+        return "RS"
+    if game_type in ("E", "Emerald"):
+        return "E"
+    if game_type in ("FRLG", "FR", "LG", "FireRed", "LeafGreen"):
+        return "FRLG"
+    if game_type == "RSE":
+        # Legacy callers — default to RS (safe: smaller pockets)
+        return "RS"
+    # Unknown — fall back to FRLG
+    return "FRLG"
+
 
 # Event Item IDs
 EVENT_ITEMS = {
@@ -1422,13 +1502,10 @@ def find_item_in_pocket(save_data, section1_offset, game_type, pocket_name, item
     Find an item in a specific pocket.
     Returns: int: Slot index if found, -1 if not found
     """
-    # Normalize game type
-    if game_type in ("E", "RS", "R", "S", "Emerald", "Ruby", "Sapphire"):
-        game_type = "RSE"
-    elif game_type in ("FRLG", "FR", "LG", "FireRed", "LeafGreen"):
-        game_type = "FRLG"
+    # Normalize game type — resolve to RS/E/FRLG (never collapsed "RSE")
+    game_type = _normalize_item_game_type(game_type)
 
-    pocket_config = ITEM_POCKET_OFFSETS.get(game_type, ITEM_POCKET_OFFSETS["RSE"])
+    pocket_config = ITEM_POCKET_OFFSETS.get(game_type, ITEM_POCKET_OFFSETS["RS"])
     if pocket_name not in pocket_config:
         return -1
 
@@ -1450,13 +1527,10 @@ def find_empty_slot_in_pocket(save_data, section1_offset, game_type, pocket_name
     Find the first empty slot in a pocket.
     Returns: int: Slot index if found, -1 if pocket is full
     """
-    # Normalize game type
-    if game_type in ("E", "RS", "R", "S", "Emerald", "Ruby", "Sapphire"):
-        game_type = "RSE"
-    elif game_type in ("FRLG", "FR", "LG", "FireRed", "LeafGreen"):
-        game_type = "FRLG"
+    # Normalize game type — resolve to RS/E/FRLG (never collapsed "RSE")
+    game_type = _normalize_item_game_type(game_type)
 
-    pocket_config = ITEM_POCKET_OFFSETS.get(game_type, ITEM_POCKET_OFFSETS["RSE"])
+    pocket_config = ITEM_POCKET_OFFSETS.get(game_type, ITEM_POCKET_OFFSETS["RS"])
     if pocket_name not in pocket_config:
         return -1
 
@@ -1483,15 +1557,9 @@ def add_item_to_pocket(save_data, game_type, pocket_name, item_id, quantity=1):
 
     Returns: tuple: (success: bool, message: str)
     """
-    # Normalize game type but remember if it's specifically RS (not Emerald)
+    # Normalize game type — resolve to RS/E/FRLG (never collapsed "RSE")
     is_ruby_sapphire = game_type in ("RS", "R", "S", "Ruby", "Sapphire")
-
-    if game_type in ("E", "RS", "R", "S", "Emerald", "Ruby", "Sapphire"):
-        normalized_type = "RSE"
-    elif game_type in ("FRLG", "FR", "LG", "FireRed", "LeafGreen"):
-        normalized_type = "FRLG"
-    else:
-        normalized_type = game_type
+    normalized_type = _normalize_item_game_type(game_type)
 
     block_offset = get_active_block(save_data)
     section1_offset = find_section_by_id(save_data, block_offset, 1)
@@ -1508,7 +1576,7 @@ def add_item_to_pocket(save_data, game_type, pocket_name, item_id, quantity=1):
     else:
         item_key = get_item_encryption_key(save_data, section1_offset, game_type)
 
-    pocket_config = ITEM_POCKET_OFFSETS.get(normalized_type, ITEM_POCKET_OFFSETS["RSE"])
+    pocket_config = ITEM_POCKET_OFFSETS.get(normalized_type, ITEM_POCKET_OFFSETS["RS"])
     if pocket_name not in pocket_config:
         return (False, f"Invalid pocket: {pocket_name}")
 
@@ -1647,7 +1715,9 @@ RAINBOW_PASS_ITEM_ID = 368  # Key item that unlocks Sevii Islands 4-7
 # Flag IDs for National Dex unlock
 NATIONAL_DEX_FLAGS = {
     "FRLG": 0x840,  # FLAG_SYS_NATIONAL_DEX in pokefirered
-    "RSE": 0x860,  # FLAG_SYS_NATIONAL_DEX in pokeemerald (not used for gating, but available)
+    "RS": 0x836,    # FLAG_SYS_NATIONAL_DEX in pokeruby (different from Emerald!)
+    "E": 0x896,     # FLAG_SYS_NATIONAL_DEX in pokeemerald
+    "RSE": 0x836,   # Legacy fallback — defaults to RS
 }
 
 

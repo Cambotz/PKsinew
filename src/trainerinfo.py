@@ -12,6 +12,7 @@ import pygame
 
 import ui_colors
 from config import FONT_PATH, SPRITES_DIR
+from ui_scale import ui, scaled_font
 from controller import NavigableList, get_controller
 from save_data_manager import get_manager
 from ui_components import Button
@@ -31,15 +32,36 @@ class Modal:
         next_game_callback=None,
         get_current_game_callback=None,
     ):
-        self.width = w
-        self.height = h
+        # Store original full dimensions
+        self._full_width = w
+        self._full_height = h
+        # Store shortened dimensions for ID card
+        self._card_width = w
+        self._card_height = int(h * 0.55)  # Use 55% of screen height for ID card shape
+        
         self.font = font
         self.prev_game_callback = prev_game_callback
         self.next_game_callback = next_game_callback
         self.get_current_game_callback = get_current_game_callback
+        # Pass shortened dimensions for layout, but also store original for sub-modals
         self.screen = TrainerInfoScreen(
-            w, h, prev_game_callback, next_game_callback, get_current_game_callback
+            self._card_width, self._card_height, prev_game_callback, next_game_callback, get_current_game_callback,
+            full_w=w, full_h=h  # Pass original dimensions for sub-modals
         )
+    
+    @property
+    def width(self):
+        """Return full width if sub-modal is active, otherwise card width"""
+        if self.screen.sub_modal:
+            return self._full_width
+        return self._card_width
+    
+    @property
+    def height(self):
+        """Return full height if sub-modal is active, otherwise card height"""
+        if self.screen.sub_modal:
+            return self._full_height
+        return self._card_height
 
     def update(self, events):
         """Delegate event handling to the inner trainer info screen and return True while open."""
@@ -53,6 +75,7 @@ class Modal:
 
     def draw(self, surf):
         """Render the semi-transparent background overlay and the trainer info screen to surf."""
+        # width and height properties automatically adjust based on sub-modal state
         # Draw background overlay
         overlay = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
         overlay.fill((50, 50, 50, 180))
@@ -81,9 +104,14 @@ class TrainerInfoScreen:
         prev_game_callback=None,
         next_game_callback=None,
         get_current_game_callback=None,
+        full_w=None,
+        full_h=None,
     ):
-        self.w = w
+        self.w = w  # Shortened dimensions for this card
         self.h = h
+        # Store full screen dimensions for sub-modals
+        self.full_w = full_w if full_w is not None else w
+        self.full_h = full_h if full_h is not None else h
         self.should_close = False  # Flag for closing modal
         self.sub_modal = None  # Sub-modal (like Item Bag)
 
@@ -100,9 +128,9 @@ class TrainerInfoScreen:
         )
 
         # --- Load font ---
-        self.font_header = pygame.font.Font(FONT_PATH, 18)
-        self.font_text = pygame.font.Font(FONT_PATH, 14)
-        self.font_small = pygame.font.Font(FONT_PATH, 10)
+        self.font_header = scaled_font(18)
+        self.font_text = scaled_font(14)
+        self.font_small = scaled_font(10)
 
         # Get save data manager
         self.manager = get_manager()
@@ -111,34 +139,34 @@ class TrainerInfoScreen:
         self.controller = get_controller()
 
         # --------------------------------------------------------
-        # LAYOUT POSITIONS
+        # LAYOUT POSITIONS - ID CARD STYLE (shorter modal)
         # --------------------------------------------------------
 
-        # Header
+        # Header (across top)
         self.pos_title = (20, 15)
         self.pos_id = (w - 180, 15)
 
-        # Trainer info section (left side)
-        self.pos_name = (30, 70)
-        self.pos_gender = (30, 95)
-        self.pos_money = (30, 120)
-        self.pos_pokedex = (30, 145)
-        self.pos_time = (30, 170)
+        # Trainer info section (left side - more compact)
+        self.pos_name = (30, 58)      # Moved down from 50
+        self.pos_gender = (30, 76)    # Moved down from 68
+        self.pos_money = (30, 94)     # Moved down from 86
+        self.pos_pokedex = (30, 112)  # Moved down from 104
+        self.pos_time = (30, 130)     # Moved down from 122
 
-        # Badges section (bottom)
+        # Badges section (under time field - compact layout)
         self.badge_x = 30
-        self.badge_y = h - 60
-        self.badge_size = 35
-        self.badge_gap = 10
+        self.badge_y = 180  # Moved down by almost badge height (32px)
+        self.badge_size = 32  # Bigger badges (was 28)
+        self.badge_gap = 8  # Slightly more spacing
 
         # Load badge sprites
         self.badge_sprites = self._load_badge_sprites()
 
-        # Right side buttons (removed Pokedex - available from game screen)
+        # Right side buttons - repositioned for shorter ID card modal
         self.buttons = [
-            Button("Party", (0.55, 0.20, 0.30, 0.10), self.open_party),
-            Button("Item Bag", (0.55, 0.32, 0.30, 0.10), self.open_item_bag),
-            Button("Back", (0.55, 0.44, 0.30, 0.10), self.go_back),
+            Button("Party", (0.60, 0.16, 0.28, 0.09), self.open_party),
+            Button("Item Bag", (0.60, 0.27, 0.28, 0.09), self.open_item_bag),
+            Button("Back", (0.60, 0.38, 0.28, 0.09), self.go_back),
         ]
 
         # Button navigation
@@ -362,16 +390,55 @@ class TrainerInfoScreen:
                 continue
 
             # ------------------------------
-            # Load GEN3 sprite (PNG only)
+            # Load sprite using sprite pack system
             # ------------------------------
-            sprite_path = self.manager.get_gen3_sprite_path(p)
+            species = p.get("species", 0)
+            is_shiny = p.get("is_shiny", False) or p.get("shiny", False)
             sprite_surf = None
-
-            if sprite_path and os.path.exists(sprite_path):
+            gif_sprite_obj = None  # Initialize for animation support
+            
+            # Get current game name for per-game sprite pack support
+            game_name = None
+            if hasattr(self.manager, 'game_name'):
+                game_name = self.manager.game_name
+            
+            # Try gif_sprite_handler for pack-aware animated sprite loading
+            if species and species > 0:
                 try:
-                    sprite_surf = pygame.image.load(sprite_path).convert_alpha()
+                    from gif_sprite_handler import get_pokemon_sprite_with_fallback
+                    
+                    sprite = get_pokemon_sprite_with_fallback(
+                        species_id=species,
+                        game_name=game_name,
+                        shiny=is_shiny,
+                        prefer_gif=True,  # Prefer GIF for animation
+                        size=(96, 96)  # Load at 96x96, will scale down to 48 in party cards
+                    )
+                    
+                    # Check if we got a GIFSprite or Surface
+                    if sprite:
+                        from gif_sprite_handler import GIFSprite
+                        if isinstance(sprite, GIFSprite):
+                            # Store both the GIF sprite object (for animation) and current frame (for display)
+                            sprite_surf = sprite.get_current_frame()
+                            gif_sprite_obj = sprite
+                        else:
+                            sprite_surf = sprite
+                            gif_sprite_obj = None
+                    else:
+                        gif_sprite_obj = None
                 except Exception as e:
-                    print(f"Sprite load failed for {sprite_path}: {e}")
+                    print(f"[TrainerInfo] gif_sprite_handler failed: {e}")
+            
+            # Fallback to manager method
+            if not sprite_surf:
+                sprite_path = self.manager.get_gen3_sprite_path(p)
+                if sprite_path and os.path.exists(sprite_path):
+                    try:
+                        sprite_surf = pygame.image.load(sprite_path).convert_alpha()
+                        gif_sprite_obj = None  # Fallback is static
+                    except Exception as e:
+                        print(f"Sprite load failed for {sprite_path}: {e}")
 
             # ------------------------------
             # Name / Level
@@ -394,6 +461,7 @@ class TrainerInfoScreen:
                     "hp": p.get("current_hp", p.get("hp", 0)),  # Parser uses current_hp
                     "max_hp": p.get("max_hp", 1),
                     "sprite": sprite_surf,
+                    "gif_sprite": gif_sprite_obj,  # Store GIF object for animation
                     "raw": p,  # pass-through original dict for extra details later
                 }
             )
@@ -408,8 +476,8 @@ class TrainerInfoScreen:
 
         # Create the PartyScreen
         self.sub_modal = PartyScreen(
-            width=self.w,
-            height=self.h,
+            width=self.full_w,  # Use full screen width
+            height=self.full_h,  # Use full screen height
             party_data=party_data,
             close_callback=close_party,
             manager=self.manager,
@@ -424,7 +492,7 @@ class TrainerInfoScreen:
             try:
                 from Itembag import Modal as ItemBagModal
 
-                self.sub_modal = ItemBagModal(self.w, self.h, self.font_text)
+                self.sub_modal = ItemBagModal(self.full_w, self.full_h, self.font_text)  # Use full screen dimensions
                 print("Opening Item Bag modal")
             except ImportError as e:
                 print(f"Could not import Item Bag: {e}")
@@ -444,13 +512,16 @@ class TrainerInfoScreen:
         """Update the trainer info screen, passing events to the active sub-modal if open."""
         # If sub-modal is open, update it
         if self.sub_modal:
+            # Update animations if sub_modal supports it (like PartyScreen with GIF sprites)
             if hasattr(self.sub_modal, "update"):
-                # Check if sub-modal wants to close
-                if hasattr(self.sub_modal, "screen") and hasattr(
-                    self.sub_modal.screen, "should_close"
-                ):
-                    if self.sub_modal.screen.should_close:
-                        self.sub_modal = None
+                self.sub_modal.update()
+            
+            # Check if sub-modal wants to close
+            if hasattr(self.sub_modal, "screen") and hasattr(
+                self.sub_modal.screen, "should_close"
+            ):
+                if self.sub_modal.screen.should_close:
+                    self.sub_modal = None
 
             # Handle events for sub-modal
             for e in events:
@@ -592,11 +663,11 @@ class TrainerInfoScreen:
 
             b.draw(surf, self.font_text)
 
-        # Controller hints
+        # Controller hints - positioned at bottom of shorter modal
         try:
             hints = "D-Pad: Navigate  A: Select  B: Back"
             hint_surf = self.font_small.render(hints, True, (120, 120, 120))
-            surf.blit(hint_surf, (10, self.h - 15))
+            surf.blit(hint_surf, (10, self.h - 18))  # Position near bottom
         except Exception:
             pass
 
