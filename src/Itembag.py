@@ -12,6 +12,7 @@ from config import FONT_PATH
 from controller import NavigableList, get_controller
 from save_data_manager import get_manager
 from ui_components import Button
+from ui_scale import ui, scaled_font
 
 
 class Modal:
@@ -65,9 +66,9 @@ class ItemBagScreen:
         self.should_close = False
 
         # Fonts
-        self.font_header = pygame.font.Font(FONT_PATH, 16)
-        self.font_text = pygame.font.Font(FONT_PATH, 10)
-        self.font_small = pygame.font.Font(FONT_PATH, 8)
+        self.font_header = scaled_font(16)
+        self.font_text = scaled_font(10)
+        self.font_small = scaled_font(8)
 
         # Get save data
         self.manager = get_manager()
@@ -94,8 +95,8 @@ class ItemBagScreen:
         # List area is from y=90 to h-40 (bottom margin for hints)
         # Item height is 20 + 2 gap = 22 pixels per item
         # With 8px top padding inside the box
-        list_height = self.h - 130 - 16  # subtract padding
-        item_total_height = 22  # 20 height + 2 gap
+        list_height = self.h - ui.s(130) - ui.s(16)  # subtract padding
+        item_total_height = ui.s(22)  # 20 height + 2 gap
         self.items_per_page = max(1, list_height // item_total_height)
         self.selected_item_index = 0
 

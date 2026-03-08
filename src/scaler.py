@@ -93,8 +93,8 @@ class Scaler:
 
     def __init__(
         self,
-        virtual_width=240,
-        virtual_height=160,
+        virtual_width=640,
+        virtual_height=480,
         window_width=720,
         window_height=480,
         fullscreen=False,

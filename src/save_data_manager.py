@@ -241,9 +241,9 @@ class SaveDataManager:
     # ==================== GAME INFO ====================
 
     def get_game_type(self):
-        """Get game type ('FRLG' or 'RSE')."""
+        """Get game type ('RS', 'E', or 'FRLG')."""
         if not self.is_loaded():
-            return "RSE"
+            return "RS"
         return self.parser.game_type
 
     def get_game_name(self):

@@ -10,6 +10,7 @@ import pygame
 
 import ui_colors
 from config import FONT_PATH
+from ui_scale import ui, scaled_font
 from controller import get_controller
 from save_data_manager import get_manager
 
@@ -96,15 +97,9 @@ class EventsScreen:
         self.on_event_claimed = on_event_claimed
 
         # Fonts
-        try:
-            self.font_header = pygame.font.Font(FONT_PATH, 14)
-            self.font_text = pygame.font.Font(FONT_PATH, 10)
-            self.font_small = pygame.font.Font(FONT_PATH, 8)
-        except Exception:
-            self.font_header = pygame.font.SysFont(None, 20)
-            self.font_text = pygame.font.SysFont(None, 16)
-            self.font_small = pygame.font.SysFont(None, 12)
-
+        self.font_header = scaled_font(14)
+        self.font_text = scaled_font(10)
+        self.font_small = scaled_font(8)
         # Get save manager and controller
         self.manager = get_manager()
         self.controller = get_controller()

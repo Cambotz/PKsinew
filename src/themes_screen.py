@@ -28,6 +28,8 @@ except ImportError:
     THEME_MANAGER_AVAILABLE = False
     print("[ThemesScreen] Warning: theme_manager not available")
 
+from ui_scale import ui, scaled_font
+
 # Try to import achievements for theme locking
 try:
     from achievements import get_achievement_manager
@@ -53,15 +55,9 @@ class ThemesScreen:
         self.controller = get_controller()
 
         # Fonts
-        try:
-            self.font_header = pygame.font.Font(FONT_PATH, 18)
-            self.font_text = pygame.font.Font(FONT_PATH, 12)
-            self.font_small = pygame.font.Font(FONT_PATH, 10)
-        except Exception:
-            self.font_header = pygame.font.SysFont(None, 24)
-            self.font_text = pygame.font.SysFont(None, 18)
-            self.font_small = pygame.font.SysFont(None, 14)
-
+        self.font_header = scaled_font(18)
+        self.font_text = scaled_font(12)
+        self.font_small = scaled_font(10)
         # Load available themes
         if THEME_MANAGER_AVAILABLE:
             self.themes = get_available_themes()
@@ -78,7 +74,7 @@ class ThemesScreen:
         # Navigation
         self.selected_index = 0
         self.scroll_offset = 0
-        self.themes_per_page = 5
+        self.themes_per_page = 8
 
         # Preview cache
         self.preview_cache = {}

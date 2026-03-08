@@ -9,6 +9,7 @@ import pygame
 import ui_colors
 from config import FONT_PATH
 from ui_components import Button
+from ui_scale import ui, scaled_font
 
 
 class PlaceholderModal:
@@ -33,7 +34,7 @@ class PlaceholderModal:
         """Render the placeholder modal background, title, and back button to surf."""
         surf.fill(ui_colors.COLOR_BG)
         txt = self.font.render(self.title, True, ui_colors.COLOR_TEXT)
-        surf.blit(txt, (16, 16))
+        surf.blit(txt, (ui.s(16), ui.s(16)))
         self.back_button.draw(surf, self.font)
 
     def handle_mouse(self, event):
@@ -80,14 +81,9 @@ class DBWarningPopup:
         self._click_debounce_ms = 300
 
         # Fonts
-        try:
-            self.font_title = pygame.font.Font(FONT_PATH, 14)
-            self.font_text = pygame.font.Font(FONT_PATH, 10)
-            self.font_button = pygame.font.Font(FONT_PATH, 11)
-        except Exception:
-            self.font_title = pygame.font.SysFont(None, 20)
-            self.font_text = pygame.font.SysFont(None, 16)
-            self.font_button = pygame.font.SysFont(None, 18)
+        self.font_title = scaled_font(14)
+        self.font_text = scaled_font(10)
+        self.font_button = scaled_font(11)
 
     def _get_screen_offset(self):
         """Get the offset of this popup on screen (for mouse coordinate translation)"""
@@ -174,10 +170,10 @@ class DBWarningPopup:
         # Match the positioning in draw()
         # Approximate: title at top, message in middle, buttons below
         # For a 180px height popup, buttons should be near the bottom
-        button_y = self.height - 50
-        button_width = 100
-        button_height = 30
-        button_spacing = 20
+        button_y = self.height - ui.s(50)
+        button_width = ui.s(100)
+        button_height = ui.s(30)
+        button_spacing = ui.s(20)
         total_width = (
             len(self.buttons) * button_width + (len(self.buttons) - 1) * button_spacing
         )
@@ -195,17 +191,17 @@ class DBWarningPopup:
         surf.fill(ui_colors.COLOR_BG)
 
         # Title - centered near top
-        title_y = 20
+        title_y = ui.s(20)
         title_surf = self.font_title.render(self.title, True, ui_colors.COLOR_ERROR)
         title_rect = title_surf.get_rect(centerx=self.width // 2, top=title_y)
         surf.blit(title_surf, title_rect)
 
         # Message - word wrap, centered
-        message_y = title_rect.bottom + 15
+        message_y = title_rect.bottom + ui.s(15)
         words = self.message.split()
         lines = []
         current_line = []
-        max_width = self.width - 40
+        max_width = self.width - ui.s(40)
 
         for word in words:
             current_line.append(word)
@@ -223,7 +219,7 @@ class DBWarningPopup:
             line_surf = self.font_text.render(line, True, ui_colors.COLOR_TEXT)
             line_rect = line_surf.get_rect(centerx=self.width // 2, top=message_y)
             surf.blit(line_surf, line_rect)
-            message_y += 16
+            message_y += ui.s(16)
 
         # Buttons - use same positioning as _get_button_rects
         button_rects = self._get_button_rects()
@@ -277,14 +273,9 @@ class ProviderSwitchDialog:
         self._last_click_time = 0
         self._click_debounce_ms = 300
 
-        try:
-            self.font_title = pygame.font.Font(FONT_PATH, 13)
-            self.font_text  = pygame.font.Font(FONT_PATH, 10)
-            self.font_btn   = pygame.font.Font(FONT_PATH, 11)
-        except Exception:
-            self.font_title = pygame.font.SysFont(None, 20)
-            self.font_text  = pygame.font.SysFont(None, 16)
-            self.font_btn   = pygame.font.SysFont(None, 18)
+        self.font_title = scaled_font(13)
+        self.font_text  = scaled_font(10)
+        self.font_btn   = scaled_font(11)
 
         self.title_color = title_color or ui_colors.COLOR_HIGHLIGHT
 
@@ -294,8 +285,8 @@ class ProviderSwitchDialog:
             self.on_accept()
 
     def _btn_rect(self):
-        bw, bh = 100, 28
-        return pygame.Rect(self.width // 2 - bw // 2, self.height - 52, bw, bh)
+        bw, bh = ui.s(100), ui.s(28)
+        return pygame.Rect(self.width // 2 - bw // 2, self.height - ui.s(52), bw, bh)
 
     def handle_controller(self, ctrl):
         if not ctrl:
@@ -337,37 +328,48 @@ class ProviderSwitchDialog:
 
         # Title
         t_surf = self.font_title.render(self.title, True, self.title_color)
-        surf.blit(t_surf, t_surf.get_rect(centerx=self.width // 2, top=14))
+        surf.blit(t_surf, t_surf.get_rect(centerx=self.width // 2, top=ui.s(10)))
 
         # Divider
         pygame.draw.line(surf, ui_colors.COLOR_BORDER,
-                         (16, 36), (self.width - 16, 36), 1)
+                         (ui.s(16), ui.s(30)), (self.width - ui.s(16), ui.s(30)), 1)
 
-        # Lines
-        y = 46
+        # Lines - dynamic spacing based on line count to fit in available space
+        start_y = ui.s(38)
+        btn = self._btn_rect()
+        end_y = btn.top - ui.s(8)  # 8px gap above button
+        available_height = end_y - start_y
+        
+        # Calculate line spacing (minimum 12px, scales down if needed)
+        line_count = len(self.lines)
+        if line_count > 0:
+            line_spacing = min(ui.s(14), available_height / line_count)
+        else:
+            line_spacing = ui.s(14)
+        
+        y = start_y
         for line in self.lines:
             # Allow "Key: value" to colour the key part
             if ": " in line:
                 key, val = line.split(": ", 1)
                 k_surf = self.font_text.render(key + ": ", True, ui_colors.COLOR_BORDER)
                 v_surf = self.font_text.render(val, True, ui_colors.COLOR_TEXT)
-                surf.blit(k_surf, (20, y))
-                surf.blit(v_surf, (20 + k_surf.get_width(), y))
+                surf.blit(k_surf, (ui.s(20), y))
+                surf.blit(v_surf, (ui.s(20) + k_surf.get_width(), y))
             else:
                 l_surf = self.font_text.render(line, True, ui_colors.COLOR_TEXT)
                 surf.blit(l_surf, l_surf.get_rect(centerx=self.width // 2, top=y))
-            y += 16
+            y += line_spacing
 
         # Accept button
-        btn = self._btn_rect()
-        pygame.draw.rect(surf, ui_colors.COLOR_BUTTON_HOVER, btn, border_radius=4)
-        pygame.draw.rect(surf, ui_colors.COLOR_HIGHLIGHT, btn, 2, border_radius=4)
+        pygame.draw.rect(surf, ui_colors.COLOR_BUTTON_HOVER, btn, border_radius=ui.s(4))
+        pygame.draw.rect(surf, ui_colors.COLOR_HIGHLIGHT, btn, 2, border_radius=ui.s(4))
         a_surf = self.font_btn.render("Accept", True, ui_colors.COLOR_TEXT)
         surf.blit(a_surf, a_surf.get_rect(center=btn.center))
 
         # Hint
         h_surf = self.font_text.render("A / Enter to accept", True, ui_colors.COLOR_BORDER)
-        surf.blit(h_surf, h_surf.get_rect(centerx=self.width // 2, bottom=self.height - 6))
+        surf.blit(h_surf, h_surf.get_rect(centerx=self.width // 2, bottom=self.height - ui.s(6)))
 
 
 class ProviderErrorDialog:
@@ -392,14 +394,9 @@ class ProviderErrorDialog:
         self._last_click_time = 0
         self._click_debounce_ms = 300
 
-        try:
-            self.font_title = pygame.font.Font(FONT_PATH, 13)
-            self.font_text  = pygame.font.Font(FONT_PATH, 10)
-            self.font_btn   = pygame.font.Font(FONT_PATH, 11)
-        except Exception:
-            self.font_title = pygame.font.SysFont(None, 20)
-            self.font_text  = pygame.font.SysFont(None, 16)
-            self.font_btn   = pygame.font.SysFont(None, 18)
+        self.font_title = scaled_font(13)
+        self.font_text  = scaled_font(10)
+        self.font_btn   = scaled_font(11)
 
     def _accept(self):
         self.visible = False
@@ -407,8 +404,8 @@ class ProviderErrorDialog:
             self.on_accept()
 
     def _btn_rect(self):
-        bw, bh = 100, 28
-        return pygame.Rect(self.width // 2 - bw // 2, self.height - 52, bw, bh)
+        bw, bh = ui.s(100), ui.s(28)
+        return pygame.Rect(self.width // 2 - bw // 2, self.height - ui.s(52), bw, bh)
 
     def handle_controller(self, ctrl):
         if not ctrl:
@@ -450,30 +447,42 @@ class ProviderErrorDialog:
 
         # Error title
         t_surf = self.font_title.render(self.title, True, ui_colors.COLOR_ERROR)
-        surf.blit(t_surf, t_surf.get_rect(centerx=self.width // 2, top=14))
+        surf.blit(t_surf, t_surf.get_rect(centerx=self.width // 2, top=ui.s(10)))
 
         pygame.draw.line(surf, ui_colors.COLOR_BORDER,
-                         (16, 36), (self.width - 16, 36), 1)
+                         (ui.s(16), ui.s(30)), (self.width - ui.s(16), ui.s(30)), 1)
 
-        y = 46
+        # Lines - dynamic spacing based on line count to fit in available space
+        start_y = ui.s(38)
+        btn = self._btn_rect()
+        end_y = btn.top - ui.s(8)  # 8px gap above button
+        available_height = end_y - start_y
+        
+        # Calculate line spacing (minimum 12px, scales down if needed)
+        line_count = len(self.lines)
+        if line_count > 0:
+            line_spacing = min(ui.s(14), available_height / line_count)
+        else:
+            line_spacing = ui.s(14)
+        
+        y = start_y
         for line in self.lines:
             if ": " in line:
                 key, val = line.split(": ", 1)
                 k_surf = self.font_text.render(key + ": ", True, ui_colors.COLOR_BORDER)
                 v_surf = self.font_text.render(val, True, ui_colors.COLOR_TEXT)
-                surf.blit(k_surf, (20, y))
-                surf.blit(v_surf, (20 + k_surf.get_width(), y))
+                surf.blit(k_surf, (ui.s(20), y))
+                surf.blit(v_surf, (ui.s(20) + k_surf.get_width(), y))
             else:
                 l_surf = self.font_text.render(line, True, ui_colors.COLOR_TEXT)
                 surf.blit(l_surf, l_surf.get_rect(centerx=self.width // 2, top=y))
-            y += 16
+            y += line_spacing
 
         # Accept button
-        btn = self._btn_rect()
-        pygame.draw.rect(surf, ui_colors.COLOR_ERROR, btn, border_radius=4)
-        pygame.draw.rect(surf, ui_colors.COLOR_HIGHLIGHT, btn, 2, border_radius=4)
+        pygame.draw.rect(surf, ui_colors.COLOR_ERROR, btn, border_radius=ui.s(4))
+        pygame.draw.rect(surf, ui_colors.COLOR_HIGHLIGHT, btn, 2, border_radius=ui.s(4))
         a_surf = self.font_btn.render("Accept", True, ui_colors.COLOR_TEXT)
         surf.blit(a_surf, a_surf.get_rect(center=btn.center))
 
         h_surf = self.font_text.render("A / Enter to accept", True, ui_colors.COLOR_BORDER)
-        surf.blit(h_surf, h_surf.get_rect(centerx=self.width // 2, bottom=self.height - 6))
+        surf.blit(h_surf, h_surf.get_rect(centerx=self.width // 2, bottom=self.height - ui.s(6)))

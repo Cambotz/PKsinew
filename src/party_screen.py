@@ -10,6 +10,7 @@ import pygame
 import ui_colors
 from config import FONT_PATH
 from ui_components import Button, scale_surface_preserve_aspect
+from ui_scale import ui, scaled_font
 
 # Try to import PokemonSummary
 try:
@@ -19,6 +20,14 @@ try:
 except ImportError:
     PokemonSummary = None
     SUMMARY_AVAILABLE = False
+
+# Import GIFSprite for animation support
+try:
+    from gif_sprite_handler import GIFSprite
+    GIF_AVAILABLE = True
+except ImportError:
+    GIFSprite = None
+    GIF_AVAILABLE = False
 
 SLOT_COUNT = 6
 
@@ -39,28 +48,32 @@ class PartyScreen:
         self.manager = manager
         self.game_type = game_type
         self.sub_modal = None  # For PokemonSummary
+        
+        # Track GIF sprites for animation
+        self.gif_sprites = []  # List of (GIFSprite, index) tuples
+        self.last_update_time = pygame.time.get_ticks()
 
         # ------------------------------------------------------------
         # FONTS
         # ------------------------------------------------------------
-        self.font = pygame.font.Font(FONT_PATH, 16)
-        self.small_font = pygame.font.Font(FONT_PATH, 12)
+        self.font = scaled_font(16)
+        self.small_font = scaled_font(12)
 
         # ============================================================
         # LAYOUT VARIABLES
         # ============================================================
         # LEFT PANEL
-        self.left_margin = 10
+        self.left_margin = ui.s(10)
         self.left_width = width // 3
 
         # Sprite box
-        self.sprite_box_height = 120
-        self.sprite_box_gap = 5
+        self.sprite_box_height = ui.s(120)
+        self.sprite_box_gap = ui.s(5)
 
         # Info box
-        self.info_box_height = 90
-        self.info_box_gap = 5
-        self.info_text_margin = 5
+        self.info_box_height = ui.s(90)
+        self.info_box_gap = ui.s(5)
+        self.info_text_margin = ui.s(5)
         self.info_line_spacing = -2
 
         # CLOSE BUTTON CONFIG (adjustable)
@@ -84,12 +97,12 @@ class PartyScreen:
             height - (SLOT_COUNT - 1) * self.card_spacing - 2 * self.right_margin
         ) // SLOT_COUNT
 
-        # Card offsets
-        self.card_sprite_size = 32
-        self.card_sprite_offset_x = 5
-        self.card_name_offset_x = 45
-        self.card_name_offset_y = 0
-        self.card_level_offset_y = -10
+        # Card offsets - adjusted for larger sprites
+        self.card_sprite_size = 48  # Increased from 32 to 48
+        self.card_sprite_offset_x = 8  # Slightly more padding
+        self.card_name_offset_x = 64  # Moved right to accommodate larger sprite (was 45)
+        self.card_name_offset_y = 4  # Moved down slightly
+        self.card_level_offset_y = -8  # Adjusted spacing
         self.hp_bar_width = 100
         self.hp_bar_height_ratio = 0.2
         self.hp_bar_offset_x = 10
@@ -159,9 +172,23 @@ class PartyScreen:
         # SPRITE BOX
         pygame.draw.rect(self.surface, ui_colors.COLOR_BUTTON, self.sprite_rect)
         pygame.draw.rect(self.surface, ui_colors.COLOR_BORDER, self.sprite_rect, 2)
-        if selected and selected.get("sprite"):
+        
+        # Use GIF sprite if available, otherwise static sprite
+        sprite_to_draw = None
+        if selected:
+            if GIF_AVAILABLE and selected.get("gif_sprite"):
+                gif_sprite = selected["gif_sprite"]
+                if isinstance(gif_sprite, GIFSprite):
+                    sprite_to_draw = gif_sprite.get_current_frame()
+            
+            # Fallback to static sprite
+            if not sprite_to_draw and selected.get("sprite"):
+                sprite_to_draw = selected["sprite"]
+        
+        if sprite_to_draw:
+            # Scale preserving aspect ratio - no squashing
             sprite = scale_surface_preserve_aspect(
-                selected["sprite"],
+                sprite_to_draw,
                 self.sprite_rect.width - 20,
                 self.sprite_rect.height - 20,
             )
@@ -202,12 +229,25 @@ class PartyScreen:
             pygame.draw.rect(self.surface, ui_colors.COLOR_BORDER, rect, 2)
 
             if p:
-                # Sprite
-                if p.get("sprite"):
+                # Sprite - use GIF sprite if available, otherwise static sprite
+                sprite_to_draw = None
+                if GIF_AVAILABLE and p.get("gif_sprite"):
+                    gif_sprite = p["gif_sprite"]
+                    if isinstance(gif_sprite, GIFSprite):
+                        sprite_to_draw = gif_sprite.get_current_frame()
+                
+                # Fallback to static sprite
+                if not sprite_to_draw and p.get("sprite"):
+                    sprite_to_draw = p["sprite"]
+                
+                if sprite_to_draw:
+                    # Scale preserving aspect ratio - don't squash sprites
                     sprite = scale_surface_preserve_aspect(
-                        p["sprite"], self.card_sprite_size, self.card_sprite_size
+                        sprite_to_draw, self.card_sprite_size, self.card_sprite_size
                     )
-                    sprite_y = rect.y + (rect.height - self.card_sprite_size) // 2
+                    # Center sprite vertically in the card
+                    sprite_rect = sprite.get_rect()
+                    sprite_y = rect.y + (rect.height - sprite_rect.height) // 2
                     self.surface.blit(
                         sprite, (rect.x + self.card_sprite_offset_x, sprite_y)
                     )
@@ -454,3 +494,29 @@ class PartyScreen:
         self.party_data = padded
         for i in range(SLOT_COUNT):
             self.cards[i]["pokemon"] = self.party_data[i]
+        
+        # Track GIF sprites for animation
+        self._update_gif_sprites()
+    
+    def _update_gif_sprites(self):
+        """Update the list of GIF sprites to animate"""
+        self.gif_sprites = []
+        if not GIF_AVAILABLE:
+            return
+        
+        for i, pokemon in enumerate(self.party_data):
+            if pokemon and pokemon.get("gif_sprite"):
+                gif_sprite = pokemon["gif_sprite"]
+                if isinstance(gif_sprite, GIFSprite):
+                    self.gif_sprites.append((gif_sprite, i))
+    
+    def update(self, dt=None):
+        """Update animations"""
+        if dt is None:
+            current_time = pygame.time.get_ticks()
+            dt = current_time - self.last_update_time
+            self.last_update_time = current_time
+        
+        # Update all GIF sprite animations
+        for gif_sprite, idx in self.gif_sprites:
+            gif_sprite.update(dt)

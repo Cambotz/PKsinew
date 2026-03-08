@@ -16,6 +16,7 @@ from export_modal import ExportModal
 from events_screen import EventsModal
 from game_dialogs import PlaceholderModal
 from save_data_manager import get_manager
+from ui_scale import ui
 
 
 class ModalLauncherMixin:
@@ -67,8 +68,8 @@ class ModalLauncherMixin:
             )
             return
 
-        modal_w = self.width - 30
-        modal_h = self.height - 30
+        modal_w = self.width - ui.s(30)
+        modal_h = self.height - ui.s(30)
 
         # Ensure current save is loaded from correct path before opening save-dependent modals
         # This is critical when external emu toggle changes - path may have changed
@@ -100,8 +101,8 @@ class ModalLauncherMixin:
                         next_game_callback=lambda: self._change_game_include_sinew(1),
                         combined_mode=True,
                         all_save_paths=all_save_paths,
-                        width=self.width,
-                        height=self.height,
+                        width=modal_w,
+                        height=modal_h,
                     )
                 else:
                     # Single game mode - use current save via manager
@@ -114,8 +115,8 @@ class ModalLauncherMixin:
                         next_game_callback=lambda: self._change_game_include_sinew(1),
                         save_data_manager=get_manager(),
                         all_save_paths=all_save_paths,
-                        width=self.width,
-                        height=self.height,
+                        width=modal_w,
+                        height=modal_h,
                     )
             except FileNotFoundError:
                 self._show_db_warning(

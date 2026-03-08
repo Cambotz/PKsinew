@@ -9,6 +9,7 @@ import pygame
 
 import ui_colors
 from config import FONT_PATH, WINDOW_HEIGHT, WINDOW_WIDTH
+from ui_scale import ui, scaled_font
 
 
 class Button:
@@ -419,13 +420,10 @@ def draw_controller_hint(surf, text, x, y, font=None):
         surf: Surface to draw on
         text: Hint text (e.g., "A: Select  B: Back")
         x, y: Position
-        font: Optional font (will create small font if None)
+        font: Optional font (will create small scaled font if None)
     """
     if font is None:
-        try:
-            font = pygame.font.Font(FONT_PATH, 8)
-        except Exception:
-            font = pygame.font.SysFont(None, 12)
+        font = scaled_font(8)
 
     hint_surf = font.render(text, True, (120, 120, 120))
     surf.blit(hint_surf, (x, y))

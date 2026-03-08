@@ -12,7 +12,7 @@ from config import FONT_SOLID_PATH, SPRITES_DIR
 
 # ----------------- SETTINGS -----------------
 
-WIDTH, HEIGHT = 480, 320
+WIDTH, HEIGHT = 640, 480
 GRID_THICKNESS = 2
 LOGO_SCALE = 0.6
 

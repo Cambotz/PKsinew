@@ -126,7 +126,7 @@ class EmulatorSessionMixin:
                         pass
                 self.modal_instance = None
 
-            _pw, _ph = 300, 160
+            _pw, _ph = 400, 240
             self.modal_instance = ProviderErrorDialog(
                 _pw, _ph, screen_size=(self.width, self.height),
                 title="No Emulator Provider Found",
@@ -348,7 +348,7 @@ class EmulatorSessionMixin:
         from game_dialogs import ProviderSwitchDialog
         from config import ROMS_DIR, SAVES_DIR
 
-        _pw, _ph = 300, 175
+        _pw, _ph = 400, 240
 
         # Determine whether external paths were in use
         info = (self.emulator_manager.get_provider_info()
@@ -434,7 +434,7 @@ class EmulatorSessionMixin:
         from config import ROMS_DIR, SAVES_DIR
 
         # Small centred popup — not full screen
-        _pw, _ph = 300, 175
+        _pw, _ph = 400, 240
 
         try:
             screen = pygame.display.get_surface()

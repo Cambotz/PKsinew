@@ -179,6 +179,82 @@ def get_sprite_cache():
     return _sprite_cache
 
 
+def get_pokemon_sprite_with_fallback(species_id, game_name=None, shiny=False, prefer_gif=True, size=None):
+    """
+    Get Pokemon sprite using sprite pack system with automatic fallback.
+    
+    Args:
+        species_id: National dex number
+        game_name: Game name or None for global pack
+        shiny: Whether to load shiny sprite
+        prefer_gif: If True, prefer GIF over PNG for animation
+        size: (width, height) tuple or None
+    
+    Returns:
+        GIFSprite if GIF loaded, pygame.Surface if PNG loaded, or None if not found
+    """
+    try:
+        from sprite_paths import get_sprite_path_for_game_any_format
+        
+        sprite_path, is_gif = get_sprite_path_for_game_any_format(
+            species_id,
+            game_name,
+            shiny,
+            prefer_gif=prefer_gif,
+            fallback_to_global=True
+        )
+        
+        if not sprite_path:
+            return None
+        
+        cache = get_sprite_cache()
+        
+        if is_gif:
+            return cache.get_gif_sprite(sprite_path, size)
+        else:
+            return cache.get_png_sprite(sprite_path, size)
+            
+    except Exception as e:
+        print(f"[GIF Handler] Failed to load sprite for {species_id}: {e}")
+        return None
+
+
+def get_egg_sprite_with_fallback(game_name=None, size=None):
+    """
+    Get egg sprite using sprite pack system with automatic fallback.
+    
+    Args:
+        game_name: Game name or None for global pack
+        size: (width, height) tuple or None
+    
+    Returns:
+        pygame.Surface or None
+    """
+    try:
+        from sprite_paths import get_egg_sprite_path_for_game
+        
+        egg_path = get_egg_sprite_path_for_game(game_name)
+        
+        if not egg_path:
+            return None
+        
+        cache = get_sprite_cache()
+        return cache.get_png_sprite(egg_path, size)
+        
+    except Exception as e:
+        print(f"[GIF Handler] Failed to load egg sprite: {e}")
+        return None
+
+
+# Global sprite cache instance
+_sprite_cache = SpriteCache()
+
+
+def get_sprite_cache():
+    """Get the global sprite cache"""
+    return _sprite_cache
+
+
 # ============================================================
 # USAGE EXAMPLES
 # ============================================================

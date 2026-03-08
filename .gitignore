@@ -31,7 +31,8 @@ dist/data/sprites/items/poke-ball.png
 dist/data/achievements/rewards/backup
 dist/data/achievements_progress.json
 dist/data/pokemon_db.json
-
+dist/data/sprite_pack_selection.json
+dist/data/sprites/packs
 src/sinew_settings.json
 dist/data/sprites/title/backup
 dist/logs/

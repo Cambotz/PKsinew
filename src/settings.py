@@ -19,6 +19,7 @@ from config import (
     AUDIO_BUFFER_DEFAULT, AUDIO_BUFFER_DEFAULT_ARM, AUDIO_QUEUE_DEPTH_DEFAULT,
     VOLUME_DEFAULT, VOLUME_MIN, VOLUME_MAX, VOLUME_STEP,
 )
+from ui_scale import ui, scaled_font
 
 # Use the same ARM detection as the emulator so slider defaults match
 # the actual values _init_audio will use.
@@ -119,8 +120,8 @@ class ConfirmationPopup:
         self.selected = 1  # Default to No for safety
 
         # Fonts
-        self.font_text = pygame.font.Font(FONT_PATH, 12)
-        self.font_small = pygame.font.Font(FONT_PATH, 10)
+        self.font_text = scaled_font(12)
+        self.font_small = scaled_font(10)
 
     def handle_controller(self, ctrl):
         """Handle controller input"""
@@ -184,14 +185,14 @@ class ConfirmationPopup:
         yes_selected = self.selected == 0
 
         if yes_selected:
-            pygame.draw.rect(surf, ui_colors.COLOR_BUTTON, yes_rect, border_radius=5)
+            pygame.draw.rect(surf, ui_colors.COLOR_BUTTON, yes_rect, border_radius=ui.s(5))
             pygame.draw.rect(
-                surf, ui_colors.COLOR_SUCCESS, yes_rect, 2, border_radius=5
+                surf, ui_colors.COLOR_SUCCESS, yes_rect, 2, border_radius=ui.s(5)
             )
             yes_color = ui_colors.COLOR_SUCCESS
         else:
-            pygame.draw.rect(surf, ui_colors.COLOR_BUTTON, yes_rect, border_radius=5)
-            pygame.draw.rect(surf, ui_colors.COLOR_BORDER, yes_rect, 2, border_radius=5)
+            pygame.draw.rect(surf, ui_colors.COLOR_BUTTON, yes_rect, border_radius=ui.s(5))
+            pygame.draw.rect(surf, ui_colors.COLOR_BORDER, yes_rect, 2, border_radius=ui.s(5))
             yes_color = ui_colors.COLOR_TEXT
 
         yes_surf = self.font_text.render("Yes", True, yes_color)
@@ -204,12 +205,12 @@ class ConfirmationPopup:
         no_selected = self.selected == 1
 
         if no_selected:
-            pygame.draw.rect(surf, ui_colors.COLOR_BUTTON, no_rect, border_radius=5)
-            pygame.draw.rect(surf, ui_colors.COLOR_ERROR, no_rect, 2, border_radius=5)
+            pygame.draw.rect(surf, ui_colors.COLOR_BUTTON, no_rect, border_radius=ui.s(5))
+            pygame.draw.rect(surf, ui_colors.COLOR_ERROR, no_rect, 2, border_radius=ui.s(5))
             no_color = ui_colors.COLOR_ERROR
         else:
-            pygame.draw.rect(surf, ui_colors.COLOR_BUTTON, no_rect, border_radius=5)
-            pygame.draw.rect(surf, ui_colors.COLOR_BORDER, no_rect, 2, border_radius=5)
+            pygame.draw.rect(surf, ui_colors.COLOR_BUTTON, no_rect, border_radius=ui.s(5))
+            pygame.draw.rect(surf, ui_colors.COLOR_BORDER, no_rect, 2, border_radius=ui.s(5))
             no_color = ui_colors.COLOR_TEXT
 
         no_surf = self.font_text.render("No", True, no_color)
@@ -299,9 +300,9 @@ class PauseComboSelector:
         self._find_active_option()
 
         # Fonts
-        self.font_header = pygame.font.Font(FONT_PATH, 16)
-        self.font_text = pygame.font.Font(FONT_PATH, 12)
-        self.font_small = pygame.font.Font(FONT_PATH, 10)
+        self.font_header = scaled_font(16)
+        self.font_text = scaled_font(12)
+        self.font_small = scaled_font(10)
 
     def _find_active_option(self):
         """Find which option matches current setting"""
@@ -523,7 +524,7 @@ class PauseComboSelector:
 
         # Options with toggle switches
         start_y = 75
-        option_height = 32
+        option_height = ui.s(32)
 
         for i, option in enumerate(self.COMBO_OPTIONS):
             y = start_y + i * option_height
@@ -802,9 +803,9 @@ class KeyboardMapper:
         self._load_bindings()
 
         # Fonts
-        self.font_header = pygame.font.Font(FONT_PATH, 16)
-        self.font_text = pygame.font.Font(FONT_PATH, 11)
-        self.font_small = pygame.font.Font(FONT_PATH, 9)
+        self.font_header = scaled_font(16)
+        self.font_text = scaled_font(11)
+        self.font_small = scaled_font(9)
 
     def _load_bindings(self):
         """Load saved bindings from sinew_settings.json"""
@@ -1018,7 +1019,7 @@ class KeyboardMapper:
         surf.blit(title_surf, title_surf.get_rect(centerx=self.width // 2, top=10))
 
         # Tabs
-        tab_y = 34
+        tab_y = 40  # Moved down from 34 to avoid overlap with title
         tab_w = (self.width - 40) // len(self.TABS)
         for i, tab in enumerate(self.TABS):
             tx = 20 + i * tab_w
@@ -1039,7 +1040,7 @@ class KeyboardMapper:
         actions = self._current_actions()
         mapping = self._current_map()
         row_h = 22  # Back to 22px
-        start_y = 72
+        start_y = 86  # Increased from 80 to account for tabs moving down
         col_label = 20
         col_keys = self.width // 2
 
@@ -1048,8 +1049,8 @@ class KeyboardMapper:
         hdr_keys = self.font_small.render(
             "Bound Keys  (A=bind, Bksp=clear)", True, ui_colors.COLOR_BORDER
         )
-        surf.blit(hdr_label, (col_label, start_y - 16))
-        surf.blit(hdr_keys, (col_keys, start_y - 16))
+        surf.blit(hdr_label, (col_label, start_y - 18))  # Adjusted from -16
+        surf.blit(hdr_keys, (col_keys, start_y - 18))  # Adjusted from -16
 
         # Calculate how many rows fit on screen
         available_height = (
@@ -1078,7 +1079,7 @@ class KeyboardMapper:
             )
 
             # Row background
-            row_rect = pygame.Rect(10, row_y - 2, self.width - 20, row_h - 2)
+            row_rect = pygame.Rect(10, row_y + 2, self.width - 20, row_h)  # Moved down by +2
             if is_listening:
                 pygame.draw.rect(surf, (60, 30, 10), row_rect, border_radius=3)
                 pygame.draw.rect(surf, (255, 140, 0), row_rect, 1, border_radius=3)
@@ -1093,7 +1094,7 @@ class KeyboardMapper:
             # Label
             label_col = ui_colors.COLOR_HIGHLIGHT if is_sel else ui_colors.COLOR_TEXT
             ls = self.font_text.render(label, True, label_col)
-            surf.blit(ls, (col_label, row_y))
+            surf.blit(ls, (col_label, row_y + 6))  # Adjusted to match the box position (+2 from box + 4 for centering)
 
             # Keys display
             if is_listening:
@@ -1109,7 +1110,7 @@ class KeyboardMapper:
                 ks = self.font_text.render(
                     self._keys_display(keys), True, (150, 220, 150)
                 )
-            surf.blit(ks, (col_keys, row_y))
+            surf.blit(ks, (col_keys, row_y + 6))  # Adjusted to match the box position (+2 from box + 4 for centering)
 
         # Scroll indicator if there are more items
         if len(actions) > visible_rows:
@@ -1180,9 +1181,9 @@ class MainSetup:
         self._toggle_debounce_ms = 300  # 300ms debounce
 
         # Fonts
-        self.font_header = pygame.font.Font(FONT_PATH, 18)
-        self.font_text = pygame.font.Font(FONT_PATH, 12)
-        self.font_small = pygame.font.Font(FONT_PATH, 10)
+        self.font_header = scaled_font(18)
+        self.font_text = scaled_font(12)
+        self.font_small = scaled_font(10)
 
         # Tab definitions
         self.tabs = ["General", "Input", "mGBA", "Info"]
@@ -1207,7 +1208,7 @@ class MainSetup:
                 },
                 {"name": "Mute Menu Music", "type": "toggle", "value": False},
                 {"name": "Themes", "type": "button"},
-                {"name": "Build/Rebuild Pokemon DB", "type": "button"},
+                {"name": "Sprite Pack Manager", "type": "button"},
             ],
             "Input": [
                 {"name": "Swap A/B Buttons", "type": "toggle", "value": False},
@@ -1795,12 +1796,12 @@ class MainSetup:
                 )
             else:
                 print("[Settings] Themes screen not available")
-        elif name == "Build/Rebuild Pokemon DB":
-            print("[Settings] Opening Pokemon DB builder...")
+        elif name == "Sprite Pack Manager":
+            print("[Settings] Opening Sprite Pack Manager...")
             if self.db_builder_callback:
                 self.db_builder_callback()
             else:
-                print("[Settings] DB builder callback not available")
+                print("[Settings] Sprite Pack Manager callback not available")
         elif name == "Map Controller":
             if BUTTON_MAPPER_AVAILABLE:
                 print("[Settings] Opening button mapper...")
@@ -2584,25 +2585,25 @@ class MainSetup:
 
         # Title
         title = self.font_header.render("Sinew Setup", True, ui_colors.COLOR_TEXT)
-        surf.blit(title, (20, 15))
+        surf.blit(title, (ui.s(20), ui.s(15)))
 
         # Tab bar background
-        tab_bar_rect = pygame.Rect(0, 45, self.width, 30)
+        tab_bar_rect = pygame.Rect(0, ui.s(45), self.width, ui.s(30))
         pygame.draw.rect(surf, ui_colors.COLOR_HEADER, tab_bar_rect)
-        pygame.draw.line(surf, ui_colors.COLOR_BORDER, (0, 75), (self.width, 75), 1)
+        pygame.draw.line(surf, ui_colors.COLOR_BORDER, (0, ui.s(75)), (self.width, ui.s(75)), 1)
 
         # Tabs
-        tab_x = 15
+        tab_x = ui.s(15)
         for i, tab in enumerate(self.tabs):
             is_selected = i == self.selected_tab
             is_focused = is_selected and self.tab_focus
 
             # Tab background for selected
             tab_surf = self.font_text.render(tab, True, ui_colors.COLOR_TEXT)
-            tab_width = tab_surf.get_width() + 16
+            tab_width = tab_surf.get_width() + ui.s(16)
 
             if is_selected:
-                tab_rect = pygame.Rect(tab_x - 8, 48, tab_width, 24)
+                tab_rect = pygame.Rect(tab_x - ui.s(8), ui.s(48), tab_width, ui.s(24))
                 pygame.draw.rect(
                     surf, ui_colors.COLOR_BUTTON, tab_rect, border_radius=3
                 )
@@ -2616,8 +2617,8 @@ class MainSetup:
                 )
                 tab_surf = self.font_text.render(tab, True, text_color)
 
-            surf.blit(tab_surf, (tab_x, 52))
-            tab_x += tab_width + 8
+            surf.blit(tab_surf, (tab_x, ui.s(52)))
+            tab_x += tab_width + ui.s(8)
 
         # Navigation hints
         if self.tab_focus:
@@ -2625,11 +2626,11 @@ class MainSetup:
         else:
             hint_text = "L/R"
         hint_surf = self.font_small.render(hint_text, True, ui_colors.COLOR_BORDER)
-        surf.blit(hint_surf, (self.width - hint_surf.get_width() - 10, 52))
+        surf.blit(hint_surf, (self.width - hint_surf.get_width() - ui.s(10), ui.s(52)))
 
         # Draw options for current tab
-        y_start = 85
-        option_height = 32
+        y_start = ui.s(85)
+        option_height = ui.s(32)
         max_visible = (self.height - y_start - 30) // option_height
 
         options = self.current_options()
@@ -2837,15 +2838,9 @@ class ChangelogScreen:
         self.scroll = 0
 
         # Fonts
-        try:
-            self.font_header = pygame.font.Font(FONT_PATH, 16)
-            self.font_text = pygame.font.Font(FONT_PATH, 11)
-            self.font_small = pygame.font.Font(FONT_PATH, 9)
-        except Exception:
-            self.font_header = pygame.font.SysFont(None, 22)
-            self.font_text = pygame.font.SysFont(None, 16)
-            self.font_small = pygame.font.SysFont(None, 12)
-
+        self.font_header = scaled_font(16)
+        self.font_text = scaled_font(11)
+        self.font_small = scaled_font(9)
         self.lines = self._load_changelog()
 
     def _load_changelog(self):
@@ -2951,18 +2946,18 @@ class ChangelogScreen:
         surf.blit(close_hint, (self.width - close_hint.get_width() - 15, 15))
 
         # Content area
-        content_rect = pygame.Rect(10, 45, self.width - 20, self.height - 75)
-        pygame.draw.rect(surf, ui_colors.COLOR_HEADER, content_rect, border_radius=5)
-        pygame.draw.rect(surf, ui_colors.COLOR_BORDER, content_rect, 1, border_radius=5)
+        content_rect = pygame.Rect(ui.s(10), ui.s(45), self.width - ui.s(20), self.height - ui.s(75))
+        pygame.draw.rect(surf, ui_colors.COLOR_HEADER, content_rect, border_radius=ui.s(5))
+        pygame.draw.rect(surf, ui_colors.COLOR_BORDER, content_rect, 1, border_radius=ui.s(5))
 
-        line_height = 16
-        max_lines = (content_rect.height - 20) // line_height
-        y = content_rect.y + 10
+        line_height = ui.s(16)
+        max_lines = (content_rect.height - ui.s(20)) // line_height
+        y = content_rect.y + ui.s(10)
 
         for _, (text, style) in enumerate(
             self.lines[self.scroll : self.scroll + max_lines]
         ):
-            if y > content_rect.bottom - 15:
+            if y > content_rect.bottom - ui.s(15):
                 break
             if style == "subheader":
                 color = ui_colors.COLOR_HIGHLIGHT
@@ -2971,19 +2966,19 @@ class ChangelogScreen:
                 color = ui_colors.COLOR_TEXT
                 font = self.font_small
             if text:
-                surf.blit(font.render(text, True, color), (content_rect.x + 15, y))
+                surf.blit(font.render(text, True, color), (content_rect.x + ui.s(15), y))
             y += line_height
 
         # Scroll indicators
         if self.scroll > 0:
             surf.blit(
                 self.font_text.render("^", True, ui_colors.COLOR_HIGHLIGHT),
-                (content_rect.right - 20, content_rect.y + 5),
+                (content_rect.right - ui.s(20), content_rect.y + ui.s(5)),
             )
         if self.scroll + max_lines < len(self.lines):
             surf.blit(
                 self.font_text.render("v", True, ui_colors.COLOR_HIGHLIGHT),
-                (content_rect.right - 20, content_rect.bottom - 20),
+                (content_rect.right - ui.s(20), content_rect.bottom - ui.s(20)),
             )
 
         # Hint
@@ -3006,15 +3001,9 @@ class AboutLegalScreen:
         self.close_callback = close_callback
 
         # Fonts
-        try:
-            self.font_header = pygame.font.Font(FONT_PATH, 16)
-            self.font_text = pygame.font.Font(FONT_PATH, 11)
-            self.font_small = pygame.font.Font(FONT_PATH, 9)
-        except Exception:
-            self.font_header = pygame.font.SysFont(None, 22)
-            self.font_text = pygame.font.SysFont(None, 16)
-            self.font_small = pygame.font.SysFont(None, 12)
-
+        self.font_header = scaled_font(16)
+        self.font_text = scaled_font(11)
+        self.font_small = scaled_font(9)
         # Tabs
         self.tabs = ["About", "License", "Third-Party", "Acknowledgments"]
         self.selected_tab = 0
@@ -3405,18 +3394,18 @@ class AboutLegalScreen:
             tab_x += tab_width + 5
 
         # Content area
-        content_rect = pygame.Rect(10, 70, self.width - 20, self.height - 100)
-        pygame.draw.rect(surf, ui_colors.COLOR_HEADER, content_rect, border_radius=5)
-        pygame.draw.rect(surf, ui_colors.COLOR_BORDER, content_rect, 1, border_radius=5)
+        content_rect = pygame.Rect(ui.s(10), ui.s(70), self.width - ui.s(20), self.height - ui.s(100))
+        pygame.draw.rect(surf, ui_colors.COLOR_HEADER, content_rect, border_radius=ui.s(5))
+        pygame.draw.rect(surf, ui_colors.COLOR_BORDER, content_rect, 1, border_radius=ui.s(5))
 
         # Draw content
         current_tab = self.tabs[self.selected_tab]
         lines = self.rendered_content.get(current_tab, [])
         scroll = self.scroll_offsets[current_tab]
 
-        y = content_rect.y + 10
-        line_height = 16
-        max_lines = (content_rect.height - 20) // line_height
+        y = content_rect.y + ui.s(10)
+        line_height = ui.s(16)
+        max_lines = (content_rect.height - ui.s(20)) // line_height
 
         # Track clickable links
         self._link_rects = []
@@ -3425,7 +3414,7 @@ class AboutLegalScreen:
         link_indices = self._link_indices.get(current_tab, [])
 
         for i, (text, style) in enumerate(lines[scroll : scroll + max_lines]):
-            if y > content_rect.bottom - 15:
+            if y > content_rect.bottom - ui.s(15):
                 break
 
             actual_line_index = scroll + i
@@ -3456,13 +3445,13 @@ class AboutLegalScreen:
 
             if text:
                 text_surf = font.render(text, True, color)
-                text_x = content_rect.x + 15
+                text_x = content_rect.x + ui.s(15)
 
                 # Draw selection indicator for selected link
                 if is_selected_link:
                     # Draw arrow indicator
                     arrow = self.font_small.render(">", True, (255, 255, 100))
-                    surf.blit(arrow, (content_rect.x + 5, y))
+                    surf.blit(arrow, (content_rect.x + ui.s(5), y))
 
                 surf.blit(text_surf, (text_x, y))
 
@@ -3479,11 +3468,11 @@ class AboutLegalScreen:
         # Scroll indicators
         if scroll > 0:
             up_arrow = self.font_text.render("^", True, ui_colors.COLOR_HIGHLIGHT)
-            surf.blit(up_arrow, (content_rect.right - 20, content_rect.y + 5))
+            surf.blit(up_arrow, (content_rect.right - ui.s(20), content_rect.y + ui.s(5)))
 
         if scroll + max_lines < len(lines):
             down_arrow = self.font_text.render("v", True, ui_colors.COLOR_HIGHLIGHT)
-            surf.blit(down_arrow, (content_rect.right - 20, content_rect.bottom - 20))
+            surf.blit(down_arrow, (content_rect.right - ui.s(20), content_rect.bottom - ui.s(20)))
 
         # Navigation hints
         if self.tab_focus:

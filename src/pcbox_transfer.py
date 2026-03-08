@@ -47,6 +47,24 @@ except ImportError:
 class PCBoxTransferMixin:
     """Mixin providing the move/transfer pipeline for PCBox."""
 
+    @staticmethod
+    def _resolve_game_type(game_name):
+        """
+        Resolve a game name to the correct save-writer game_type.
+
+        Returns 'RS', 'E', or 'FRLG' — never the collapsed 'RSE'.
+        This ensures Emerald gets its own pocket offsets, event flag
+        offsets, etc. rather than being lumped in with Ruby/Sapphire.
+        """
+        if not game_name:
+            return "RS"
+        if "Fire" in game_name or "Leaf" in game_name:
+            return "FRLG"
+        if "Emerald" in game_name:
+            return "E"
+        # Ruby, Sapphire, or unknown Hoenn game
+        return "RS"
+
     # ------------------------------------------------------------------ #
     #  Move mode entry / exit                                              #
     # ------------------------------------------------------------------ #
@@ -339,12 +357,7 @@ class PCBoxTransferMixin:
 
             source_save_path = source.get("save_path")
             if source_save_path and source["type"] == "box":
-                source_game_type = (
-                    "FRLG"
-                    if source["game"]
-                    and ("Fire" in source["game"] or "Leaf" in source["game"])
-                    else "RSE"
-                )
+                source_game_type = self._resolve_game_type(source["game"])
                 source_save_data = load_save_file(source_save_path)
                 clear_pc_slot(
                     source_save_data, source["box"], source["slot"], source_game_type
@@ -468,11 +481,7 @@ class PCBoxTransferMixin:
             if badges:
                 dest_badge_count = sum(1 for b in badges if b)
 
-        dest_game_type = (
-            "FRLG"
-            if dest_game and ("Fire" in dest_game or "Leaf" in dest_game)
-            else "RSE"
-        )
+        dest_game_type = self._resolve_game_type(dest_game)
 
         obedience_levels = {
             0: 10, 1: 20, 2: 30, 3: 40,
@@ -549,7 +558,7 @@ class PCBoxTransferMixin:
                 raise ValueError("No raw_bytes in Pokemon data")
 
             dest_save_path = dest.get("save_path")
-            dest_game_type = dest.get("game_type", "RSE")
+            dest_game_type = dest.get("game_type") or self._resolve_game_type(dest.get("game"))
 
             if not dest_save_path:
                 raise ValueError("No destination save path")
@@ -839,17 +848,8 @@ class PCBoxTransferMixin:
             if not raw_bytes:
                 raise ValueError("No raw_bytes in Pokemon data")
 
-            dest_game_type = (
-                "FRLG"
-                if dest["game"] and ("Fire" in dest["game"] or "Leaf" in dest["game"])
-                else "RSE"
-            )
-            source_game_type = (
-                "FRLG"
-                if source["game"]
-                and ("Fire" in source["game"] or "Leaf" in source["game"])
-                else "RSE"
-            )
+            dest_game_type = self._resolve_game_type(dest["game"])
+            source_game_type = self._resolve_game_type(source["game"])
 
             dest_save_path = dest.get("save_path")
             source_save_path = source.get("save_path")
