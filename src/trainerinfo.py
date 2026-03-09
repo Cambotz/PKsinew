@@ -514,7 +514,7 @@ class TrainerInfoScreen:
         if self.sub_modal:
             # Update animations if sub_modal supports it (like PartyScreen with GIF sprites)
             if hasattr(self.sub_modal, "update"):
-                self.sub_modal.update()
+                self.sub_modal.update(events)
             
             # Check if sub-modal wants to close
             if hasattr(self.sub_modal, "screen") and hasattr(
