@@ -717,6 +717,7 @@ class KeyboardMapper:
         ("L", "Page Up"),
         ("R", "Page Down"),
         ("MENU", "Pause/Menu"),
+        ("SELECT", "Select"),
     ]
 
     # Emulator GBA button actions
@@ -746,6 +747,7 @@ class KeyboardMapper:
         "L": [pygame.K_PAGEUP, pygame.K_q],
         "R": [pygame.K_PAGEDOWN, pygame.K_e],
         "MENU": [pygame.K_m],
+        "SELECT": [pygame.K_BACKSPACE],
     }
     DEFAULT_EMU = {
         "A": [pygame.K_z],
@@ -1079,7 +1081,7 @@ class KeyboardMapper:
             )
 
             # Row background
-            row_rect = pygame.Rect(10, row_y + 2, self.width - 20, row_h)  # Moved down by +2
+            row_rect = pygame.Rect(10, row_y + 10, self.width - 20, row_h - 4)
             if is_listening:
                 pygame.draw.rect(surf, (60, 30, 10), row_rect, border_radius=3)
                 pygame.draw.rect(surf, (255, 140, 0), row_rect, 1, border_radius=3)

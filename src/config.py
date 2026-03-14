@@ -784,10 +784,8 @@ def get_egg_sprite_path(sprite_type="gen3"):
     Returns:
         str: Absolute path to egg sprite
     """
-    if sprite_type == "showdown":
-        return os.path.join(SHOWDOWN_NORMAL_DIR, "egg.gif")
-    else:
-        return os.path.join(GEN3_NORMAL_DIR, "egg.png")
+    items_dir = os.path.join(DATA_DIR, "sprites", "items")
+    return os.path.join(items_dir, "egg.png")
 
 
 # ===== Directory Creation =====

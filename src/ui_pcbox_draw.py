@@ -617,9 +617,11 @@ class PCBoxDrawMixin:
 
     def _draw_sinew_scrollbar(self, surf):
         """Draw scrollbar for Sinew storage's 120-slot boxes."""
-        # Scrollbar position - inside right edge of grid
-        scrollbar_width = ui.s(12)
-        scrollbar_x = self.grid_rect.right - scrollbar_width - 3
+        # Scrollbar sits in the gap between the left panel and the grid
+        scrollbar_width = ui.s(8)
+        gap_left = self.sprite_area.right
+        gap_right = self.grid_rect.left
+        scrollbar_x = gap_left + ui.s(5)
         scrollbar_y = self.grid_rect.top + 2
         scrollbar_height = self.grid_rect.height - 4
 
@@ -659,8 +661,9 @@ class PCBoxDrawMixin:
             )
             indicator_text = f"Rows {start_row}-{end_row}/{self.sinew_total_rows}"
             text_surf = tiny_font.render(indicator_text, True, ui_colors.COLOR_TEXT)
+            gap_cx = gap_left + ui.s(5) + scrollbar_width // 2
             text_rect = text_surf.get_rect(
-                right=self.grid_rect.right, top=self.grid_rect.bottom + ui.s(3)
+                centerx=gap_cx + ui.s(30), top=self.grid_rect.bottom + ui.s(3) + ui.s(10)
             )
             surf.blit(text_surf, text_rect)
         except Exception:
