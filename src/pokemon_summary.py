@@ -550,6 +550,13 @@ class PokemonSummary:
             species = self.pokemon.get("species_id", 0) or self.pokemon.get("national_dex", 0)
         
         is_shiny = _compute_is_shiny(self.pokemon)
+
+        # Init and trigger shiny overlay
+        if not hasattr(self, '_shiny_overlay'):
+            from gif_sprite_handler import ShinyOverlay
+            self._shiny_overlay = ShinyOverlay()
+        if is_shiny:
+            self._shiny_overlay_pending = True
         
         # Get current game name for per-game sprite pack support
         game_name = None
@@ -712,6 +719,10 @@ class PokemonSummary:
         elif self.current_tab == self.TAB_CONTEST:
             self._draw_contest_page(card_surf)
 
+        # Draw shiny overlay onto card surface (local coords)
+        if hasattr(self, '_shiny_overlay'):
+            self._shiny_overlay.draw(card_surf)
+
         # Draw border
         pygame.draw.rect(card_surf, ui_colors.COLOR_BORDER, card_surf.get_rect(), 2)
         
@@ -721,14 +732,20 @@ class PokemonSummary:
         y = (full_h - self.height) // 2
         surf.blit(card_surf, (x, y))
     
-    def update(self, dt):
-        """Update animations"""
+    def update(self, dt=16):
+        """Update animations. dt in ms; also accepts events list (ignored)."""
+        if not isinstance(dt, (int, float)):
+            dt = 16  # called with events list - use default
         # Update GIF sprite animation if present
         if hasattr(self, 'is_animated') and self.is_animated and self.sprite:
             try:
                 self.sprite.update(dt)
             except Exception:
                 pass
+
+        # Update shiny overlay animation
+        if hasattr(self, '_shiny_overlay'):
+            self._shiny_overlay.update(dt)
 
     def _draw_tabs(self, surf):
         """Draw the tab bar"""
@@ -781,6 +798,12 @@ class PokemonSummary:
         pygame.draw.rect(surf, ui_colors.COLOR_BUTTON, sprite_box)
         pygame.draw.rect(surf, ui_colors.COLOR_BORDER, sprite_box, 1)
 
+        # Store rect and trigger overlay if pending
+        self._sprite_box_rect = sprite_box
+        if getattr(self, '_shiny_overlay_pending', False) and hasattr(self, '_shiny_overlay'):
+            self._shiny_overlay_pending = False
+            self._shiny_overlay.trigger(sprite_box)
+
         if self.sprite:
             from gif_sprite_handler import GIFSprite
             
@@ -796,6 +819,7 @@ class PokemonSummary:
                 )
                 sprite_rect = scaled_sprite.get_rect(center=sprite_box.center)
                 surf.blit(scaled_sprite, sprite_rect)
+
 
         # Basic info (middle - next to sprite)
         info_x = sprite_box.right + pad

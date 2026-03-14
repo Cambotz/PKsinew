@@ -255,6 +255,92 @@ def get_sprite_cache():
     return _sprite_cache
 
 
+
+
+# ============================================================
+# SHINY OVERLAY
+# ============================================================
+
+class ShinyOverlay:
+    """
+    Plays shiny.gif once over a sprite, then stops.
+    Lives in data/sprites/items/shiny.gif.
+
+    Usage:
+        overlay = ShinyOverlay()
+        overlay.trigger(rect)       # call when a shiny is selected
+        overlay.update(dt)          # call every frame
+        overlay.draw(surf)          # call after drawing the sprite
+    """
+
+    def __init__(self):
+        self._frames = []
+        self._durations = []
+        self._loaded = False
+        self._active = False
+        self._index = 0
+        self._timer = 0.0
+        self._rect = None
+        self._load()
+
+    def _load(self):
+        try:
+            import os
+            from config import SHINY_EFFECT_PATH
+            path = SHINY_EFFECT_PATH
+            if not os.path.exists(path):
+                return
+            from PIL import Image, ImageSequence
+            import pygame
+            pil_img = Image.open(path)
+            for frame in ImageSequence.Iterator(pil_img):
+                frame = frame.convert("RGBA")
+                data = frame.tobytes()
+                surf = pygame.image.fromstring(data, frame.size, frame.mode).convert_alpha()
+                self._frames.append(surf)
+                self._durations.append(frame.info.get("duration", 80))
+            pil_img.close()
+            self._loaded = len(self._frames) > 0
+        except Exception as e:
+            print(f"[ShinyOverlay] Failed to load shiny.gif: {e}")
+
+    def trigger(self, rect):
+        """Start playing the overlay over the given pygame.Rect."""
+        if not self._loaded:
+            return
+        self._rect = rect
+        self._index = 0
+        self._timer = 0.0
+        self._active = True
+
+    def update(self, dt):
+        """Advance animation. dt in milliseconds."""
+        if not self._active or not self._loaded:
+            return
+        self._timer += dt
+        while self._timer >= self._durations[self._index]:
+            self._timer -= self._durations[self._index]
+            self._index += 1
+            if self._index >= len(self._frames):
+                # Played once - stop
+                self._active = False
+                self._index = 0
+                self._timer = 0.0
+                return
+
+    def draw(self, surf):
+        """Draw current overlay frame centred on the trigger rect."""
+        if not self._active or not self._loaded or self._rect is None:
+            return
+        frame = self._frames[self._index]
+        # Scale to rect size
+        import pygame
+        scaled = pygame.transform.scale(frame, (self._rect.width, self._rect.height))
+        surf.blit(scaled, self._rect.topleft)
+
+    @property
+    def active(self):
+        return self._active
 # ============================================================
 # USAGE EXAMPLES
 # ============================================================

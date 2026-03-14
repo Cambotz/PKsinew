@@ -107,6 +107,11 @@ GEN3_BOX_ANIM_DIR = os.path.join(PACKS_DIR, "gen3box")
 GEN8_ICONS_DIR = os.path.join(SPRITES_DIR, "gen8", "icons")
 
 TITLE_SPRITES_DIR = os.path.join(SPRITES_DIR, "title")
+ITEMS_SPRITES_DIR = os.path.join(SPRITES_DIR, "items")
+
+# Item sprite paths
+EGG_SPRITE_PATH    = os.path.join(ITEMS_SPRITES_DIR, "egg.png")
+SHINY_EFFECT_PATH  = os.path.join(ITEMS_SPRITES_DIR, "shiny.gif")
 
 # Database paths
 POKEMON_DB_PATH = os.path.join(DATA_DIR, "pokemon_db.json")
@@ -784,8 +789,7 @@ def get_egg_sprite_path(sprite_type="gen3"):
     Returns:
         str: Absolute path to egg sprite
     """
-    items_dir = os.path.join(DATA_DIR, "sprites", "items")
-    return os.path.join(items_dir, "egg.png")
+    return EGG_SPRITE_PATH
 
 
 # ===== Directory Creation =====

@@ -682,6 +682,28 @@ class PCBoxDrawMixin:
             dt: Delta time in milliseconds (for GIF animation)
         """
 
+        # Init shiny overlay on first draw
+        if not hasattr(self, '_shiny_overlay'):
+            from gif_sprite_handler import ShinyOverlay
+            self._shiny_overlay = ShinyOverlay()
+            self._shiny_overlay_last_pid = None
+
+        # Trigger shiny overlay when a new shiny is selected
+        current_pid = (
+            self.selected_pokemon.get('personality')
+            if self.selected_pokemon and not self.selected_pokemon.get('empty')
+            else None
+        )
+        if current_pid != self._shiny_overlay_last_pid:
+            self._shiny_overlay_last_pid = current_pid
+            if (self.selected_pokemon
+                    and not self.selected_pokemon.get('empty')
+                    and not self.selected_pokemon.get('egg')
+                    and self._compute_is_shiny(self.selected_pokemon)):
+                self._shiny_overlay.trigger(self.sprite_area)
+
+        self._shiny_overlay.update(dt)
+
         # Background overlay (darken using theme BG color)
         overlay = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
         r, g, b = (
@@ -887,6 +909,10 @@ class PCBoxDrawMixin:
                 # Draw ROM HACK overlay for Pokemon from ROM hacks
                 if self.selected_pokemon.get("rom_hack"):
                     self._draw_rom_hack_overlay(surf, self.sprite_area, size="large")
+
+            # Draw shiny overlay (plays once when a shiny is selected)
+            if hasattr(self, '_shiny_overlay'):
+                self._shiny_overlay.draw(surf)
 
         # Info area - show selected Pokemon info (semi-transparent like grid)
         info_bg = pygame.Surface(
@@ -1476,6 +1502,8 @@ class PCBoxDrawMixin:
 
         # Draw sub_modal (summary screen) on top of everything
         if self.sub_modal:
+            if hasattr(self.sub_modal, "update"):
+                self.sub_modal.update(dt)
             if hasattr(self.sub_modal, "draw"):
                 self.sub_modal.draw(surf)
 
