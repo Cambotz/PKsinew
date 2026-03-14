@@ -113,6 +113,11 @@ ITEMS_SPRITES_DIR = os.path.join(SPRITES_DIR, "items")
 EGG_SPRITE_PATH    = os.path.join(ITEMS_SPRITES_DIR, "egg.png")
 SHINY_EFFECT_PATH  = os.path.join(ITEMS_SPRITES_DIR, "shiny.gif")
 
+# Sound effect paths
+SOUNDS_DIR         = os.path.join(DATA_DIR, "sounds")
+EFFECTS_DIR        = os.path.join(SOUNDS_DIR, "effects")
+SHINY_SOUND_PATH   = os.path.join(EFFECTS_DIR, "shiny.mp3")
+
 # Database paths
 POKEMON_DB_PATH = os.path.join(DATA_DIR, "pokemon_db.json")
 

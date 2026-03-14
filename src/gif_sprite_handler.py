@@ -281,7 +281,9 @@ class ShinyOverlay:
         self._index = 0
         self._timer = 0.0
         self._rect = None
+        self._sound = None
         self._load()
+        self._load_sound()
 
     def _load(self):
         try:
@@ -304,6 +306,16 @@ class ShinyOverlay:
         except Exception as e:
             print(f"[ShinyOverlay] Failed to load shiny.gif: {e}")
 
+    def _load_sound(self):
+        try:
+            import os
+            import pygame
+            from config import SHINY_SOUND_PATH
+            if os.path.exists(SHINY_SOUND_PATH):
+                self._sound = pygame.mixer.Sound(SHINY_SOUND_PATH)
+        except Exception as e:
+            print(f"[ShinyOverlay] Failed to load shiny.mp3: {e}")
+
     def trigger(self, rect):
         """Start playing the overlay over the given pygame.Rect."""
         if not self._loaded:
@@ -312,9 +324,24 @@ class ShinyOverlay:
         self._index = 0
         self._timer = 0.0
         self._active = True
+        # Play sound effect after 500ms delay
+        self._sound_delay_timer = 500.0
+        self._sound_pending = True
 
     def update(self, dt):
         """Advance animation. dt in milliseconds."""
+        # Count down sound delay
+        if getattr(self, '_sound_pending', False):
+            self._sound_delay_timer -= dt
+            if self._sound_delay_timer <= 0:
+                self._sound_pending = False
+                if self._sound:
+                    try:
+                        import pygame
+                        self._sound.play()
+                    except Exception:
+                        pass
+
         if not self._active or not self._loaded:
             return
         self._timer += dt
