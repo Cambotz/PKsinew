@@ -75,7 +75,11 @@ class PCBoxAchievementsMixin:
             print(f"[PCBox] Achievement tracking error: {e}")
 
     def _export_pokemon_for_achievement(self):
-        """Export the selected Pokemon as a .pks file for achievement rewards (DEV MODE ONLY)"""
+        """
+        Export the selected Pokemon as a .pks file for achievement rewards (DEV MODE ONLY)
+        
+        ENHANCED: Now uses UPO system to ensure proper PP values and validation.
+        """
         print("[PCBox] *** DEV: Export triggered ***", file=sys.stderr, flush=True)
 
         if not self.selected_pokemon:
@@ -156,15 +160,87 @@ class PCBoxAchievementsMixin:
         )
 
         try:
-            pks_data = raw_bytes[:80]
+            # Try UPO-enhanced export (fixes PP values and validates)
+            try:
+                from gen3_converter import gen3_to_universal, universal_to_gen3
+                from legality_engine import validate_pokemon, ValidationLevel
+
+                # Get current game for correct data lookup
+                current_game = self.get_current_game() if hasattr(self, "get_current_game") else "Emerald"
+                current_game_display = current_game.title() if current_game else "Emerald"
+
+                # Convert to UPO
+                pokemon_upo = gen3_to_universal(raw_bytes[:80], current_game_display)
+                
+                # Validate before export
+                errors = validate_pokemon(pokemon_upo, ValidationLevel.STANDARD)
+                if errors:
+                    print(f"[PCBox] *** DEV: Validation warnings: ***", file=sys.stderr, flush=True)
+                    for error in errors:
+                        print(f"  - {error}", file=sys.stderr, flush=True)
+                else:
+                    print(f"[PCBox] *** DEV: ✓ Validation passed ***", file=sys.stderr, flush=True)
+                
+                print(f"[PCBox] *** DEV: PID: 0x{pokemon_upo.pid:08X} ***", file=sys.stderr, flush=True)
+                print(f"[PCBox] *** DEV: PID lowest bit: {pokemon_upo.pid & 1} ***", file=sys.stderr, flush=True)
+                print(f"[PCBox] *** DEV: Species: {pokemon_upo.species} ***", file=sys.stderr, flush=True)
+                print(f"[PCBox] *** DEV: Level: {pokemon_upo.level} ***", file=sys.stderr, flush=True)
+                print(f"[PCBox] *** DEV: Met Level: {pokemon_upo.met_level} ***", file=sys.stderr, flush=True)
+                print(f"[PCBox] *** DEV: Ability slot (from UPO): {pokemon_upo.ability_slot} ***", file=sys.stderr, flush=True)
+                print(f"[PCBox] *** DEV: Shiny: {pokemon_upo.is_shiny} ***", file=sys.stderr, flush=True)
+                print(f"[PCBox] *** DEV: Moves: ***", file=sys.stderr, flush=True)
+                for i, move in enumerate(pokemon_upo.moves[:4]):
+                    if move:
+                        print(f"  {i+1}. ID={move.move_id}, PP={move.pp}, PP_Ups={move.pp_ups}", file=sys.stderr, flush=True)
+                    else:
+                        print(f"  {i+1}. (empty)", file=sys.stderr, flush=True)
+                
+                # Convert back to Gen 3 (this fixes PP values!)
+                # Use PC format (80 bytes) for .pk3 export
+                fixed_bytes = universal_to_gen3(pokemon_upo, "pc")
+                
+                # After conversion, verify what we wrote
+                print(f"[PCBox] *** DEV: Re-reading exported bytes... ***", file=sys.stderr, flush=True)
+                verify_upo = gen3_to_universal(fixed_bytes[:80], current_game_display)
+                print(f"[PCBox] *** DEV: Verified PID: 0x{verify_upo.pid:08X} ***", file=sys.stderr, flush=True)
+                print(f"[PCBox] *** DEV: Verified ability slot: {verify_upo.ability_slot} ***", file=sys.stderr, flush=True)
+                print(f"[PCBox] *** DEV: PID & 1 = {verify_upo.pid & 1} ***", file=sys.stderr, flush=True)
+                
+                if verify_upo.ability_slot != (verify_upo.pid & 1):
+                    print(f"[PCBox] *** DEV: ⚠️ WARNING: Ability slot mismatch! ***", file=sys.stderr, flush=True)
+                    print(f"[PCBox] *** DEV:   Expected: {verify_upo.pid & 1} ***", file=sys.stderr, flush=True)
+                    print(f"[PCBox] *** DEV:   Got: {verify_upo.ability_slot} ***", file=sys.stderr, flush=True)
+                else:
+                    print(f"[PCBox] *** DEV: ✓ Ability slot matches PID! ***", file=sys.stderr, flush=True)
+                
+                pks_data = fixed_bytes[:80]
+                
+                print(
+                    f"[PCBox] *** DEV: Using UPO export (PP fixed) ***",
+                    file=sys.stderr,
+                    flush=True
+                )
+                
+            except ImportError as import_err:
+                # Fall back to simple export
+                print(
+                    f"[PCBox] *** DEV: UPO not available ({import_err}), using simple export ***",
+                    file=sys.stderr,
+                    flush=True
+                )
+                pks_data = raw_bytes[:80]
+            
+            # Write to file
             with open(filepath, "wb") as f:
                 f.write(pks_data)
+            
             print(
                 f"[PCBox] *** DEV: SUCCESS! Exported {len(pks_data)} bytes to {filepath} ***",
                 file=sys.stderr,
                 flush=True,
             )
             self._show_warning(f"Exported!\n{base_filename}")
+            
         except Exception as e:
             print(
                 f"[PCBox] *** DEV: Export failed: {e} ***", file=sys.stderr, flush=True

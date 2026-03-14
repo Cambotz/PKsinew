@@ -1,103 +1,151 @@
 {
-  "version": "2.0",
-  "description": "Pokemon reward recipes for dynamic generation. Replaces static .pks files.",
+  "version": "2.1",
+  "description": "Pokemon reward recipes for dynamic generation. UPO-compatible format.",
+  "notes": "Ability slot is now derived from PID automatically. Do not specify ability field. Achievement rewards include game field (origin game). Echo rewards omit game field - active save game is injected at delivery time.",
   "rewards": [
     {
       "achievement": "SINEW_030",
       "species": "Jirachi",
       "level": 5,
       "nature": "RANDOM",
-      "moves": ["Wish", "Confusion", "Rest"],
-      "ivs": { "min": 0, "max": 31 },
+      "moves": [
+        "Wish",
+        "Confusion",
+        "Rest"
+      ],
+      "ivs": {
+        "min": 0,
+        "max": 31
+      },
       "ot": "Sinew",
       "met_location": "Fateful Encounter",
       "ball": "Poke Ball",
       "gender": "GENDERLESS",
-      "ability": 0,
       "friendship": 100,
       "language": "ENG",
-      "delivery": "achievement"
+      "delivery": "achievement",
+      "game": "emerald"
     },
     {
       "achievement": "SINEW_008",
       "species": "Mew",
       "level": 30,
       "nature": "RANDOM",
-      "moves": ["Pound", "Transform", "Mega Punch", "Metronome"],
-      "ivs": { "min": 0, "max": 31 },
+      "moves": [
+        "Pound",
+        "Transform",
+        "Mega Punch",
+        "Metronome"
+      ],
+      "ivs": {
+        "min": 0,
+        "max": 31
+      },
       "ot": "Sinew",
       "met_location": "Faraway Island",
       "ball": "Poke Ball",
       "gender": "GENDERLESS",
-      "ability": 0,
       "friendship": 100,
       "language": "ENG",
-      "delivery": "achievement"
+      "delivery": "achievement",
+      "game": "emerald"
     },
     {
       "achievement": "SINEW_035",
       "species": "Mew",
       "level": 30,
       "nature": "RANDOM",
-      "moves": ["Pound", "Transform", "Mega Punch", "Metronome"],
-      "ivs": { "min": 0, "max": 31 },
+      "moves": [
+        "Pound",
+        "Transform",
+        "Mega Punch",
+        "Metronome"
+      ],
+      "ivs": {
+        "min": 0,
+        "max": 31
+      },
       "ot": "Sinew",
       "met_location": "Faraway Island",
       "ball": "Poke Ball",
       "gender": "GENDERLESS",
-      "ability": 0,
       "friendship": 100,
       "shiny": true,
       "language": "ENG",
-      "delivery": "achievement"
+      "delivery": "achievement",
+      "game": "emerald"
     },
     {
       "achievement": "SINEW_033",
       "species": "Celebi",
       "level": 70,
       "nature": "RANDOM",
-      "moves": ["Ancient Power", "Future Sight", "Baton Pass", "Perish Song"],
-      "ivs": { "min": 0, "max": 31 },
+      "moves": [
+        "Ancient Power",
+        "Future Sight",
+        "Baton Pass",
+        "Perish Song"
+      ],
+      "ivs": {
+        "min": 0,
+        "max": 31
+      },
       "ot": "Sinew",
       "met_location": "Fateful Encounter",
       "ball": "Poke Ball",
       "gender": "GENDERLESS",
-      "ability": 0,
       "friendship": 100,
       "language": "ENG",
-      "delivery": "achievement"
+      "delivery": "achievement",
+      "game": "emerald"
     },
     {
       "achievement": "SINEW_051",
       "species": "Lugia",
       "level": 70,
       "nature": "RANDOM",
-      "moves": ["Recover", "Hydro Pump", "Rain Dance", "Swift"],
-      "ivs": { "min": 0, "max": 31 },
+      "moves": [
+        "Recover",
+        "Hydro Pump",
+        "Rain Dance",
+        "Swift"
+      ],
+      "ivs": {
+        "min": 0,
+        "max": 31
+      },
       "ot": "Sinew",
       "met_location": "Navel Rock",
       "ball": "Poke Ball",
       "gender": "GENDERLESS",
-      "ability": 0,
       "friendship": 0,
       "language": "ENG",
-      "delivery": "achievement"
+      "delivery": "achievement",
+      "game": "emerald"
     },
     {
       "achievement": "SINEW_049",
       "species": "Ho-Oh",
       "level": 70,
       "nature": "RANDOM",
-      "moves": ["Recover", "Fire Blast", "Sunny Day", "Swift"],
-      "ivs": { "min": 0, "max": 31 },
+      "moves": [
+        "Recover",
+        "Fire Blast",
+        "Sunny Day",
+        "Swift"
+      ],
+      "ivs": {
+        "min": 0,
+        "max": 31
+      },
       "ot": "Sinew",
       "met_location": "Navel Rock",
       "ball": "Poke Ball",
       "gender": "GENDERLESS",
-      "ability": 0,
       "friendship": 0,
       "language": "ENG",
-      "delivery": "achievement"
+      "delivery": "achievement",
+      "game": "emerald"
     },
     {
       "achievement": "SINEW_104",
@@ -105,16 +153,24 @@
       "form": "NORMAL",
       "level": 70,
       "nature": "RANDOM",
-      "moves": ["Psycho Boost", "Recover", "Cosmic Power", "Hyper Beam"],
-      "ivs": { "min": 0, "max": 31 },
+      "moves": [
+        "Psycho Boost",
+        "Recover",
+        "Cosmic Power",
+        "Hyper Beam"
+      ],
+      "ivs": {
+        "min": 0,
+        "max": 31
+      },
       "ot": "Sinew",
       "met_location": "Fateful Encounter",
       "ball": "Poke Ball",
       "gender": "GENDERLESS",
-      "ability": 0,
       "friendship": 0,
       "language": "ENG",
-      "delivery": "achievement"
+      "delivery": "achievement",
+      "game": "emerald"
     },
     {
       "species": "Mareep",
@@ -126,12 +182,14 @@
         "Cotton Spore",
         "Light Screen"
       ],
-      "ivs": { "min": 0, "max": 31 },
+      "ivs": {
+        "min": 0,
+        "max": 31
+      },
       "ot": "Sinew",
       "met_location": "Altering Cave",
       "ball": "Poke Ball",
       "gender": "RANDOM",
-      "ability": 0,
       "friendship": 70,
       "language": "ENG",
       "delivery": "echo"
@@ -140,13 +198,20 @@
       "species": "Pineco",
       "level": 34,
       "nature": "RANDOM",
-      "moves": ["Self-Destruct", "Take Down", "Rapid Spin", "Bide"],
-      "ivs": { "min": 0, "max": 31 },
+      "moves": [
+        "Self-Destruct",
+        "Take Down",
+        "Rapid Spin",
+        "Bide"
+      ],
+      "ivs": {
+        "min": 0,
+        "max": 31
+      },
       "ot": "Sinew",
       "met_location": "Altering Cave",
       "ball": "Poke Ball",
       "gender": "RANDOM",
-      "ability": 0,
       "friendship": 70,
       "language": "ENG",
       "delivery": "echo"
@@ -155,13 +220,20 @@
       "species": "Houndour",
       "level": 36,
       "nature": "RANDOM",
-      "moves": ["Smog", "Roar", "Bite", "Odor Sleuth"],
-      "ivs": { "min": 0, "max": 31 },
+      "moves": [
+        "Smog",
+        "Roar",
+        "Bite",
+        "Odor Sleuth"
+      ],
+      "ivs": {
+        "min": 0,
+        "max": 31
+      },
       "ot": "Sinew",
       "met_location": "Altering Cave",
       "ball": "Poke Ball",
       "gender": "RANDOM",
-      "ability": 0,
       "friendship": 35,
       "language": "ENG",
       "delivery": "echo"
@@ -170,13 +242,20 @@
       "species": "Aipom",
       "level": 34,
       "nature": "RANDOM",
-      "moves": ["Astonish", "Baton Pass", "Tickle", "Fury Swipes"],
-      "ivs": { "min": 0, "max": 31 },
+      "moves": [
+        "Astonish",
+        "Baton Pass",
+        "Tickle",
+        "Fury Swipes"
+      ],
+      "ivs": {
+        "min": 0,
+        "max": 31
+      },
       "ot": "Sinew",
       "met_location": "Altering Cave",
       "ball": "Poke Ball",
       "gender": "RANDOM",
-      "ability": 0,
       "friendship": 70,
       "language": "ENG",
       "delivery": "echo"
@@ -185,13 +264,20 @@
       "species": "Shuckle",
       "level": 25,
       "nature": "RANDOM",
-      "moves": ["Withdraw", "Wrap", "Encore", "Safeguard"],
-      "ivs": { "min": 0, "max": 31 },
+      "moves": [
+        "Withdraw",
+        "Wrap",
+        "Encore",
+        "Safeguard"
+      ],
+      "ivs": {
+        "min": 0,
+        "max": 31
+      },
       "ot": "Sinew",
       "met_location": "Altering Cave",
       "ball": "Poke Ball",
       "gender": "RANDOM",
-      "ability": 0,
       "held_item": "Oran Berry",
       "friendship": 70,
       "language": "ENG",
@@ -201,13 +287,20 @@
       "species": "Stantler",
       "level": 36,
       "nature": "RANDOM",
-      "moves": ["Astonish", "Hypnosis", "Stomp", "Sand Attack"],
-      "ivs": { "min": 0, "max": 31 },
+      "moves": [
+        "Astonish",
+        "Hypnosis",
+        "Stomp",
+        "Sand Attack"
+      ],
+      "ivs": {
+        "min": 0,
+        "max": 31
+      },
       "ot": "Sinew",
       "met_location": "Altering Cave",
       "ball": "Poke Ball",
       "gender": "RANDOM",
-      "ability": 0,
       "friendship": 70,
       "language": "ENG",
       "delivery": "echo"
@@ -216,13 +309,17 @@
       "species": "Smeargle",
       "level": 41,
       "nature": "RANDOM",
-      "moves": ["Sketch"],
-      "ivs": { "min": 0, "max": 31 },
+      "moves": [
+        "Sketch"
+      ],
+      "ivs": {
+        "min": 0,
+        "max": 31
+      },
       "ot": "Sinew",
       "met_location": "Altering Cave",
       "ball": "Poke Ball",
       "gender": "RANDOM",
-      "ability": 0,
       "friendship": 70,
       "language": "ENG",
       "delivery": "echo"

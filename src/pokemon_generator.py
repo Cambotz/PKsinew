@@ -16,6 +16,19 @@ from typing import Dict, List, Optional, Tuple, Union
 
 from config import ACH_REWARDS_PATH
 
+# Universal Pokemon Object support
+try:
+    from universal_pokemon import (
+        UniversalPokemon, MoveSlot, IVSet, EVSet, StatSet, ContestStats
+    )
+    from gen3_converter import universal_to_gen3, gen3_to_universal
+    from legality_engine import validate_pokemon, ValidationLevel
+    UPO_AVAILABLE = True
+except ImportError as e:
+    UPO_AVAILABLE = False
+    print(f"[Generator] UPO modules not available: {e}")
+    print("[Generator] Using legacy mode only")
+
 # =============================================================================
 # CONSTANTS
 # =============================================================================
@@ -1206,6 +1219,18 @@ MOVE_NAME_TO_ID = {
     "Psycho Boost": 354,
 }
 
+# Import Gen 3 base PP function from converter (format-specific)
+try:
+    from gen3_converter import get_gen3_base_pp as get_move_pp
+except ImportError:
+    # Fallback if converter not available
+    def get_move_pp(move_id: int) -> int:
+        """Fallback PP lookup - defaults to 10."""
+        # NOTE: This is a fallback. Proper PP values should come from
+        # the format-specific converter (gen3_converter, gen1_converter, etc.)
+        return 10
+
+
 # Item name to ID mapping
 ITEM_NAME_TO_ID = {
     "None": 0,
@@ -1325,23 +1350,403 @@ SPECIES_BASE_FRIENDSHIP = {
 
 # Experience growth rates
 GROWTH_RATES = {
+    "erratic": {
+        285,
+        286,
+        290,
+        291,
+        292,
+        296,
+        297,
+        313,
+        314,
+        316,
+        317,
+        320,
+        321,
+        333,
+        334,
+        335,
+        336,
+        341,
+        342,
+        345,
+        346,
+        347,
+        348,
+        349,
+        350,
+        366,
+        367,
+        368,
+    },
+    "fast": {
+        35,
+        36,
+        39,
+        40,
+        113,
+        165,
+        166,
+        167,
+        168,
+        173,
+        60,
+        174,
+        175,
+        176,
+        183,
+        184,
+        190,
+        200,
+        209,
+        210,
+        222,
+        225,
+        235,
+        242,
+        298,
+        300,
+        301,
+        303,
+        325,
+        326,
+        327,
+        337,
+        338,
+        353,
+        354,
+        355,
+        356,
+        358,
+        370,
+    },
+    "medium_fast": {
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        37,
+        38,
+        41,
+        42,
+        46,
+        47,
+        48,
+        49,
+        50,
+        51,
+        52,
+        53,
+        54,
+        55,
+        56,
+        57,
+        77,
+        78,
+        79,
+        80,
+        81,
+        82,
+        83,
+        84,
+        85,
+        86,
+        87,
+        88,
+        89,
+        95,
+        96,
+        97,
+        98,
+        99,
+        100,
+        101,
+        104,
+        105,
+        106,
+        107,
+        108,
+        114,
+        115,
+        116,
+        117,
+        118,
+        119,
+        122,
+        123,
+        124,
+        125,
+        126,
+        132,
+        133,
+        134,
+        135,
+        136,
+        137,
+        138,
+        139,
+        140,
+        141,
+        161,
+        162,
+        163,
+        164,
+        169,
+        172,
+        177,
+        178,
+        185,
+        193,
+        194,
+        195,
+        196,
+        197,
+        199,
+        201,
+        202,
+        203,
+        204,
+        205,
+        206,
+        208,
+        211,
+        212,
+        216,
+        217,
+        218,
+        219,
+        223,
+        224,
+        230,
+        231,
+        232,
+        233,
+        236,
+        237,
+        238,
+        239,
+        240,
+        261,
+        262,
+        263,
+        264,
+        265,
+        266,
+        267,
+        268,
+        269,
+        278,
+        279,
+        283,
+        284,
+        299,
+        307,
+        308,
+        311,
+        312,
+        322,
+        323,
+        324,
+        339,
+        340,
+        343,
+        344,
+        351,
+        360,
+        361,
+        362,
+    },
+    "medium_slow": {
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        16,
+        17,
+        18,
+        29,
+        30,
+        31,
+        32,
+        33,
+        34,
+        43,
+        44,
+        45,
+        61,
+        62,
+        63,
+        64,
+        65,
+        66,
+        67,
+        68,
+        69,
+        70,
+        71,
+        74,
+        75,
+        76,
+        92,
+        93,
+        94,
+        151,
+        152,
+        153,
+        154,
+        155,
+        156,
+        157,
+        158,
+        159,
+        160,
+        179,
+        180,
+        181,
+        182,
+        186,
+        187,
+        188,
+        189,
+        191,
+        192,
+        198,
+        207,
+        213,
+        215,
+        251,
+        252,
+        253,
+        254,
+        255,
+        256,
+        257,
+        258,
+        259,
+        260,
+        270,
+        271,
+        272,
+        273,
+        274,
+        275,
+        276,
+        277,
+        293,
+        294,
+        295,
+        302,
+        315,
+        328,
+        329,
+        330,
+        331,
+        332,
+        352,
+        359,
+        363,
+        364,
+        365,
+    },
     "slow": {
-        151: True,
-        249: True,
-        250: True,
-        251: True,
-        377: True,
-        378: True,
-        379: True,
-        380: True,
-        381: True,
-        382: True,
-        383: True,
-        384: True,
-        385: True,
-        386: True,
-    }
+        58,
+        59,
+        72,
+        73,
+        90,
+        91,
+        102,
+        103,
+        111,
+        112,
+        144,
+        120,
+        121,
+        127,
+        128,
+        129,
+        130,
+        131,
+        142,
+        143,
+        145,
+        146,
+        147,
+        148,
+        149,
+        150,
+        170,
+        171,
+        214,
+        220,
+        221,
+        226,
+        227,
+        228,
+        229,
+        234,
+        241,
+        243,
+        244,
+        245,
+        246,
+        247,
+        248,
+        249,
+        250,
+        280,
+        281,
+        282,
+        287,
+        288,
+        289,
+        304,
+        305,
+        306,
+        309,
+        310,
+        318,
+        319,
+        357,
+        369,
+        371,
+        372,
+        373,
+        374,
+        375,
+        376,
+        377,
+        378,
+        379,
+        380,
+        381,
+        382,
+        383,
+        384,
+        385,
+        386,
+    },
+    "fluctuating": set(),  # No Gen 3 Pokemon use this
 }
+
 
 # Experience tables
 EXP_SLOW = [
@@ -1550,6 +1955,66 @@ EXP_MEDIUM_SLOW = [
     1059860,
 ]
 
+# Medium Fast experience table
+EXP_MEDIUM_FAST = [
+    0, 8, 27, 64, 125, 216, 343, 512, 729, 1000, 1331, 1728, 2197, 2744,
+    3375, 4096, 4913, 5832, 6859, 8000, 9261, 10648, 12167, 13824, 15625,
+    17576, 19683, 21952, 24389, 27000, 29791, 32768, 35937, 39304, 42875,
+    46656, 50653, 54872, 59319, 64000, 68921, 74088, 79507, 85184, 91125,
+    97336, 103823, 110592, 117649, 125000, 132651, 140608, 148877, 157464,
+    166375, 175616, 185193, 195112, 205379, 216000, 226981, 238328, 250047,
+    262144, 274625, 287496, 300763, 314432, 328509, 343000, 357911, 373248,
+    389017, 405224, 421875, 438976, 456533, 474552, 493039, 512000, 531441,
+    551368, 571787, 592704, 614125, 636056, 658503, 681472, 704969, 729000,
+    753571, 778688, 804357, 830584, 857375, 884736, 912673, 941192, 970299,
+    1000000,
+]
+
+# Fast experience table
+EXP_FAST = [
+    0, 6, 21, 51, 100, 172, 274, 409, 583, 800, 1064, 1382, 1757, 2195,
+    2700, 3276, 3930, 4665, 5487, 6400, 7408, 8518, 9733, 11059, 12500,
+    14060, 15746, 17561, 19511, 21600, 23832, 26214, 28749, 31443, 34300,
+    37324, 40522, 43897, 47455, 51200, 55136, 59270, 63605, 68147, 72900,
+    77868, 83058, 88473, 94119, 100000, 106120, 112486, 119101, 125971,
+    133100, 140492, 148154, 156089, 164303, 172800, 181584, 190662, 200037,
+    209715, 219700, 229996, 240610, 251545, 262807, 274400, 286328, 298598,
+    311213, 324179, 337500, 351180, 365226, 379641, 394431, 409600, 425152,
+    441094, 457429, 474163, 491300, 508844, 526802, 545177, 563975, 583200,
+    602856, 622950, 643485, 664467, 685900, 707788, 730138, 752953, 776239,
+    800000,
+]
+
+# Erratic experience table
+EXP_ERRATIC = [
+    0, 15, 52, 122, 237, 406, 637, 942, 1326, 1800, 2369, 3041, 3822, 4719,
+    5737, 6881, 8155, 9564, 11111, 12800, 14632, 16610, 18737, 21012, 23437,
+    26012, 28737, 31610, 34632, 37800, 41111, 44564, 48155, 51881, 55737,
+    59719, 63822, 68041, 72369, 76800, 81326, 85942, 90637, 95406, 100237,
+    105122, 110052, 115015, 120001, 125000, 131324, 137795, 144410, 151165,
+    158056, 165079, 172229, 179503, 186894, 194400, 202013, 209728, 217540,
+    225443, 233431, 241496, 249633, 257834, 267406, 276458, 286328, 296358,
+    305767, 316074, 326531, 336255, 346965, 357812, 367807, 378880, 390077,
+    400293, 411686, 423190, 433572, 445239, 457001, 467489, 479378, 491346,
+    501878, 513934, 526049, 536557, 548720, 560922, 571333, 583539, 591882,
+    600000,
+]
+
+# Fluctuating experience table
+EXP_FLUCTUATING = [
+    0, 4, 13, 32, 65, 112, 178, 276, 393, 540, 745, 967, 1230, 1591, 1957,
+    2457, 3046, 3732, 4526, 5440, 6482, 7666, 9003, 10506, 12187, 14060,
+    16140, 18439, 20974, 23760, 26811, 30146, 33780, 37731, 42017, 46656,
+    50653, 55969, 60505, 66560, 71677, 78533, 84277, 91998, 98415, 107069,
+    114205, 123863, 131766, 142500, 151222, 163105, 172697, 185807, 196322,
+    210739, 222231, 238036, 250562, 267840, 281456, 300293, 315059, 335544,
+    351520, 373744, 390991, 415050, 433631, 459620, 479600, 507617, 529063,
+    559209, 582187, 614566, 639146, 673863, 700115, 737280, 765275, 804997,
+    834809, 877201, 908905, 954084, 987754, 1035837, 1071552, 1122660,
+    1160499, 1214753, 1254796, 1312322, 1354652, 1415577, 1460276, 1524731,
+    1571884, 1640000,
+]
+
 
 # =============================================================================
 # HELPER FUNCTIONS
@@ -1651,26 +2116,52 @@ def get_nature_id(nature: Union[str, int]) -> int:
 
 def get_exp_for_level(species_id: int, level: int) -> int:
     """Get the experience needed for a given level."""
-    national_id = species_id
-    # Convert internal to national if needed
-    if species_id >= 277:
-        for nat, internal in NATIONAL_TO_INTERNAL.items():
-            if internal == species_id:
-                national_id = nat
+    # Try to import from parser constants (has complete data)
+    try:
+        from parser.constants import get_exp_for_level as parser_get_exp
+        national_id = species_id
+        # Convert internal to national if needed
+        if species_id >= 277:
+            for nat, internal in NATIONAL_TO_INTERNAL.items():
+                if internal == species_id:
+                    national_id = nat
+                    break
+        return parser_get_exp(national_id, level)
+    except ImportError:
+        # Fallback to local implementation
+        national_id = species_id
+        if species_id >= 277:
+            for nat, internal in NATIONAL_TO_INTERNAL.items():
+                if internal == species_id:
+                    national_id = nat
+                    break
+        
+        # Use local growth rate lookup (incomplete but better than nothing)
+        growth_rate = "medium_slow"
+        for rate_name, species_dict in GROWTH_RATES.items():
+            if national_id in species_dict:
+                growth_rate = rate_name
                 break
-
-    # Check growth rate
-    if national_id in GROWTH_RATES.get("slow", {}):
-        table = EXP_SLOW
-    else:
-        table = EXP_MEDIUM_SLOW
-
-    if level < 1:
-        return 0
-    if level > 100:
-        level = 100
-
-    return table[level - 1] if level <= len(table) else table[-1]
+        
+        if growth_rate == "slow":
+            table = EXP_SLOW
+        elif growth_rate == "medium_fast":
+            table = EXP_MEDIUM_FAST
+        elif growth_rate == "fast":
+            table = EXP_FAST
+        elif growth_rate == "erratic":
+            table = EXP_ERRATIC
+        elif growth_rate == "fluctuating":
+            table = EXP_FLUCTUATING
+        else:
+            table = EXP_MEDIUM_SLOW
+        
+        if level < 1:
+            return 0
+        if level > 100:
+            level = 100
+        
+        return table[level - 1] if level <= len(table) else table[-1]
 
 
 def generate_pid_for_nature_shiny(
@@ -1679,26 +2170,43 @@ def generate_pid_for_nature_shiny(
     secret_id: int,
     shiny: bool = False,
     gender_ratio: int = 127,
+    required_ability_slot: int = None,  # NEW: Force ability slot (0 or 1)
 ) -> int:
     """
-    Generate a PID that matches the desired nature and shiny status.
+    Generate a PID that matches the desired nature, shiny status, and ability slot.
 
     For shiny: (TID ^ SID ^ PID_high ^ PID_low) < 8
     For nature: PID % 25 == nature_id
+    For ability: PID & 1 == ability_slot (if required_ability_slot is specified)
     """
     max_attempts = 10000
 
     for _ in range(max_attempts):
         # Generate random PID
         pid = random.randint(0, 0xFFFFFFFF)
+        
+        # Enforce ability slot if required
+        if required_ability_slot is not None:
+            if required_ability_slot == 0:
+                pid = pid & 0xFFFFFFFE  # Force lowest bit to 0
+            else:
+                pid = pid | 0x00000001  # Force lowest bit to 1
 
         # Adjust for nature
         current_nature = pid % 25
         if current_nature != nature_id:
             # Adjust PID to match nature while keeping other properties
-            pid = (pid // 25) * 25 + nature_id
+            adjustment = (nature_id - current_nature) % 25
+            pid = pid + adjustment
             if pid > 0xFFFFFFFF:
                 pid -= 25
+            
+            # Re-apply ability slot constraint after nature adjustment
+            if required_ability_slot is not None:
+                if required_ability_slot == 0:
+                    pid = pid & 0xFFFFFFFE
+                else:
+                    pid = pid | 0x00000001
 
         # Check shiny status
         pid_low = pid & 0xFFFF
@@ -1718,11 +2226,22 @@ def generate_pid_for_nature_shiny(
 
             # Check if nature is still correct
             if new_pid % 25 == nature_id:
-                return new_pid
+                # Check ability slot if required
+                if required_ability_slot is None or (new_pid & 1) == required_ability_slot:
+                    return new_pid
 
-    # Fallback - just return a PID with correct nature
+    # Fallback - return a PID with correct nature and ability slot
     base_pid = random.randint(0, 0xFFFFFFFF)
-    return (base_pid // 25) * 25 + nature_id
+    pid = (base_pid // 25) * 25 + nature_id
+    
+    # Apply ability slot constraint
+    if required_ability_slot is not None:
+        if required_ability_slot == 0:
+            pid = pid & 0xFFFFFFFE
+        else:
+            pid = pid | 0x00000001
+    
+    return pid
 
 
 def calculate_checksum(data: bytes) -> int:
@@ -1807,9 +2326,26 @@ class PokemonGenerator:
         held_item = recipe.get("held_item", None)
         shiny = recipe.get("shiny", False)
         ball = recipe.get("ball", "Poke Ball")
-        ability_slot = recipe.get("ability", 0)  # 0 = slot 1, 1 = slot 2
+        # NOTE: ability_slot is derived from PID, not specified in recipe
         friendship = recipe.get("friendship", None)
         language = recipe.get("language", "ENG")
+
+        # Normalise game name - handles full strings like "Pokemon FireRed Version"
+        # as well as short forms like "firered". Used for ROM data lookups + origin code.
+        try:
+            from gen3_converter import _GAME_NAME_KEYWORDS
+            _raw_game = recipe.get("game", "emerald").lower()
+            game = "emerald"  # default
+            _SHORT = {"ruby", "sapphire", "firered", "leafgreen", "emerald"}
+            if _raw_game in _SHORT:
+                game = _raw_game
+            else:
+                for keyword, key in _GAME_NAME_KEYWORDS:
+                    if keyword in _raw_game:
+                        game = key
+                        break
+        except ImportError:
+            game = recipe.get("game", "emerald").lower()
 
         # Convert names to IDs
         species_id = get_species_id(species_name)
@@ -1847,11 +2383,32 @@ class PokemonGenerator:
         secret_id = self.DEFAULT_SECRET_ID
         ot_id = (secret_id << 16) | trainer_id
 
-        # Generate PID with correct nature and shiny status
+        # Determine required ability slot based on species
+        # Species with only 1 ability MUST have PID pointing to slot 0
+        required_ability_slot = None
+        try:
+            from rom_data_loader import get_species_abilities
+            species_abilities = get_species_abilities(game, national_id)
+            # species_abilities is list of (slot, ability_id) tuples
+            # If species only has slot 0, force PID to be even (slot 0)
+            has_slot_0 = any(slot == 0 for slot, _ in species_abilities)
+            has_slot_1 = any(slot == 1 for slot, _ in species_abilities if slot == 1)
+            
+            if has_slot_0 and not has_slot_1:
+                # Species only has ability in slot 0, force PID to be even
+                required_ability_slot = 0
+        except (ImportError, Exception):
+            # ROM data not available, PID can be anything
+            pass
+
+        # Generate PID with correct nature, shiny status, and ability slot
         gender_ratio = SPECIES_GENDER_RATIO.get(national_id, 127)
         pid = generate_pid_for_nature_shiny(
-            nature_id, trainer_id, secret_id, shiny, gender_ratio
+            nature_id, trainer_id, secret_id, shiny, gender_ratio, required_ability_slot
         )
+
+        # Derive ability slot from PID (Gen 3 standard)
+        ability_slot = pid & 1  # 0 or 1 based on lowest bit of PID
 
         # Calculate experience for level
         exp = get_exp_for_level(species_id, level)
@@ -1891,6 +2448,7 @@ class PokemonGenerator:
             ot_name=ot_name,
             nickname=species_name.upper()[:10],
             language=language,
+            game=game,
         )
 
         # Build parsed Pokemon dict for display (use NATIONAL ID for Sinew)
@@ -1943,6 +2501,7 @@ class PokemonGenerator:
         ot_name: str,
         nickname: str,
         language: str = "ENG",
+        game: str = "emerald",
     ) -> bytes:
         """
         Build the 80-byte Pokemon structure.
@@ -2004,11 +2563,12 @@ class PokemonGenerator:
         attacks = bytearray(12)
         for i, move_id in enumerate(move_ids[:4]):
             struct.pack_into("<H", attacks, i * 2, move_id)
-        # PP values (4 bytes) - calculate based on moves
-        # For simplicity, use max PP (will be recalculated when deposited)
-        pp_values = [35, 35, 35, 35]  # Default PP
+        # PP values (4 bytes) - use base PP for each move
         for i in range(4):
-            attacks[8 + i] = pp_values[i] if move_ids[i] > 0 else 0
+            if move_ids[i] > 0:
+                attacks[8 + i] = get_move_pp(move_ids[i], game)
+            else:
+                attacks[8 + i] = 0
 
         # EVs/Condition substructure (12 bytes)
         evs = bytearray(12)
@@ -2030,7 +2590,11 @@ class PokemonGenerator:
         # Origins info (2 bytes): met level (7 bits), game (4 bits),
         # ball (4 bits), OT gender (1 bit)
         met_level = min(level, 100)
-        game_of_origin = 1  # Emerald
+        try:
+            from gen3_converter import game_name_to_origin_code
+            game_of_origin = game_name_to_origin_code(game)
+        except ImportError:
+            game_of_origin = 8  # Emerald fallback
         ot_gender = 0  # Male trainer
         origins = (
             (met_level & 0x7F)
@@ -2060,9 +2624,10 @@ class PokemonGenerator:
         perm_index = pid % 24
         order = PERMUTATIONS[perm_index]
 
-        # Format: order[TYPE] = POSITION
-        # order[0] = position where Growth goes, order[1] = position where Attacks goes, etc.
-        substructs = [growth, attacks, evs, misc]  # indexed by type
+        # CRITICAL: PERMUTATIONS is a SOURCE MAP
+        # order[position] = type (which block type goes in this position)
+        # NOT order[type] = position
+        substructs = [growth, attacks, evs, misc]  # indexed by type (0,1,2,3)
         arranged = bytearray(48)
         for type_idx, position in enumerate(order):
             arranged[position * 12 : (position + 1) * 12] = substructs[type_idx]
@@ -2095,12 +2660,15 @@ class PokemonGenerator:
 
         return None
 
-    def generate_for_echo(self, species_name: str) -> Optional[Tuple[bytes, Dict]]:
+    def generate_for_echo(self, species_name: str, game: str = "emerald") -> Optional[Tuple[bytes, Dict]]:
         """Generate a Pokemon for the Echo (Altering Cave) system."""
         # Find recipe by species name with echo delivery
         for recipe in self.recipes.values():
             if recipe.get("species", "").lower() == species_name.lower():
                 if recipe.get("delivery") == "echo":
+                    # Inject game into recipe if not already set
+                    if "game" not in recipe:
+                        recipe = {**recipe, "game": game}
                     return self.generate_pokemon(recipe)
 
         # If not found in recipes, try to generate a basic version
@@ -2114,6 +2682,7 @@ class PokemonGenerator:
                 "ot": "Sinew",
                 "met_location": "Altering Cave",
                 "delivery": "echo",
+                "game": game,
             }
             return self.generate_pokemon(basic_recipe)
 
@@ -2132,6 +2701,166 @@ class PokemonGenerator:
                     }
                 )
         return echo_pokemon
+
+    # =========================================================================
+    # UNIVERSAL POKEMON OBJECT (UPO) METHODS
+    # =========================================================================
+
+    def generate_pokemon_upo(
+        self, recipe: Dict
+    ) -> Tuple[UniversalPokemon, bytes, Dict]:
+        """
+        Generate Pokemon as Universal Pokemon Object + legacy formats.
+        
+        This is the enhanced generation path that returns:
+        1. UniversalPokemon object (for internal use, validation, debugging)
+        2. 80-byte Gen 3 data (for writing to save)
+        3. Legacy dict (for backward compatibility)
+        
+        Args:
+            recipe: Recipe dict (same format as generate_pokemon)
+            
+        Returns:
+            (UniversalPokemon, bytes, dict): UPO, 80-byte data, legacy dict
+            
+        Raises:
+            ImportError: If UPO modules not available
+        """
+        if not UPO_AVAILABLE:
+            raise ImportError(
+                "UPO modules (universal_pokemon, gen3_converter, legality_engine) "
+                "not available. Make sure they are in your src/ directory."
+            )
+        
+        # Generate using existing method
+        pokemon_bytes, pokemon_dict = self.generate_pokemon(recipe)
+        
+        # Convert bytes to Universal Pokemon Object
+        # Resolve canonical display name from the normalised game key
+        # Done inline so it works regardless of gen3_converter version
+        _DISPLAY_NAMES = {
+            "ruby": "Ruby", "sapphire": "Sapphire",
+            "firered": "FireRed", "leafgreen": "LeafGreen", "emerald": "Emerald",
+        }
+        _recipe_game = recipe.get("game", "emerald")
+        # Normalise to short key first (handles "Pokemon FireRed Version" etc)
+        _KEYWORDS = [
+            ("firered", "firered"), ("fire red", "firered"),
+            ("leafgreen", "leafgreen"), ("leaf green", "leafgreen"),
+            ("emerald", "emerald"), ("sapphire", "sapphire"), ("ruby", "ruby"),
+        ]
+        _raw = _recipe_game.lower()
+        _key = _raw if _raw in _DISPLAY_NAMES else next(
+            (k for kw, k in _KEYWORDS if kw in _raw), "emerald"
+        )
+        game_display = _DISPLAY_NAMES[_key]
+        pokemon_upo = gen3_to_universal(pokemon_bytes, game_display)
+        
+        # Add Sinew-specific metadata
+        pokemon_upo.sinew_id = recipe.get("achievement")
+        pokemon_upo.sinew_source = recipe.get("delivery", "generator")
+        
+        # Validate the generated Pokemon
+        errors = validate_pokemon(pokemon_upo, ValidationLevel.STANDARD)
+        if errors:
+            print(f"[Generator] WARNING: Generated Pokemon has validation errors:")
+            for error in errors:
+                print(f"  - {error}")
+            print(f"[Generator] Species: {pokemon_dict.get('species_name', 'Unknown')}")
+            print(f"[Generator] PID: 0x{pokemon_upo.pid:08X}")
+            print(f"[Generator] This may indicate a recipe or generator issue.")
+        
+        return pokemon_upo, pokemon_bytes, pokemon_dict
+
+    def generate_for_achievement_upo(
+        self, achievement_id: str
+    ) -> Optional[Tuple[UniversalPokemon, bytes, Dict]]:
+        """
+        Generate UPO for achievement reward.
+        
+        Args:
+            achievement_id: Achievement ID (e.g., "SINEW_030")
+            
+        Returns:
+            (UniversalPokemon, bytes, dict) or None if not found
+        """
+        if not UPO_AVAILABLE:
+            raise ImportError("UPO modules not available")
+        
+        # First try direct lookup (key is achievement ID)
+        if achievement_id in self.recipes:
+            return self.generate_pokemon_upo(self.recipes[achievement_id])
+        
+        # Fallback: search through recipes
+        for recipe in self.recipes.values():
+            if recipe.get("achievement") == achievement_id:
+                return self.generate_pokemon_upo(recipe)
+        
+        return None
+
+    def generate_for_echo_upo(
+        self, species_name: str, game: str = "emerald"
+    ) -> Optional[Tuple[UniversalPokemon, bytes, Dict]]:
+        """
+        Generate UPO for Echo (Altering Cave) system.
+        
+        Args:
+            species_name: Species name (e.g., "Mareep")
+            game: Target game name for data lookups and origin code
+            
+        Returns:
+            (UniversalPokemon, bytes, dict) or None if not found
+        """
+        if not UPO_AVAILABLE:
+            raise ImportError("UPO modules not available")
+        
+        # Find recipe by species name with echo delivery
+        for recipe in self.recipes.values():
+            if recipe.get("species", "").lower() == species_name.lower():
+                if recipe.get("delivery") == "echo":
+                    if "game" not in recipe:
+                        recipe = {**recipe, "game": game}
+                    return self.generate_pokemon_upo(recipe)
+        
+        # If not found in recipes, try to generate a basic version
+        if species_name in SPECIES_NAME_TO_ID:
+            basic_recipe = {
+                "species": species_name,
+                "level": 30,
+                "nature": "RANDOM",
+                "moves": [],
+                "ivs": {"min": 0, "max": 31},
+                "ot": "Sinew",
+                "met_location": "Altering Cave",
+                "delivery": "echo",
+                "game": game,
+            }
+            return self.generate_pokemon_upo(basic_recipe)
+        
+        return None
+
+    def validate_generated_pokemon(
+        self, pokemon: UniversalPokemon, level: int = None
+    ) -> Tuple[bool, List[str]]:
+        """
+        Validate a generated Pokemon.
+        
+        Args:
+            pokemon: UniversalPokemon to validate
+            level: ValidationLevel (PERMISSIVE, STANDARD, STRICT)
+                   If None, uses STANDARD
+                   
+        Returns:
+            (is_valid, errors): True if valid, list of error strings
+        """
+        if not UPO_AVAILABLE:
+            raise ImportError("UPO modules not available")
+        
+        if level is None:
+            level = ValidationLevel.STANDARD
+        
+        errors = validate_pokemon(pokemon, level)
+        return (len(errors) == 0, errors)
 
 
 # =============================================================================
@@ -2162,9 +2891,55 @@ def generate_achievement_pokemon(achievement_id: str) -> Optional[Tuple[bytes, D
     return get_pokemon_generator().generate_for_achievement(achievement_id)
 
 
-def generate_echo_pokemon(species_name: str) -> Optional[Tuple[bytes, Dict]]:
+def generate_echo_pokemon(species_name: str, game: str = "emerald") -> Optional[Tuple[bytes, Dict]]:
     """Generate a Pokemon for the Echo system."""
-    return get_pokemon_generator().generate_for_echo(species_name)
+    return get_pokemon_generator().generate_for_echo(species_name, game)
+
+
+# UPO-enhanced module-level functions
+def generate_pokemon_from_recipe_upo(
+    recipe: Dict
+) -> Optional[Tuple[UniversalPokemon, bytes, Dict]]:
+    """
+    Generate a Pokemon from recipe with UPO support.
+    
+    Returns:
+        (UniversalPokemon, bytes, dict) or None if UPO unavailable
+    """
+    if not UPO_AVAILABLE:
+        print("[Generator] UPO not available, use generate_pokemon_from_recipe() instead")
+        return None
+    return get_pokemon_generator().generate_pokemon_upo(recipe)
+
+
+def generate_achievement_pokemon_upo(
+    achievement_id: str
+) -> Optional[Tuple[UniversalPokemon, bytes, Dict]]:
+    """
+    Generate achievement Pokemon with UPO support.
+    
+    Returns:
+        (UniversalPokemon, bytes, dict) or None if not found/UPO unavailable
+    """
+    if not UPO_AVAILABLE:
+        print("[Generator] UPO not available, use generate_achievement_pokemon() instead")
+        return None
+    return get_pokemon_generator().generate_for_achievement_upo(achievement_id)
+
+
+def generate_echo_pokemon_upo(
+    species_name: str, game: str = "emerald"
+) -> Optional[Tuple[UniversalPokemon, bytes, Dict]]:
+    """
+    Generate Echo Pokemon with UPO support.
+    
+    Returns:
+        (UniversalPokemon, bytes, dict) or None if not found/UPO unavailable
+    """
+    if not UPO_AVAILABLE:
+        print("[Generator] UPO not available, use generate_echo_pokemon() instead")
+        return None
+    return get_pokemon_generator().generate_for_echo_upo(species_name, game)
 
 
 # =============================================================================
@@ -2185,6 +2960,12 @@ if __name__ == "__main__":
         "met_location": "Fateful Encounter",
     }
 
+    print("=" * 70)
+    print("POKEMON GENERATOR TEST")
+    print("=" * 70)
+    
+    # Test legacy generation
+    print("\n--- Legacy Generation (bytes + dict) ---")
     pokemon_bytes, pokemon_dict = gen.generate_pokemon(test_recipe)
 
     print(f"Generated {pokemon_dict['species_name']} (ID: {pokemon_dict['species']})")
@@ -2194,3 +2975,41 @@ if __name__ == "__main__":
     print(f"IVs: {pokemon_dict['ivs']}")
     print(f"Raw bytes length: {len(pokemon_bytes)}")
     print(f"First 8 bytes (PID, OT_ID): {pokemon_bytes[:8].hex()}")
+    
+    # Test UPO generation if available
+    if UPO_AVAILABLE:
+        print("\n--- UPO Generation (UniversalPokemon + bytes + dict) ---")
+        try:
+            pokemon_upo, pokemon_bytes_upo, pokemon_dict_upo = gen.generate_pokemon_upo(test_recipe)
+            
+            print(f"Generated {pokemon_dict_upo['species_name']}")
+            print(f"  Species (national): {pokemon_upo.species}")
+            print(f"  Level: {pokemon_upo.level}")
+            print(f"  PID: 0x{pokemon_upo.pid:08X}")
+            print(f"  Nature: {pokemon_upo.nature} ({NATURE_NAMES[pokemon_upo.nature]})")
+            print(f"  Shiny: {pokemon_upo.is_shiny}")
+            print(f"  IVs: {pokemon_upo.ivs.to_tuple()}")
+            print(f"  Sinew ID: {pokemon_upo.sinew_id}")
+            
+            # Validate
+            is_valid, errors = gen.validate_generated_pokemon(pokemon_upo)
+            if is_valid:
+                print(f"  ✓ Validation: PASSED")
+            else:
+                print(f"  ✗ Validation: FAILED")
+                for error in errors:
+                    print(f"    - {error}")
+            
+            # Show JSON export capability
+            print(f"\n  JSON export (first 200 chars):")
+            json_str = pokemon_upo.to_json(indent=2)
+            print(f"  {json_str[:200]}...")
+            
+        except Exception as e:
+            print(f"  Error testing UPO generation: {e}")
+    else:
+        print("\n--- UPO Not Available ---")
+        print("Install universal_pokemon.py, gen3_converter.py, and legality_engine.py")
+        print("to enable UPO features (validation, JSON export, etc.)")
+    
+    print("\n" + "=" * 70)

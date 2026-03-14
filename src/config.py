@@ -57,6 +57,17 @@ ROMS_DIR = os.path.join(EXT_DIR, "roms")
 SAVES_DIR = os.path.join(EXT_DIR, "saves")
 SYSTEM_DIR = os.path.join(EXT_DIR, "system")
 
+# ROM data extracted from game ROMs (species, moves, learnsets, etc.)
+ROM_DATA_DIR = os.path.join(DATA_DIR, "rom_data")
+ROM_DATA_GEN3_DIR = os.path.join(ROM_DATA_DIR, "gen3")
+
+# Per-game ROM data directories
+ROM_DATA_EMERALD = os.path.join(ROM_DATA_GEN3_DIR, "emerald")
+ROM_DATA_RUBY = os.path.join(ROM_DATA_GEN3_DIR, "ruby")
+ROM_DATA_SAPPHIRE = os.path.join(ROM_DATA_GEN3_DIR, "sapphire")
+ROM_DATA_FIRERED = os.path.join(ROM_DATA_GEN3_DIR, "firered")
+ROM_DATA_LEAFGREEN = os.path.join(ROM_DATA_GEN3_DIR, "leafgreen")
+
 # ===== Save File Settings =====
 # Canonical set of GBA save file extensions — used everywhere saves are scanned.
 # .sav  - most emulators (mGBA, VBA, etc.)
@@ -71,6 +82,8 @@ BACKUPS_DIR = os.path.join(SAVES_DIR, "backups")
 # Sinew-specific save paths
 ACH_SAVE_PATH = os.path.join(SAVES_DIR, "sinew", "achievements_progress.json")
 ACH_REWARDS_PATH = os.path.join(DATA_DIR, "achievements", "rewards", "rewards.json")
+ACH_DELIVERED_PATH = os.path.join(DATA_DIR, "achievements", "rewards", "achievements_delivered.json")
+ECHO_DELIVERED_PATH = os.path.join(DATA_DIR, "achievements", "rewards", "echo_delivered.json")
 SETTINGS_FILE = os.path.join(SAVES_DIR, "sinew", "sinew_settings.json")
 
 # Sprite directories (organized by pack)

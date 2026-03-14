@@ -73,6 +73,10 @@ def parse_party_pokemon(data, offset):
         origins_info = struct.unpack(
             "<H", decrypted_data[misc_start + 2 : misc_start + 4]
         )[0]
+        met_level = origins_info & 0x7F
+        game_of_origin = (origins_info >> 7) & 0xF
+        pokeball = (origins_info >> 11) & 0xF
+        ot_gender_flag = (origins_info >> 15) & 0x1
         iv_egg_ability = struct.unpack(
             "<I", decrypted_data[misc_start + 4 : misc_start + 8]
         )[0]
@@ -178,6 +182,9 @@ def parse_party_pokemon(data, offset):
             "sp_attack": sp_attack,
             "sp_defense": sp_defense,
             "egg": is_egg,
+            "met_level": met_level,
+            "game_of_origin": game_of_origin,
+            "pokeball": pokeball,
             "ability_bit": ability_bit,
             "raw_bytes": bytes(
                 data[offset : offset + 0x50]
@@ -243,6 +250,10 @@ def parse_pc_pokemon(pokemon_bytes):
         origins_info = struct.unpack(
             "<H", decrypted_data[misc_start + 2 : misc_start + 4]
         )[0]
+        met_level = origins_info & 0x7F
+        game_of_origin = (origins_info >> 7) & 0xF
+        pokeball = (origins_info >> 11) & 0xF
+        ot_gender_flag = (origins_info >> 15) & 0x1
         iv_egg_ability = struct.unpack(
             "<I", decrypted_data[misc_start + 4 : misc_start + 8]
         )[0]
@@ -326,6 +337,9 @@ def parse_pc_pokemon(pokemon_bytes):
             "pokerus": pokerus,
             "met_location": met_location,
             "egg": is_egg,
+            "met_level": met_level,
+            "game_of_origin": game_of_origin,
+            "pokeball": pokeball,
             "ability_bit": ability_bit,
             "raw_bytes": bytes(pokemon_bytes),  # Store original 80 bytes for transfers
             # PC Pokemon don't have battle stats

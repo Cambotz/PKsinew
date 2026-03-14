@@ -381,6 +381,7 @@ class DBBuilderScreen:
         self.terminal_lines = []
         self.max_lines = 200
         self.scroll_offset = 0
+        self._pending_scroll = False
 
         # --- Build / download state ---
         self.is_building = False
@@ -425,6 +426,38 @@ class DBBuilderScreen:
         # Animation timing
         self._last_draw_ms = pygame.time.get_ticks()
         
+        # Welcome instructions
+        self._add_line("=== SPRITE PACK MANAGER ===")
+        self._add_line("")
+        self._add_line("SELECT A PACK:")
+        self._add_line("Green = active  Yellow = dl'd")
+        self._add_line("Grey  = not downloaded")
+        self._add_line("")
+        self._add_line("APPLYING:")
+        self._add_line("'Apply Pack To...' sets pack")
+        self._add_line("globally or per-game.")
+        self._add_line("Global needs 386 sprites.")
+        self._add_line("")
+        self._add_line("DOWNLOADING:")
+        self._add_line("'Download Sprites' fetches")
+        self._add_line("all 386 sprites for the")
+        self._add_line("selected pack.")
+        self._add_line("")
+        self._add_line("'Build Pokemon DB' downloads")
+        self._add_line("metadata (names, types...)")
+        self._add_line("")
+        self._add_line("CUSTOM PACKS:")
+        self._add_line("Place sprites in:")
+        self._add_line("packs/PACKNAME/normal/")
+        self._add_line("packs/PACKNAME/shiny/")
+        self._add_line("Named 001.png to 386.png")
+        self._add_line("(or .gif for animation)")
+        self._add_line("")
+
+        # Start terminal at top
+        self.scroll_offset = 0
+        self._pending_scroll = False
+
         # Load preview for initial pack
         self._load_preview_for_current_pack()
         
@@ -537,7 +570,7 @@ class DBBuilderScreen:
         self.terminal_lines.append(text)
         if len(self.terminal_lines) > self.max_lines:
             self.terminal_lines = self.terminal_lines[-self.max_lines:]
-        self._scroll_to_bottom()
+        self._pending_scroll = True
 
     def _scroll_to_bottom(self):
         vis = self._get_visible_line_count()
@@ -645,49 +678,157 @@ class DBBuilderScreen:
         self.build_thread.start()
 
     def _run_build(self):
-        def execute():
-            self.is_building = True
-            self.cancel_requested = False
-            old_stdout = sys.stdout
-            old_stderr = sys.stderr
+        """Fetch Pokemon metadata from PokeAPI and write to pokemon_db.json."""
+        self.is_building = True
+        self.cancel_requested = False
 
-            try:
-                if getattr(sys, "frozen", False):
-                    bundle_dir = sys._MEIPASS
-                    if bundle_dir not in sys.path:
-                        sys.path.insert(0, bundle_dir)
+        try:
+            import json
+            import time as _time
 
-                script_path = os.path.join(BASE_DIR, "DBbuilder.py")
+            MAX_POKEMON = 386
+            DB_PATH = os.path.join(config.DATA_DIR, "pokemon_db.json")
+            os.makedirs(config.DATA_DIR, exist_ok=True)
 
-                class UILogger:
-                    def __init__(self, func):
-                        self.func = func
-                    def write(self, s):
-                        if s.strip():
-                            self.func(s.strip())
-                    def flush(self):
-                        pass
+            self._add_line(f"DB: {DB_PATH}")
 
-                sys.stdout = UILogger(self._add_line)
-                sys.stderr = UILogger(self._add_line)
+            session = requests.Session()
+            session.headers.update({"User-Agent": "Sinew-DBBuilder/2.0"})
 
-                custom_globals = globals().copy()
-                custom_globals.update(
-                    {"ui_instance": self, "config": config, "__name__": "__main__"}
-                )
-                runpy.run_path(
-                    script_path, init_globals=custom_globals, run_name="__main__"
-                )
-                self._add_line("Build finished successfully!")
+            def _fetch_json(url, retries=3):
+                for attempt in range(retries):
+                    try:
+                        r = session.get(url, timeout=10)
+                        if r.status_code == 200:
+                            return r.json()
+                        if r.status_code == 404:
+                            return None
+                    except Exception as e:
+                        self._add_line(f"[warn] {e}")
+                    _time.sleep(0.5 * (attempt + 1))
+                return None
 
-            except Exception:
-                self._add_line(f"Build Error: {traceback.format_exc()}")
-            finally:
-                sys.stdout = old_stdout
-                sys.stderr = old_stderr
-                self.is_building = False
+            def _english_desc(species_data):
+                for entry in species_data.get("flavor_text_entries", []):
+                    if entry.get("language", {}).get("name") == "en":
+                        text = entry.get("flavor_text", "")
+                        return text.replace("\n", " ").replace("\f", " ").strip()
+                return None
 
-        threading.Thread(target=execute, daemon=True).start()
+            def _parse_evo(node):
+                results = []
+                species = node.get("species", {})
+                url = species.get("url", "")
+                try:
+                    pid = int(url.rstrip("/").split("/")[-1])
+                except Exception:
+                    pid = None
+                results.append({"name": species.get("name"), "species_id": pid})
+                evolves_to = node.get("evolves_to") or []
+                if evolves_to:
+                    branches = [_parse_evo(e) for e in evolves_to]
+                    if len(branches) == 1:
+                        return [*results, *branches[0][1:]]
+                    return [{"base": results[0], "branches": branches}]
+                return results
+
+            def _is_complete(entry):
+                required = ("id", "name", "types", "stats", "abilities",
+                            "height", "weight", "description", "egg_groups")
+                return all(entry.get(k) is not None for k in required)
+
+            if os.path.exists(DB_PATH):
+                with open(DB_PATH, "r", encoding="utf-8") as fh:
+                    pokemon_db = json.load(fh)
+                self._add_line(f"Loaded: {len(pokemon_db)} entries")
+            else:
+                pokemon_db = {}
+                self._add_line("Starting fresh DB")
+
+            if "items" not in pokemon_db:
+                pokemon_db["items"] = {
+                    "pokeball":    "sprites/items/poke-ball.png",
+                    "master_ball": "sprites/items/master-ball.png",
+                    "egg":         "sprites/items/egg.png",
+                }
+
+            updated = skipped = failed = 0
+            self._add_line(f"Fetching 1-{MAX_POKEMON}...")
+
+            for i in range(1, MAX_POKEMON + 1):
+                if self.cancel_requested:
+                    self._add_line("Cancelled.")
+                    break
+
+                pid_str = f"{i:03d}"
+                existing = pokemon_db.get(pid_str, {})
+
+                if _is_complete(existing):
+                    skipped += 1
+                    continue
+
+                p_data = _fetch_json(f"https://pokeapi.co/api/v2/pokemon/{i}/")
+                if not p_data:
+                    self._add_line(f"[{pid_str}] FAILED")
+                    failed += 1
+                    _time.sleep(0.5)
+                    continue
+
+                s_data = _fetch_json(f"https://pokeapi.co/api/v2/pokemon-species/{i}/") or {}
+
+                name = p_data.get("name", str(i)).replace("-", " ").title()
+                types = [t["type"]["name"].title()
+                         for t in sorted(p_data.get("types", []), key=lambda x: x.get("slot", 0))]
+                stats = {s["stat"]["name"]: s["base_stat"] for s in p_data.get("stats", [])}
+                abilities = [ab["ability"]["name"].replace("-", " ").title()
+                             for ab in p_data.get("abilities", [])]
+                egg_groups = [eg["name"].replace("-", " ").title()
+                              for eg in s_data.get("egg_groups", [])]
+                forms = [f.get("name") for f in p_data.get("forms", [])]
+                description = _english_desc(s_data)
+
+                evo_info = None
+                evo_url = s_data.get("evolution_chain", {}).get("url")
+                if evo_url:
+                    evo_data = _fetch_json(evo_url)
+                    if evo_data:
+                        evo_info = _parse_evo(evo_data.get("chain", {}))
+
+                pokemon_db[pid_str] = {
+                    "id": i,
+                    "name": name,
+                    "types": types,
+                    "height": p_data.get("height"),
+                    "weight": p_data.get("weight"),
+                    "description": description,
+                    "abilities": abilities,
+                    "egg_groups": egg_groups,
+                    "forms": forms,
+                    "stats": stats,
+                    "evolution_chain": evo_info,
+                    "sprites": existing.get("sprites", {}),
+                    "games": ["Ruby", "Sapphire", "Emerald", "FireRed", "LeafGreen"],
+                }
+
+                self._add_line(f"[{pid_str}] {name}")
+                updated += 1
+
+                if updated % 25 == 0:
+                    with open(DB_PATH, "w", encoding="utf-8") as fh:
+                        json.dump(pokemon_db, fh, indent=2, ensure_ascii=False)
+                    self._add_line(f"Checkpoint: {updated} saved")
+
+                _time.sleep(0.15)
+
+            with open(DB_PATH, "w", encoding="utf-8") as fh:
+                json.dump(pokemon_db, fh, indent=2, ensure_ascii=False)
+
+            self._add_line(f"Done! +{updated} skip={skipped} fail={failed}")
+
+        except Exception:
+            self._add_line(f"Error: {traceback.format_exc()}")
+        finally:
+            self.is_building = False
 
     def _start_wallpaper_build(self):
         if self.is_building:
@@ -809,7 +950,19 @@ class DBBuilderScreen:
                 self.show_download_confirm = True
                 return
             
-            # Pack is downloaded - apply it
+            # Pack is downloaded - check it has full 386 sprites before setting as global
+            sprite_count = pack_info.get_sprite_count() if pack_info else 0
+            if sprite_count < 386:
+                self._add_line("")
+                self._add_line(f"Cannot set as global:")
+                self._add_line(f"  Only {sprite_count}/386 sprites")
+                self._add_line(f"  Use a full Gen 3 pack")
+                self._add_line(f"  for global default.")
+                self._add_line("")
+                self.show_game_selector = False
+                return
+
+            # Pack is downloaded and complete - apply it
             old_global = manager.preferences.get("global_pack", "gen3_emerald")
             manager.set_global_pack(pack_id)
             self._save_pack_selection()
@@ -1199,6 +1352,11 @@ class DBBuilderScreen:
     # Draw
     # ------------------------------------------------------------------
     def draw(self, surface: pygame.Surface):
+        # Flush pending scroll from background thread
+        if getattr(self, '_pending_scroll', False):
+            self._pending_scroll = False
+            self._scroll_to_bottom()
+
         # Advance GIF animation frames based on elapsed time
         now = pygame.time.get_ticks()
         dt = now - getattr(self, "_last_draw_ms", now)
@@ -1423,7 +1581,7 @@ class DBBuilderScreen:
         for i, pack in enumerate(self.packs[start: start + max_items]):
             real_idx = start + i
             # Highlight box with downward offset for proper text alignment
-            item_rect = pygame.Rect(rect.left + 2, y + 4, rect.width - 4, item_h - 4)
+            item_rect = pygame.Rect(rect.left + 2, y + 7, rect.width - 4, item_h - 2)
 
             # Determine pack status
             pack_id = pack["id"]
@@ -1459,7 +1617,6 @@ class DBBuilderScreen:
             while self.font_small.size(name)[0] > rect.width - 12 and len(name) > 4:
                 name = name[:-1]
             txt = self.font_small.render(name, True, col)
-            # Text centered in the highlight box
             surface.blit(txt, (rect.left + 5, y + 6))
             y += item_h
 
@@ -1512,21 +1669,39 @@ class DBBuilderScreen:
         is_global = (current_global == pack_id)
         active_games = [game for game, pid in per_game.items() if pid == pack_id]
         
-        # Show ACTIVE badge if this pack is in use
+        # ACTIVE badge: top-left of preview area - shows ACTIVE + games below
         if is_global or active_games:
-            active_lbl = self.font_small.render("ACTIVE", True, (100, 255, 100))
-            surface.blit(active_lbl, (preview_area.right - 50, preview_area.bottom + 2))
-            
-            # Show which games use this pack
+            badge_x = preview_area.left + 3
+            badge_y = preview_area.top + 3
+            # First line: ACTIVE
+            active_surf = self.font_small.render("ACTIVE", True, (100, 255, 100))
+            active_w = active_surf.get_width() + 6
+            active_h = active_surf.get_height() + 2
+            active_bg = pygame.Rect(badge_x, badge_y, active_w, active_h)
+            pygame.draw.rect(surface, (0, 80, 0), active_bg, border_radius=3)
+            pygame.draw.rect(surface, (100, 255, 100), active_bg, 1, border_radius=3)
+            surface.blit(active_surf, (badge_x + 3, badge_y + 1))
+            # Second line: which games
             if is_global and not active_games:
-                game_lbl = self.font_small.render("(Global)", True, (80, 200, 80))
-                surface.blit(game_lbl, (preview_area.right - 50, preview_area.bottom + 12))
-            elif active_games:
-                game_text = ", ".join(active_games[:2])  # Show first 2 games
+                scope_text = "Global"
+            elif is_global:
+                scope_text = "Global"
+            else:
+                scope_text = ", ".join(active_games[:2])
                 if len(active_games) > 2:
-                    game_text += "..."
-                game_lbl = self.font_small.render(game_text, True, (80, 200, 80))
-                surface.blit(game_lbl, (preview_area.right - 50, preview_area.bottom + 12))
+                    scope_text += "..."
+            scope_surf = self.font_small.render(scope_text, True, (80, 200, 80))
+            surface.blit(scope_surf, (badge_x + 2, badge_y + active_h + 2))
+
+        # DOWNLOADED badge: top-right of the text box (below preview_area)
+        pack_info_obj = pack.get("_pack_info")
+        if pack_info_obj and pack_info_obj.is_downloaded():
+            sprite_count = pack_info_obj.get_sprite_count()
+            dl_text = f"DL {sprite_count}/386"
+            dl_surf = self.font_small.render(dl_text, True, (255, 220, 60))
+            dl_x = rect.right - dl_surf.get_width() - 4
+            dl_y = preview_area.bottom + 2
+            surface.blit(dl_surf, (dl_x, dl_y))
 
         # Pack name (bold-ish via repeated blit)
         y = preview_area.bottom + 14

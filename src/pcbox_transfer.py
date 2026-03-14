@@ -20,7 +20,7 @@ import sys
 
 import pygame
 
-from config import GEN3_NORMAL_DIR, GEN3_SHINY_DIR, get_egg_sprite_path
+from config import get_egg_sprite_path
 from ui_components import scale_surface_preserve_aspect
 
 try:
@@ -136,47 +136,107 @@ class PCBoxTransferMixin:
         print(f"Move mode: Picked up {pokemon_name}")
 
     def _load_moving_sprite(self):
-        """Load the sprite for the Pokemon being moved"""
+        """Load the sprite for the Pokemon being moved, using the active sprite pack."""
         if not self.moving_pokemon:
             self.moving_sprite = None
             return
 
-        sprite_path = self._get_pokemon_sprite_path(self.moving_pokemon)
+        species = self.moving_pokemon.get("species", 0)
+        if not species:
+            self.moving_sprite = None
+            return
 
-        if sprite_path and os.path.exists(sprite_path):
-            try:
+        # Eggs
+        if self.moving_pokemon.get("egg"):
+            egg_path = get_egg_sprite_path("gen3")
+            if os.path.exists(egg_path):
+                try:
+                    self.moving_sprite = pygame.image.load(egg_path).convert_alpha()
+                    self.moving_sprite = scale_surface_preserve_aspect(
+                        self.moving_sprite, 40, 40
+                    )
+                except Exception as e:
+                    print(f"Failed to load egg sprite: {e}")
+                    self.moving_sprite = None
+            return
+
+        shiny = self._is_pokemon_shiny(self.moving_pokemon)
+
+        # Resolve game name for per-game pack (source game, not current view)
+        source_game = None
+        if self.moving_pokemon_source:
+            source_game = self.moving_pokemon_source.get("game")
+        # "Sinew" isn't a real game pack name — use current game instead
+        if source_game == "Sinew" or not source_game:
+            source_game = self.get_current_game() if hasattr(self, 'get_current_game') else None
+
+        try:
+            from gif_sprite_handler import get_pokemon_sprite_with_fallback, GIFSprite
+
+            sprite = get_pokemon_sprite_with_fallback(
+                species_id=species,
+                game_name=source_game,
+                shiny=shiny,
+                prefer_gif=False,   # Static PNG preferred for the dragged cursor sprite
+                size=(40, 40),
+            )
+
+            if sprite:
+                if isinstance(sprite, GIFSprite):
+                    frame = sprite.get_current_frame()
+                    self.moving_sprite = frame.copy() if frame else None
+                else:
+                    self.moving_sprite = sprite
+                return
+        except Exception as e:
+            print(f"[PCBox] gif_sprite_handler failed for moving sprite: {e}")
+
+        # Fallback: direct path lookup via sprite_paths
+        try:
+            from sprite_paths import get_sprite_path_for_game_any_format
+            sprite_path, _ = get_sprite_path_for_game_any_format(
+                species, source_game, shiny, prefer_gif=False, fallback_to_global=True
+            )
+            if sprite_path and os.path.exists(sprite_path):
                 self.moving_sprite = pygame.image.load(sprite_path).convert_alpha()
                 self.moving_sprite = scale_surface_preserve_aspect(
                     self.moving_sprite, 40, 40
                 )
-            except Exception as e:
-                print(f"Failed to load moving sprite: {e}")
-                self.moving_sprite = None
-        else:
-            self.moving_sprite = None
+                return
+        except Exception as e:
+            print(f"[PCBox] sprite_paths fallback failed: {e}")
+
+        self.moving_sprite = None
 
     def _get_pokemon_sprite_path(self, pokemon):
-        """Get sprite path for a Pokemon (works for both game and Sinew storage Pokemon)"""
+        """Get sprite path for a Pokemon using the active sprite pack (not hardcoded dirs)."""
         if not pokemon or pokemon.get("empty"):
             return None
 
         if pokemon.get("egg"):
             egg_path = get_egg_sprite_path("gen3")
-            if os.path.exists(egg_path):
-                return egg_path
-            return None
+            return egg_path if os.path.exists(egg_path) else None
 
         species = pokemon.get("species", 0)
-        if species == 0:
+        if not species:
             return None
 
         shiny = self._is_pokemon_shiny(pokemon)
-        species_str = str(species).zfill(3)
-        sprite_folder = GEN3_SHINY_DIR if shiny else GEN3_NORMAL_DIR
-        sprite_path = os.path.join(sprite_folder, f"{species_str}.png")
 
-        if os.path.exists(sprite_path):
-            return sprite_path
+        game_name = None
+        if hasattr(self, 'get_current_game'):
+            game_name = self.get_current_game()
+
+        try:
+            from sprite_paths import get_sprite_path_for_game_any_format
+            sprite_path, _ = get_sprite_path_for_game_any_format(
+                species, game_name, shiny, prefer_gif=False, fallback_to_global=True
+            )
+            if sprite_path and os.path.exists(sprite_path):
+                return sprite_path
+        except Exception as e:
+            print(f"[PCBox] _get_pokemon_sprite_path failed: {e}")
+
         return None
 
     def _is_pokemon_shiny(self, pokemon):

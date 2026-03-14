@@ -1,0 +1,11 @@
+{
+  "rom_name": "Pokemon Emerald",
+  "game_code": "BPEE",
+  "game_title": "POKEMON EMER",
+  "generation": 3,
+  "extracted_at": "2026-03-14T00:19:54.853703",
+  "extractor_version": "1.0.0",
+  "rom_hash": "f3ae088181bf583e55daf962a92bb46f4f1d07b7",
+  "rom_size": 16777216,
+  "notes": "Extracted from official ROM"
+}

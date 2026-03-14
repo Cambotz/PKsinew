@@ -55,6 +55,29 @@ class PCBoxDrawMixin:
     """Mixin providing all rendering methods for PCBox."""
 
     # ------------------------------------------------------------------ #
+    #  Shiny detection helper                                              #
+    # ------------------------------------------------------------------ #
+
+    @staticmethod
+    def _compute_is_shiny(pokemon):
+        """
+        Compute whether a Pokemon is shiny from its personality and OT ID.
+        Gen 3 formula: TID ^ SID ^ PID_HIGH ^ PID_LOW < 8.
+        Falls back to stored flags only if PID/OTID are missing.
+        """
+        if not pokemon or pokemon.get("empty") or pokemon.get("egg"):
+            return False
+        personality = pokemon.get("personality", 0)
+        ot_id = pokemon.get("ot_id", 0)
+        if personality and ot_id:
+            tid     = ot_id & 0xFFFF
+            sid     = (ot_id >> 16) & 0xFFFF
+            pid_low = personality & 0xFFFF
+            pid_high = (personality >> 16) & 0xFFFF
+            return (tid ^ sid ^ pid_low ^ pid_high) < 8
+        return pokemon.get("is_shiny", False) or pokemon.get("shiny", False)
+
+    # ------------------------------------------------------------------ #
     #  Sprite scaling helpers                                              #
     # ------------------------------------------------------------------ #
 
@@ -444,7 +467,7 @@ class PCBoxDrawMixin:
 
                 # Get Pokemon ID and shiny status
                 poke_id = poke.get("species", 0)  # National dex number
-                is_shiny = poke.get("is_shiny", False) or poke.get("shiny", False)
+                is_shiny = self._compute_is_shiny(poke)
                 
                 # Calculate target size with margin
                 cell_size = min(rect.width, rect.height)
@@ -791,7 +814,7 @@ class PCBoxDrawMixin:
                 else:
                     # Valid Pokemon - load sprite
                     poke_id = self.selected_pokemon.get("species", 0)
-                    is_shiny = self.selected_pokemon.get("is_shiny", False) or self.selected_pokemon.get("shiny", False)
+                    is_shiny = self._compute_is_shiny(self.selected_pokemon)
                     
                     # Get best sprite (prioritize GIF for animation)
                     sprite_path, is_gif = self._get_best_sprite_path(poke_id, is_shiny, prefer_gif=True)
@@ -1279,7 +1302,7 @@ class PCBoxDrawMixin:
                     if not poke.get("egg"):
                         # Get Pokemon ID and shiny status
                         poke_id = poke.get("species", 0)
-                        is_shiny = poke.get("is_shiny", False) or poke.get("shiny", False)
+                        is_shiny = self._compute_is_shiny(poke)
                         
                         # Calculate sprite size
                         max_sprite_w = int(slot.width * 0.7)
@@ -1916,7 +1939,7 @@ class PCBoxDrawMixin:
                     if hasattr(self, 'get_current_game_callback') and self.get_current_game_callback:
                         game_name = self.get_current_game_callback()
                     
-                    is_shiny = poke.get("is_shiny", False) or poke.get("shiny", False)
+                    is_shiny = self._compute_is_shiny(poke)
                     
                     # Try sprite_paths system with fallback to global
                     try:

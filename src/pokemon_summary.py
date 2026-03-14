@@ -267,21 +267,21 @@ def get_game_info(game_version_code):
     """
     Get game name and icon path from Gen3 game version code.
     
-    Gen3 game version codes:
-    1 = Sapphire, 2 = Ruby, 3 = Emerald
-    4 = FireRed, 5 = LeafGreen
-    15 = Colosseum/XD (Gamecube)
+    Gen3 game version codes (per PKHeX GameVersion enum):
+    1 = Ruby, 2 = Sapphire, 4 = FireRed, 5 = LeafGreen
+    8 = Emerald, 15 = Colosseum/XD (Gamecube)
     
     Returns:
         tuple: (game_name, icon_path) or (None, None) if unknown
     """
     game_map = {
-        1: ("Sapphire", os.path.join(TITLE_SPRITES_DIR, "sapphire.gif")),
-        2: ("Ruby", os.path.join(TITLE_SPRITES_DIR, "ruby.gif")),
-        3: ("Emerald", os.path.join(TITLE_SPRITES_DIR, "emerald.gif")),
-        4: ("FireRed", os.path.join(TITLE_SPRITES_DIR, "firered.gif")),
+        # Correct Gen 3 origin codes per PKHeX GameVersion enum
+        1: ("Ruby",      os.path.join(TITLE_SPRITES_DIR, "ruby.gif")),
+        2: ("Sapphire",  os.path.join(TITLE_SPRITES_DIR, "sapphire.gif")),
+        4: ("FireRed",   os.path.join(TITLE_SPRITES_DIR, "firered.gif")),
         5: ("LeafGreen", os.path.join(TITLE_SPRITES_DIR, "leafgreen.gif")),
-        15: ("Colosseum", None),  # No icon for Gamecube games
+        8: ("Emerald",   os.path.join(TITLE_SPRITES_DIR, "emerald.gif")),
+        15: ("Colosseum", None),
     }
     return game_map.get(game_version_code, (None, None))
 
@@ -343,6 +343,29 @@ NATURE_EFFECTS = {
 # Move data - basic Gen 3 moves (we'd need a full database for this)
 # For now, just display move IDs and what info we have
 MOVE_NAMES = {}  # Will be loaded from file if available
+
+
+def _compute_is_shiny(pokemon):
+    """
+    Compute whether a Pokemon is shiny from its personality and OT ID.
+    Falls back to stored 'is_shiny'/'shiny' flags if PID/OTID are missing.
+    Gen 3 shiny formula: TID ^ SID ^ PID_HIGH ^ PID_LOW < 8
+    """
+    if not pokemon or pokemon.get("empty") or pokemon.get("egg"):
+        return False
+
+    personality = pokemon.get("personality", 0)
+    ot_id = pokemon.get("ot_id", 0)
+
+    if personality and ot_id:
+        tid = ot_id & 0xFFFF
+        sid = (ot_id >> 16) & 0xFFFF
+        pid_low = personality & 0xFFFF
+        pid_high = (personality >> 16) & 0xFFFF
+        return (tid ^ sid ^ pid_low ^ pid_high) < 8
+
+    # Fall back to stored flag if PID/OTID unavailable
+    return pokemon.get("is_shiny", False) or pokemon.get("shiny", False)
 
 
 class PokemonOptionsMenu:
@@ -526,7 +549,7 @@ class PokemonSummary:
             # Also try 'species_id' or 'national_dex'
             species = self.pokemon.get("species_id", 0) or self.pokemon.get("national_dex", 0)
         
-        is_shiny = self.pokemon.get("is_shiny", False) or self.pokemon.get("shiny", False)
+        is_shiny = _compute_is_shiny(self.pokemon)
         
         # Get current game name for per-game sprite pack support
         game_name = None
@@ -847,7 +870,7 @@ class PokemonSummary:
         surf.blit(exp_text, (info_x, info_y))
 
         # Shiny indicator (sparkling gold text below EXP)
-        is_shiny = self.pokemon.get("is_shiny", False) or self.pokemon.get("shiny", False)
+        is_shiny = _compute_is_shiny(self.pokemon)
         if is_shiny:
             info_y += 18
             # Sparkling gold color - use asterisk instead of Unicode star
