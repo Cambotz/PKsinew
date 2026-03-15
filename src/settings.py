@@ -653,6 +653,7 @@ class Settings:
         reload_combo_callback=None,
         emulator_provider_callback=None,
         use_integrated_mgba_callback=None,
+        external_files_callback=None,
     ):
         self.width = w
         self.height = h
@@ -669,6 +670,7 @@ class Settings:
             reload_combo_callback=reload_combo_callback,
             emulator_provider_callback=emulator_provider_callback,
             use_integrated_mgba_callback=use_integrated_mgba_callback,
+            external_files_callback=external_files_callback,
         )
         self.visible = True
 
@@ -1167,6 +1169,7 @@ class MainSetup:
         reload_combo_callback=None,
         emulator_provider_callback=None,
         use_integrated_mgba_callback=None,
+        external_files_callback=None,
     ):
         self.width = width
         self.height = height
@@ -1180,6 +1183,7 @@ class MainSetup:
         self.reload_combo_callback = reload_combo_callback
         self.emulator_provider_callback = emulator_provider_callback
         self.use_integrated_mgba_callback = use_integrated_mgba_callback
+        self.external_files_callback = external_files_callback
         self.controller = get_controller()
 
         # Sub-screen state
@@ -1562,10 +1566,12 @@ class MainSetup:
             self.music_mute_callback(value)
 
         elif name == "External Files":
-            # Emu tab — controls external ROM/save file paths.
-            # Delegates to session which shows a switch dialog and calls
-            # revert_provider_toggle() to sync the UI after commit/revert.
-            if self.emulator_provider_callback:
+            # Controls only ROM/save file path scanning — does NOT change
+            # which emulator binary is active.
+            if self.external_files_callback:
+                self.external_files_callback(value)
+            elif self.emulator_provider_callback:
+                # Fallback for callers that haven't wired the new callback
                 self.emulator_provider_callback(value)
 
         elif name == "External Emulator":
