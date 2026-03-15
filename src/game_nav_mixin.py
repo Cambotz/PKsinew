@@ -263,28 +263,19 @@ class GameNavMixin:
         roms_dir = ROMS_DIR
         saves_dir = SAVES_DIR
 
-        # Use external paths when the External Files toggle is ON, regardless
-        # of whether the active emulator provider is integrated or external.
-        # This decouples file-path scanning from the emulator binary choice,
-        # enabling all four combinations:
-        #   internal files / internal emulator  -> use_emulator_provider=False
-        #   external files / internal emulator  -> use_emulator_provider=True
-        #   internal files / external emulator  -> use_emulator_provider=False
-        #   external files / external emulator  -> use_emulator_provider=True
-        use_ext_files = self.settings.get('use_emulator_provider', False)
         if (
-            use_ext_files
-            and self.emulator_manager
+            self.emulator_manager
             and self.emulator_manager.active_provider
+            and not getattr(self.emulator_manager.active_provider, "is_integrated", False)
         ):
             provider = self.emulator_manager.active_provider
             ext_roms_dir = getattr(provider, "roms_dir", None)
             ext_saves_dir = getattr(provider, "saves_dir", None)
 
-            if ext_roms_dir and ext_roms_dir != ROMS_DIR:
+            if ext_roms_dir:
                 roms_dir = ext_roms_dir
                 print(f"[EmulatorManager] Scanning external ROMs: {roms_dir}")
-            if ext_saves_dir and ext_saves_dir != SAVES_DIR:
+            if ext_saves_dir:
                 saves_dir = ext_saves_dir
                 print(f"[EmulatorManager] Scanning external saves: {saves_dir}")
 

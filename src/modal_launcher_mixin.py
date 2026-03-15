@@ -169,7 +169,6 @@ class ModalLauncherMixin:
                 reload_combo_callback=self._reload_pause_combo_setting,
                 emulator_provider_callback=self._on_emulator_provider_toggled,
                 use_integrated_mgba_callback=self._on_use_integrated_mgba,
-                external_files_callback=self._on_external_files_toggled,
             )
             self.modal_instance = settings_modal
             # Keep a reference so provider dialogs can sync the Settings UI
@@ -194,7 +193,6 @@ class ModalLauncherMixin:
                 on_close=self._close_modal,
                 on_event_claimed=self._on_event_claimed,
                 game_name=current_game_name,
-                is_game_running_callback=self._get_running_game_name,
             )
         elif name == "DB Builder" and DBBuilder:
             self.modal_instance = DBBuilder(
