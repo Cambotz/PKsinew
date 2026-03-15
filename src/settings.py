@@ -18,6 +18,8 @@ from config import (
     AUDIO_BUFFER_OPTIONS, AUDIO_QUEUE_OPTIONS,
     AUDIO_BUFFER_DEFAULT, AUDIO_BUFFER_DEFAULT_ARM, AUDIO_QUEUE_DEPTH_DEFAULT,
     VOLUME_DEFAULT, VOLUME_MIN, VOLUME_MAX, VOLUME_STEP,
+    MUSIC_DIR, MUSIC_EXTENSIONS,
+    DEFAULT_USE_EXTERNAL_EMULATOR,
 )
 from ui_scale import ui, scaled_font
 
@@ -1134,6 +1136,16 @@ class KeyboardMapper:
         surf.blit(hs, hs.get_rect(centerx=self.width // 2, bottom=self.height - 8))
 
 
+# JukeboxScreen lives in its own module
+try:
+    from jukebox import JukeboxScreen
+    JUKEBOX_AVAILABLE = True
+except ImportError:
+    JukeboxScreen = None
+    JUKEBOX_AVAILABLE = False
+
+
+
 # -----------------------------
 # Main Setup / Settings Class
 # -----------------------------
@@ -1188,7 +1200,7 @@ class MainSetup:
         self.font_small = scaled_font(10)
 
         # Tab definitions
-        self.tabs = ["General", "Input", "mGBA", "Info"]
+        self.tabs = ["General", "Input", "Emu", "Info"]
         self.selected_tab = 0
 
         # Track if we're navigating tabs or options
@@ -1200,7 +1212,6 @@ class MainSetup:
                 # Fullscreen has no meaning on a handheld — hide it entirely
                 *([] if IS_HANDHELD else [{"name": "Fullscreen", "type": "toggle",
                     "value": False}]),
-                {"name": "Use External Providers", "type": "toggle", "value": False},
                 {
                     "name": "Volume",
                     "type": "slider",
@@ -1209,6 +1220,7 @@ class MainSetup:
                     "volume_values": list(range(VOLUME_MIN, VOLUME_MAX + 1, VOLUME_STEP)),
                 },
                 {"name": "Mute Menu Music", "type": "toggle", "value": False},
+                {"name": "Jukebox", "type": "button"},
                 {"name": "Themes", "type": "button"},
                 {"name": "Sprite Pack Manager", "type": "button"},
             ],
@@ -1220,7 +1232,7 @@ class MainSetup:
                 {"name": "Map Keyboard Keys", "type": "button"},
                 {"name": "Reset Keyboard Defaults", "type": "button"},
             ],
-            "mGBA": self._build_mgba_tab_options(),
+            "Emu": self._build_mgba_tab_options(),
             "Info": [
                 {"name": "Sinew Version", "type": "label", "value": "v1.3.7"},
                 {"name": "Author", "type": "label", "value": "Cameron Penna"},
@@ -1262,9 +1274,6 @@ class MainSetup:
                 opt["value"] = settings.get("mute_menu_music", False)
             elif opt["name"] == "Fullscreen":
                 opt["value"] = settings.get("fullscreen", False)
-            elif opt["name"] == "Use External Providers":
-                from config import DEFAULT_USE_EXTERNAL_PROVIDERS
-                opt["value"] = settings.get("use_emulator_provider", DEFAULT_USE_EXTERNAL_PROVIDERS)
             elif opt["name"] == "Volume":
                 saved_vol = settings.get("master_volume", VOLUME_DEFAULT)
                 vol_values = opt.get("volume_values", list(range(VOLUME_MIN, VOLUME_MAX + 1,
@@ -1279,9 +1288,14 @@ class MainSetup:
             if opt["name"] == "Swap A/B Buttons":
                 opt["value"] = settings.get("swap_ab", False)
 
-        # Load mGBA tab settings
-        for opt in self.tab_options["mGBA"]:
-            if opt["name"] == "Controller FF Buttons":
+        # Load Emu tab settings
+        for opt in self.tab_options["Emu"]:
+            if opt["name"] == "External Files":
+                from config import DEFAULT_USE_EXTERNAL_PROVIDERS
+                opt["value"] = settings.get("use_emulator_provider", DEFAULT_USE_EXTERNAL_PROVIDERS)
+            elif opt["name"] == "External Emulator":
+                opt["value"] = settings.get("use_external_emulator", DEFAULT_USE_EXTERNAL_EMULATOR)
+            elif opt["name"] == "Controller FF Buttons":
                 opt["value"] = settings.get("mgba_ctrl_ff_enabled", True)
             elif opt["name"] == "Fast-Forward Speed":
                 saved_idx = settings.get("mgba_fastforward_index", 0)
@@ -1310,7 +1324,7 @@ class MainSetup:
                 emu.audio_settings_reverted = False
                 # Re-read the (now default) values from the persisted settings
                 reverted_settings = load_sinew_settings()
-                for opt in self.tab_options.get("mGBA", []):
+                for opt in self.tab_options.get("Emu", []):
                     if opt["name"] == "Audio Buffer":
                         rb = reverted_settings.get("mgba_audio_buffer",
                                                    AUDIO_BUFFER_DEFAULT_ARM if _IS_ARM_AUDIO else AUDIO_BUFFER_DEFAULT)  # pylint: disable=line-too-long  # noqa: E501
@@ -1326,26 +1340,43 @@ class MainSetup:
             pass
 
     # ------------------------------------------------------------------
-    # mGBA tab — dynamic construction based on provider state
+    # Emu tab — static list; both provider toggles always visible
     # ------------------------------------------------------------------
 
     def _build_mgba_tab_options(self):
         """
-        Build the mGBA tab option list.
+        Build the Emu tab option list.
 
-        When external providers are active the tab shows only the
-        'Use Integrated mGBA' toggle (so the user can switch back) plus
-        an info label explaining that options are hidden.
+        Two independent toggles sit at the top, always visible:
+          - 'External Files'    → use external ROM/save paths (use_emulator_provider)
+          - 'External Emulator' → use an external emulator binary instead of
+                                  the built-in mGBA (use_external_emulator)
 
-        When integrated mGBA is active all audio/speed options are shown
-        plus a 'Use External Emulator' toggle (if external providers exist).
+        All four combinations are valid:
+          internal files  / internal emulator  (desktop default)
+          external files  / internal emulator  (external paths, run through mGBA)
+          internal files  / external emulator  (unusual but allowed)
+          external files  / external emulator  (handheld default)
+
+        The integrated mGBA audio/speed options always follow, regardless of
+        which provider is active.
         """
         from config import DEFAULT_USE_EXTERNAL_PROVIDERS
         settings = load_sinew_settings()
-        use_external = settings.get("use_emulator_provider", DEFAULT_USE_EXTERNAL_PROVIDERS)
+        use_ext_files = settings.get("use_emulator_provider", DEFAULT_USE_EXTERNAL_PROVIDERS)
+        use_ext_emu   = settings.get("use_external_emulator", DEFAULT_USE_EXTERNAL_EMULATOR)
 
-        # Integrated options (always built — shown or hidden depending on mode)
-        integrated_opts = [
+        return [
+            {
+                "name": "External Files",
+                "type": "toggle",
+                "value": use_ext_files,
+            },
+            {
+                "name": "External Emulator",
+                "type": "toggle",
+                "value": use_ext_emu,
+            },
             {"name": "Controller FF Buttons", "type": "toggle", "value": True},
             {
                 "name": "Fast-Forward Speed",
@@ -1373,82 +1404,22 @@ class MainSetup:
             },
         ]
 
-        if use_external:
-            # External mode: hide all mGBA options, show toggle-back + info
-            return [
-                {
-                    "name": "Use Integrated mGBA",
-                    "type": "toggle",
-                    "value": False,  # currently using external, so this is OFF
-                },
-                {
-                    "name": "Using External Emulator",
-                    "type": "label",
-                    "value": "mGBA options hidden",
-                },
-            ]
-        else:
-            # Integrated mode: show all options + toggle to switch to external
-            return [
-                {
-                    "name": "Use External Emulator",
-                    "type": "toggle",
-                    "value": False,  # currently using integrated, so this is OFF
-                },
-            ] + integrated_opts
-
     def _rebuild_mgba_tab(self, use_external):
         """
-        Rebuild the mGBA tab options in-place when the provider mode changes.
-        Preserves current slider/toggle values where possible, then resets
-        navigation so the cursor lands at the top of the rebuilt tab.
+        Sync the 'External Files' toggle in the Emu tab after a provider switch
+        is committed or reverted by emulator_session.
+        The tab structure is static so no full rebuild is needed.
         """
-        # Save current integrated values before rebuilding
-        old_opts = {o["name"]: o for o in self.tab_options.get("mGBA", [])}
-
-        # Rebuild
-        self.tab_options["mGBA"] = self._build_mgba_tab_options()
-
-        # Restore saved values into the new option list
-        settings = load_sinew_settings()
-        for opt in self.tab_options["mGBA"]:
-            name = opt["name"]
-            if name == "Controller FF Buttons":
-                opt["value"] = settings.get("mgba_ctrl_ff_enabled", True)
-            elif name == "Fast-Forward Speed":
-                saved_idx = settings.get("mgba_fastforward_index", 0)
-                opt["slider_index"] = max(0, min(saved_idx, len(opt.get("speed_values", [0])) - 1))
-            elif name == "Mute Emulator":
-                opt["value"] = settings.get("mgba_muted", False)
-            elif name == "Audio Buffer":
-                saved_buf = settings.get(
-                    "mgba_audio_buffer",
-                    AUDIO_BUFFER_DEFAULT_ARM if _IS_ARM_AUDIO else AUDIO_BUFFER_DEFAULT)
-                if saved_buf in AUDIO_BUFFER_OPTIONS:
-                    opt["slider_index"] = AUDIO_BUFFER_OPTIONS.index(saved_buf)
-            elif name == "Queue Depth":
-                saved_depth = settings.get("mgba_audio_queue_depth", AUDIO_QUEUE_DEPTH_DEFAULT)
-                if saved_depth in AUDIO_QUEUE_OPTIONS:
-                    opt["slider_index"] = AUDIO_QUEUE_OPTIONS.index(saved_depth)
-
-        # Reset navigation
-        if self.current_tab() == "mGBA":
-            self.selected_option = 0
-        self._update_option_nav()
-
-    def revert_provider_toggle(self, use_external):
-        """
-        Called by emulator_session when a provider switch is reverted or committed.
-        Flips the 'Use External Providers' toggle in the General tab to match
-        the actual state, and rebuilds the mGBA tab accordingly.
-        """
-        # Update General tab toggle
-        for opt in self.tab_options.get("General", []):
-            if opt["name"] == "Use External Providers":
+        for opt in self.tab_options.get("Emu", []):
+            if opt["name"] == "External Files":
                 opt["value"] = use_external
                 break
 
-        # Rebuild mGBA tab for the new state
+    def revert_provider_toggle(self, use_external):
+        """
+        Called by emulator_session when a file-provider switch is committed or
+        reverted. Syncs the 'External Files' toggle in the Emu tab.
+        """
         self._rebuild_mgba_tab(use_external)
 
     def _update_option_nav(self):
@@ -1576,26 +1547,25 @@ class MainSetup:
         elif name == "Mute Menu Music" and self.music_mute_callback:
             self.music_mute_callback(value)
 
-        elif name == "Use External Providers":
-            # General tab toggle — delegate entirely to session; session owns
-            # saving and will call revert_provider_toggle() if needed.
+        elif name == "External Files":
+            # Emu tab — controls external ROM/save file paths.
+            # Delegates to session which shows a switch dialog and calls
+            # revert_provider_toggle() to sync the UI after commit/revert.
             if self.emulator_provider_callback:
                 self.emulator_provider_callback(value)
 
-        elif name == "Use External Emulator":
-            # mGBA tab: switch FROM integrated TO external binary
-            if self.emulator_provider_callback:
-                self.emulator_provider_callback(True)
-
-        elif name == "Use Integrated mGBA":
-            # mGBA tab: switch FROM external binary TO integrated mGBA,
-            # but KEEP external paths (use_emulator_provider stays True if
-            # external paths exist — we're only changing the emulator, not paths).
-            if self.use_integrated_mgba_callback:
-                self.use_integrated_mgba_callback()
-            elif self.emulator_provider_callback:
-                # Fallback: no dedicated callback, treat as full toggle OFF
-                self.emulator_provider_callback(False)
+        elif name == "External Emulator":
+            # Emu tab — controls which emulator binary runs.
+            # ON  → switch to external binary (emulator_provider_callback(True))
+            # OFF → switch back to integrated mGBA (use_integrated_mgba_callback)
+            if value:
+                if self.emulator_provider_callback:
+                    self.emulator_provider_callback(True)
+            else:
+                if self.use_integrated_mgba_callback:
+                    self.use_integrated_mgba_callback()
+                elif self.emulator_provider_callback:
+                    self.emulator_provider_callback(False)
 
         elif name == "Controller FF Buttons":
             self._save_mgba_fastforward_settings()
@@ -1608,7 +1578,7 @@ class MainSetup:
         ctrl_ff_enabled = True
         speed_index = 0
         speed_values = [2, 3, 4, 5, 6, 7, 8, 9, 10]
-        for opt in self.tab_options.get("mGBA", []):
+        for opt in self.tab_options.get("Emu", []):
             if opt["name"] == "Controller FF Buttons":
                 ctrl_ff_enabled = opt.get("value", True)
             elif opt["name"] == "Fast-Forward Speed":
@@ -1647,7 +1617,7 @@ class MainSetup:
     def _apply_fastforward_to_emulator(self):
         """Push the controller FF enabled state to the running emulator via builtins."""
         ctrl_ff_enabled = True
-        for opt in self.tab_options.get("mGBA", []):
+        for opt in self.tab_options.get("Emu", []):
             if opt["name"] == "Controller FF Buttons":
                 ctrl_ff_enabled = opt.get("value", True)
                 break
@@ -1731,7 +1701,7 @@ class MainSetup:
         buf_value = AUDIO_BUFFER_DEFAULT_ARM if _IS_ARM_AUDIO else AUDIO_BUFFER_DEFAULT
         depth_value = AUDIO_QUEUE_DEPTH_DEFAULT
 
-        for opt in self.tab_options.get("mGBA", []):
+        for opt in self.tab_options.get("Emu", []):
             if opt["name"] == "Audio Buffer":
                 idx = opt.get("slider_index", 0)
                 vals = opt.get("audio_values", AUDIO_BUFFER_OPTIONS)
@@ -1788,7 +1758,17 @@ class MainSetup:
 
     def _handle_button(self, name):
         """Handle button press actions"""
-        if name == "Themes":
+        if name == "Jukebox":
+            if JUKEBOX_AVAILABLE:
+                print("[Settings] Opening Jukebox...")
+                self._set_sub_screen(
+                    JukeboxScreen(
+                        self.width, self.height, close_callback=self._close_sub_screen
+                    )
+                )
+            else:
+                print("[Settings] Jukebox not available")
+        elif name == "Themes":
             if THEMES_SCREEN_AVAILABLE:
                 print("[Settings] Opening themes screen...")
                 self._set_sub_screen(

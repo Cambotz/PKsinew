@@ -119,6 +119,13 @@ SOUNDS_DIR         = os.path.join(DATA_DIR, "sounds")
 EFFECTS_DIR        = os.path.join(SOUNDS_DIR, "effects")
 SHINY_SOUND_PATH   = os.path.join(EFFECTS_DIR, "shiny.mp3")
 
+# Music paths
+MUSIC_DIR          = os.path.join(SOUNDS_DIR, "music")
+MENU_MUSIC_PATH    = os.path.join(MUSIC_DIR, "SinewMenu.mp3")
+
+# Supported music file extensions for the Jukebox
+MUSIC_EXTENSIONS   = (".mp3", ".ogg", ".wav", ".flac", ".opus")
+
 # Database paths
 POKEMON_DB_PATH = os.path.join(DATA_DIR, "pokemon_db.json")
 
@@ -252,6 +259,10 @@ def _default_use_external_providers():
 
 
 DEFAULT_USE_EXTERNAL_PROVIDERS = _default_use_external_providers()
+
+# Whether to use an external emulator binary by default (vs integrated mGBA).
+# Matches the external-providers default — handhelds and RetroPie use external.
+DEFAULT_USE_EXTERNAL_EMULATOR = DEFAULT_USE_EXTERNAL_PROVIDERS
 
 
 def _detect_video_driver():
@@ -801,7 +812,7 @@ def get_egg_sprite_path(sprite_type="gen3"):
 # ===== Directory Creation =====
 # Create necessary directories if they don't exist
 # Other external directories (data, themes, sprites) should be included in the distribution
-for dir_path in [ROMS_DIR, SAVES_DIR, BACKUPS_DIR, SYSTEM_DIR, os.path.dirname(SETTINGS_FILE)]:
+for dir_path in [ROMS_DIR, SAVES_DIR, BACKUPS_DIR, SYSTEM_DIR, os.path.dirname(SETTINGS_FILE), MUSIC_DIR]:
     os.makedirs(dir_path, exist_ok=True)
 
 
