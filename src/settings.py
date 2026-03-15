@@ -689,12 +689,12 @@ class Settings:
         self.screen.draw(surf)
 
     def revert_provider_toggle(self, use_external):
-        """Passthrough so emulator_session can flip the External Files toggle."""
+        """Passthrough so emulator_session can rebuild the Emu tab."""
         self.screen.revert_provider_toggle(use_external)
 
     def revert_emulator_toggle(self, use_external_emulator):
-        """Passthrough so emulator_session can flip the External Emulator toggle."""
-        self.screen.revert_emulator_toggle(use_external_emulator)
+        """No-op passthrough for API compatibility."""
+        pass
 
 
 # Alias for backwards compatibility
@@ -1298,11 +1298,9 @@ class MainSetup:
 
         # Load Emu tab settings
         for opt in self.tab_options["Emu"]:
-            if opt["name"] == "External Files":
+            if opt["name"] == "Use External Providers":
                 from config import DEFAULT_USE_EXTERNAL_PROVIDERS
                 opt["value"] = settings.get("use_emulator_provider", DEFAULT_USE_EXTERNAL_PROVIDERS)
-            elif opt["name"] == "External Emulator":
-                opt["value"] = settings.get("use_external_emulator", DEFAULT_USE_EXTERNAL_EMULATOR)
             elif opt["name"] == "Controller FF Buttons":
                 opt["value"] = settings.get("mgba_ctrl_ff_enabled", True)
             elif opt["name"] == "Fast-Forward Speed":
@@ -1350,41 +1348,25 @@ class MainSetup:
     # ------------------------------------------------------------------
     # Emu tab — static list; both provider toggles always visible
     # ------------------------------------------------------------------
+    # Emu tab — dynamic construction based on provider state
+    # ------------------------------------------------------------------
 
     def _build_mgba_tab_options(self):
         """
         Build the Emu tab option list.
 
-        Two independent toggles sit at the top, always visible:
-          - 'External Files'    → use external ROM/save paths (use_emulator_provider)
-          - 'External Emulator' → use an external emulator binary instead of
-                                  the built-in mGBA (use_external_emulator)
+        When external providers are active the tab shows only the
+        'Use Integrated mGBA' toggle (so the user can switch back) plus
+        an info label explaining that mGBA options are hidden.
 
-        All four combinations are valid:
-          internal files  / internal emulator  (desktop default)
-          external files  / internal emulator  (external paths, run through mGBA)
-          internal files  / external emulator  (unusual but allowed)
-          external files  / external emulator  (handheld default)
-
-        The integrated mGBA audio/speed options always follow, regardless of
-        which provider is active.
+        When integrated mGBA is active all audio/speed options are shown
+        plus a 'Use External Providers' toggle at the top.
         """
         from config import DEFAULT_USE_EXTERNAL_PROVIDERS
         settings = load_sinew_settings()
-        use_ext_files = settings.get("use_emulator_provider", DEFAULT_USE_EXTERNAL_PROVIDERS)
-        use_ext_emu   = settings.get("use_external_emulator", DEFAULT_USE_EXTERNAL_EMULATOR)
+        use_external = settings.get("use_emulator_provider", DEFAULT_USE_EXTERNAL_PROVIDERS)
 
-        return [
-            {
-                "name": "External Files",
-                "type": "toggle",
-                "value": use_ext_files,
-            },
-            {
-                "name": "External Emulator",
-                "type": "toggle",
-                "value": use_ext_emu,
-            },
+        integrated_opts = [
             {"name": "Controller FF Buttons", "type": "toggle", "value": True},
             {
                 "name": "Fast-Forward Speed",
@@ -1412,33 +1394,70 @@ class MainSetup:
             },
         ]
 
+        if use_external:
+            return [
+                {
+                    "name": "Use Integrated mGBA",
+                    "type": "toggle",
+                    "value": False,
+                },
+                {
+                    "name": "Using External Emulator",
+                    "type": "label",
+                    "value": "mGBA options hidden",
+                },
+            ]
+        else:
+            return [
+                {
+                    "name": "Use External Providers",
+                    "type": "toggle",
+                    "value": False,
+                },
+            ] + integrated_opts
+
     def _rebuild_mgba_tab(self, use_external):
         """
-        Sync the 'External Files' toggle in the Emu tab after a provider switch
-        is committed or reverted by emulator_session.
-        The tab structure is static so no full rebuild is needed.
+        Rebuild the Emu tab options in-place when the provider mode changes.
+        Preserves current slider/toggle values, resets cursor to top.
         """
-        for opt in self.tab_options.get("Emu", []):
-            if opt["name"] == "External Files":
-                opt["value"] = use_external
-                break
+        self.tab_options["Emu"] = self._build_mgba_tab_options()
+
+        settings = load_sinew_settings()
+        for opt in self.tab_options["Emu"]:
+            name = opt["name"]
+            if name == "Controller FF Buttons":
+                opt["value"] = settings.get("mgba_ctrl_ff_enabled", True)
+            elif name == "Fast-Forward Speed":
+                saved_idx = settings.get("mgba_fastforward_index", 0)
+                opt["slider_index"] = max(0, min(saved_idx, len(opt.get("speed_values", [0])) - 1))
+            elif name == "Mute Emulator":
+                opt["value"] = settings.get("mgba_muted", False)
+            elif name == "Audio Buffer":
+                saved_buf = settings.get(
+                    "mgba_audio_buffer",
+                    AUDIO_BUFFER_DEFAULT_ARM if _IS_ARM_AUDIO else AUDIO_BUFFER_DEFAULT)
+                if saved_buf in AUDIO_BUFFER_OPTIONS:
+                    opt["slider_index"] = AUDIO_BUFFER_OPTIONS.index(saved_buf)
+            elif name == "Queue Depth":
+                saved_depth = settings.get("mgba_audio_queue_depth", AUDIO_QUEUE_DEPTH_DEFAULT)
+                if saved_depth in AUDIO_QUEUE_OPTIONS:
+                    opt["slider_index"] = AUDIO_QUEUE_OPTIONS.index(saved_depth)
+
+        if self.current_tab() == "Emu":
+            self.selected_option = 0
+        self._update_option_nav()
 
     def revert_provider_toggle(self, use_external):
         """
-        Called by emulator_session when a file-provider switch is committed or
-        reverted. Syncs the 'External Files' toggle in the Emu tab.
+        Called by emulator_session when a provider switch is committed or reverted.
+        Rebuilds the Emu tab to reflect the new state.
         """
         self._rebuild_mgba_tab(use_external)
 
     def revert_emulator_toggle(self, use_external_emulator):
-        """
-        Called by emulator_session when the emulator binary changes.
-        Syncs the 'External Emulator' toggle in the Emu tab.
-        """
-        for opt in self.tab_options.get('Emu', []):
-            if opt['name'] == 'External Emulator':
-                opt['value'] = use_external_emulator
-                break
+        """No-op — emulator state is handled by revert_provider_toggle."""
+        pass
 
     def _update_option_nav(self):
         """Update NavigableList for current tab"""
@@ -1565,27 +1584,23 @@ class MainSetup:
         elif name == "Mute Menu Music" and self.music_mute_callback:
             self.music_mute_callback(value)
 
-        elif name == "External Files":
-            # Controls only ROM/save file path scanning — does NOT change
-            # which emulator binary is active.
-            if self.external_files_callback:
-                self.external_files_callback(value)
-            elif self.emulator_provider_callback:
-                # Fallback for callers that haven't wired the new callback
+        elif name == "Use External Providers":
+            # Emu tab toggle — delegates to session; session owns saving and
+            # will call revert_provider_toggle() to sync the UI after commit/revert.
+            if self.emulator_provider_callback:
                 self.emulator_provider_callback(value)
 
-        elif name == "External Emulator":
-            # Emu tab — controls which emulator binary runs.
-            # ON  → switch to external binary (emulator_provider_callback(True))
-            # OFF → switch back to integrated mGBA (use_integrated_mgba_callback)
-            if value:
-                if self.emulator_provider_callback:
-                    self.emulator_provider_callback(True)
-            else:
-                if self.use_integrated_mgba_callback:
-                    self.use_integrated_mgba_callback()
-                elif self.emulator_provider_callback:
-                    self.emulator_provider_callback(False)
+        elif name == "Use External Emulator":
+            # Emu tab: switch FROM integrated TO external binary
+            if self.emulator_provider_callback:
+                self.emulator_provider_callback(True)
+
+        elif name == "Use Integrated mGBA":
+            # Emu tab: switch FROM external binary TO integrated mGBA
+            if self.use_integrated_mgba_callback:
+                self.use_integrated_mgba_callback()
+            elif self.emulator_provider_callback:
+                self.emulator_provider_callback(False)
 
         elif name == "Controller FF Buttons":
             self._save_mgba_fastforward_settings()
