@@ -92,26 +92,6 @@ class EmulatorSessionMixin:
         rom_path = self.games[gname].get("rom")
         sav_path = self.games[gname].get("sav")
 
-        # If no save was found by _init_games, derive an expected path from the
-        # provider's saves_dir (for external emulators) or ROMS_DIR (internal).
-        # This ensures the external emulator writes to the right location and
-        # Sinew can find the save when it reloads after the session ends.
-        if not sav_path and rom_path:
-            rom_basename = os.path.splitext(os.path.basename(rom_path))[0]
-            provider = (
-                self.emulator_manager.active_provider
-                if self.emulator_manager
-                else None
-            )
-            provider_saves_dir = getattr(provider, "saves_dir", None) if provider else None
-            use_ext_files = self.settings.get("use_emulator_provider", False)
-            if use_ext_files and provider_saves_dir:
-                sav_path = os.path.join(provider_saves_dir, f"{rom_basename}.srm")
-            else:
-                from config import SAVES_DIR as _SAVES_DIR
-                sav_path = os.path.join(_SAVES_DIR, f"{rom_basename}.sav")
-            print(f"[Sinew] Derived save path: {sav_path}")
-
         if not rom_path or not os.path.exists(rom_path):
             if self.games[gname].get("availability") == GAME_SAVE_ONLY:
                 self._show_notification(
@@ -175,10 +155,6 @@ class EmulatorSessionMixin:
         The provider owns all backend-specific logic; this method only handles
         common post-launch bookkeeping.
 
-        For external (subprocess) providers, we wrap get_command() to inject
-        --savefile <sav_path> into the RetroArch command line so the correct
-        save is loaded regardless of RetroArch's default save directory config.
-
         Returns True on success, False on failure.
         """
         provider = self.emulator_manager.active_provider
@@ -186,76 +162,9 @@ class EmulatorSessionMixin:
         if sav_path:
             print(f"[Sinew] Save: {sav_path}")
 
-        # For external providers that call RetroArch directly (RetroPie,
-        # DesktopRetroarch), inject the save path via --appendconfig so
-        # RetroArch loads the exact save Sinew detected.
-        #
-        # We skip this for:
-        #   - Integrated providers (handle sav_path via launch_integrated)
-        #   - Script-based launchers like ROCKNIX's runemu.sh — these wrap
-        #     RetroArch internally and don't accept --appendconfig themselves.
-        #     ROCKNIX RetroArch saves to the directory Sinew already scanned,
-        #     so no injection is needed.
-        _sinew_save_cfg = None
-        _original_get_command = None
-        # Detect script-based launchers (like ROCKNIX's runemu.sh) that wrap
-        # RetroArch internally — they don't accept --appendconfig directly.
-        # Check via attribute (providers can set is_script_launcher=True) or
-        # by provider class name as a fallback.
-        _provider_class = type(provider).__name__
-        _is_script_launcher = (
-            getattr(provider, 'is_script_launcher', False)
-            or 'rocknix' in _provider_class.lower()
-            or 'jelos' in _provider_class.lower()
+        success = self.emulator_manager.launch(
+            rom_path, self.controller, sav_path=sav_path, game_screen=self
         )
-        _is_direct_retroarch = (
-            sav_path
-            and os.path.exists(sav_path)
-            and not getattr(provider, 'is_integrated', False)
-            and not _is_script_launcher
-        )
-        if _is_direct_retroarch:
-            # Choose a temp path that exists on the current platform
-            import tempfile as _tempfile
-            _tmp_dir = "/dev/shm" if os.path.isdir("/dev/shm") else _tempfile.gettempdir()
-            _sinew_save_cfg = os.path.join(_tmp_dir, "retroarch_sinew_save.cfg")
-            try:
-                with open(_sinew_save_cfg, "w") as _f:
-                    _f.write(f'savefile_path = "{sav_path}"\n')
-                print(f"[Sinew] Save cfg written: {sav_path}")
-            except Exception as _e:
-                print(f"[Sinew] Could not write save cfg: {_e}")
-                _sinew_save_cfg = None
-
-            if _sinew_save_cfg:
-                _original_get_command = provider.get_command
-
-                def _get_command_with_save_cfg(rom, core="auto", _cfg=_sinew_save_cfg):
-                    cmd = _original_get_command(rom, core)
-                    if cmd:
-                        # Insert save cfg via --appendconfig before the ROM (last arg)
-                        cmd = cmd[:-1] + ["--appendconfig", _cfg, cmd[-1]]
-                        print(f"[Sinew] Injected save appendconfig: {_cfg}")
-                    return cmd
-
-                provider.get_command = _get_command_with_save_cfg
-
-        try:
-            success = self.emulator_manager.launch(
-                rom_path, self.controller, sav_path=sav_path, game_screen=self
-            )
-        finally:
-            # Restore original get_command
-            if _original_get_command is not None:
-                provider.get_command = _original_get_command
-            # Clean up the temporary save config
-            if _sinew_save_cfg and os.path.exists(_sinew_save_cfg):
-                try:
-                    import time as _time
-                    _time.sleep(0.5)  # Brief delay so RetroArch reads it first
-                    os.remove(_sinew_save_cfg)
-                except Exception:
-                    pass
         if not success:
             print(f"[Sinew] Provider launch failed for {os.path.basename(rom_path)}")
             return False
@@ -482,17 +391,15 @@ class EmulatorSessionMixin:
             if not had_external_paths:
                 self.settings['use_emulator_provider'] = False
                 builtins.SINEW_USE_EMULATOR_PROVIDER = False
-                _ssm({'use_emulator_provider': False, 'use_external_emulator': False})
-            else:
-                _ssm({'use_external_emulator': False})
-            self.settings['use_external_emulator'] = False
+                _ssm({'use_emulator_provider': False})
 
+            # Sync settings UI: mGBA tab → integrated options, General toggle unchanged
             if hasattr(self, '_pending_settings_modal') and self._pending_settings_modal:
                 try:
+                    # Pass current use_emulator_provider value so General toggle is correct
                     self._pending_settings_modal.revert_provider_toggle(
                         self.settings.get('use_emulator_provider', False)
                     )
-                    self._pending_settings_modal.revert_emulator_toggle(False)
                 except Exception:
                     pass
             self.modal_instance = None
@@ -510,61 +417,6 @@ class EmulatorSessionMixin:
                                                         'revert_provider_toggle'):
             self._pending_settings_modal = self.modal_instance
         self.modal_instance = dialog
-
-    def _on_external_files_toggled(self, enabled):
-        """
-        Toggle external file path scanning independently of the emulator binary.
-
-        Saves use_emulator_provider and rescans games using either the active
-        provider's roms_dir/saves_dir (when enabled) or Sinew's internal
-        ROMS_DIR/SAVES_DIR (when disabled). Does NOT change which emulator
-        binary (integrated vs external) is active.
-        """
-        import builtins
-        from config import ROMS_DIR, SAVES_DIR, _save_scan_cache
-        from settings import save_sinew_settings_merged as _ssm
-
-        try:
-            screen = pygame.display.get_surface()
-        except Exception:
-            screen = self._loading_screen
-
-        self.settings['use_emulator_provider'] = enabled
-        builtins.SINEW_USE_EMULATOR_PROVIDER = enabled
-        _ssm({'use_emulator_provider': enabled})
-
-        if hasattr(self, '_pending_settings_modal') and self._pending_settings_modal:
-            try:
-                self._pending_settings_modal.revert_provider_toggle(enabled)
-            except Exception:
-                pass
-
-        if screen:
-            msg = "Scanning external ROMs..." if enabled else "Scanning internal ROMs..."
-            self._draw_loading_screen(screen, msg, 0, 2)
-
-        _rom_scan_cache.clear()
-        _save_scan_cache.clear()
-        if hasattr(self, '_sinew_game_data_cache'):
-            self._sinew_game_data_cache.clear()
-
-        if screen:
-            self._draw_loading_screen(screen, "Loading save data...", 1, 2)
-
-        self._init_games()
-        self.current_game = 0
-        self.menu_index = 0
-
-        if not self.is_on_sinew() and self.game_names:
-            gname = self.game_names[self.current_game]
-            sav_path = self.games[gname].get('sav')
-            if sav_path and os.path.exists(sav_path):
-                manager = get_manager()
-                manager.load_save(sav_path, game_hint=gname)
-
-        self.load_game_and_background()
-        toggled = 'ON (external)' if enabled else 'OFF (internal)'
-        print(f"[GameScreen] External Files toggled {toggled} -- emulator binary unchanged")
 
     def _on_emulator_provider_toggled(self, enabled):
         """Rebuild the game list when the user toggles the emulator provider setting.
@@ -778,13 +630,13 @@ class EmulatorSessionMixin:
 
         builtins.SINEW_USE_EMULATOR_PROVIDER = enabled
         self.settings['use_emulator_provider'] = enabled
-        self.settings['use_external_emulator'] = enabled
-        _ssm({'use_emulator_provider': enabled, 'use_external_emulator': enabled})
+        _ssm({'use_emulator_provider': enabled})
 
+        # If the settings modal is still open, sync its toggles and mGBA tab
+        # (find it via modal stack — GameScreen re-opens settings after dialog)
         if hasattr(self, '_pending_settings_modal') and self._pending_settings_modal:
             try:
                 self._pending_settings_modal.revert_provider_toggle(enabled)
-                self._pending_settings_modal.revert_emulator_toggle(enabled)
             except Exception:
                 pass
 
