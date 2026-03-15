@@ -37,7 +37,7 @@ dist/data/sprite_pack_selection.json
 dist/data/sprite_pack_preferences.json
 dist/data/sprites/packs
 src/sinew_settings.json
-
+!dist/data/sounds/music/SinewMenu.mp3
 dist/data/sprites/title/backup
 dist/logs/
 dist/saves/
