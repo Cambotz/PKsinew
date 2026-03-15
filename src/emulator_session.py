@@ -92,6 +92,26 @@ class EmulatorSessionMixin:
         rom_path = self.games[gname].get("rom")
         sav_path = self.games[gname].get("sav")
 
+        # If no save was found by _init_games, derive an expected path from the
+        # provider's saves_dir (for external emulators) or ROMS_DIR (internal).
+        # This ensures the external emulator writes to the right location and
+        # Sinew can find the save when it reloads after the session ends.
+        if not sav_path and rom_path:
+            rom_basename = os.path.splitext(os.path.basename(rom_path))[0]
+            provider = (
+                self.emulator_manager.active_provider
+                if self.emulator_manager
+                else None
+            )
+            provider_saves_dir = getattr(provider, "saves_dir", None) if provider else None
+            use_ext_files = self.settings.get("use_emulator_provider", False)
+            if use_ext_files and provider_saves_dir:
+                sav_path = os.path.join(provider_saves_dir, f"{rom_basename}.srm")
+            else:
+                from config import SAVES_DIR as _SAVES_DIR
+                sav_path = os.path.join(_SAVES_DIR, f"{rom_basename}.sav")
+            print(f"[Sinew] Derived save path: {sav_path}")
+
         if not rom_path or not os.path.exists(rom_path):
             if self.games[gname].get("availability") == GAME_SAVE_ONLY:
                 self._show_notification(
@@ -396,8 +416,6 @@ class EmulatorSessionMixin:
                 _ssm({'use_external_emulator': False})
             self.settings['use_external_emulator'] = False
 
-            # Sync settings UI: External Files toggle reflects file-path state,
-            # External Emulator toggle flips to OFF (now using integrated mGBA)
             if hasattr(self, '_pending_settings_modal') and self._pending_settings_modal:
                 try:
                     self._pending_settings_modal.revert_provider_toggle(
@@ -440,12 +458,10 @@ class EmulatorSessionMixin:
         except Exception:
             screen = self._loading_screen
 
-        # Persist the file-path preference only
         self.settings['use_emulator_provider'] = enabled
         builtins.SINEW_USE_EMULATOR_PROVIDER = enabled
         _ssm({'use_emulator_provider': enabled})
 
-        # Sync the External Files toggle in the Settings UI
         if hasattr(self, '_pending_settings_modal') and self._pending_settings_modal:
             try:
                 self._pending_settings_modal.revert_provider_toggle(enabled)
@@ -456,7 +472,6 @@ class EmulatorSessionMixin:
             msg = "Scanning external ROMs..." if enabled else "Scanning internal ROMs..."
             self._draw_loading_screen(screen, msg, 0, 2)
 
-        # Clear scan caches and re-detect games — emulator binary is unchanged
         _rom_scan_cache.clear()
         _save_scan_cache.clear()
         if hasattr(self, '_sinew_game_data_cache'):
@@ -692,11 +707,9 @@ class EmulatorSessionMixin:
 
         builtins.SINEW_USE_EMULATOR_PROVIDER = enabled
         self.settings['use_emulator_provider'] = enabled
-        # Also track the emulator binary choice separately
         self.settings['use_external_emulator'] = enabled
         _ssm({'use_emulator_provider': enabled, 'use_external_emulator': enabled})
 
-        # If the settings modal is still open, sync its toggles
         if hasattr(self, '_pending_settings_modal') and self._pending_settings_modal:
             try:
                 self._pending_settings_modal.revert_provider_toggle(enabled)
