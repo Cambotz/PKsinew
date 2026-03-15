@@ -186,35 +186,55 @@ class EmulatorSessionMixin:
         if sav_path:
             print(f"[Sinew] Save: {sav_path}")
 
-        # For external (subprocess) providers: wrap get_command to append
-        # --savefile so RetroArch loads the exact save Sinew detected,
-        # not whatever its config defaults to.
+        # For external (subprocess) providers: write the save path into a
+        # temporary RetroArch appendconfig so it loads the exact save Sinew
+        # detected. Using appendconfig is more compatible than --savefile CLI
+        # flag (which some older RetroArch builds don't support).
+        _sinew_save_cfg = None
         _original_get_command = None
         if (
             sav_path
             and not getattr(provider, 'is_integrated', False)
             and os.path.exists(sav_path)
         ):
-            _original_get_command = provider.get_command
+            try:
+                _sinew_save_cfg = "/dev/shm/retroarch_sinew_save.cfg"
+                with open(_sinew_save_cfg, "w") as _f:
+                    _f.write(f'savefile_path = "{sav_path}"\n')
+                print(f"[Sinew] Save cfg written: {sav_path}")
+            except Exception as _e:
+                print(f"[Sinew] Could not write save cfg: {_e}")
+                _sinew_save_cfg = None
 
-            def _get_command_with_savefile(rom, core="auto"):
-                cmd = _original_get_command(rom, core)
-                if cmd:
-                    # Insert --savefile before the ROM path (last arg)
-                    cmd = cmd[:-1] + ["--savefile", sav_path, cmd[-1]]
-                    print(f"[Sinew] Injected --savefile: {os.path.basename(sav_path)}")
-                return cmd
+            if _sinew_save_cfg:
+                _original_get_command = provider.get_command
 
-            provider.get_command = _get_command_with_savefile
+                def _get_command_with_save_cfg(rom, core="auto", _cfg=_sinew_save_cfg):
+                    cmd = _original_get_command(rom, core)
+                    if cmd:
+                        # Insert our save cfg via --appendconfig before the ROM (last arg)
+                        cmd = cmd[:-1] + ["--appendconfig", _cfg, cmd[-1]]
+                        print(f"[Sinew] Injected save appendconfig: {_cfg}")
+                    return cmd
+
+                provider.get_command = _get_command_with_save_cfg
 
         try:
             success = self.emulator_manager.launch(
                 rom_path, self.controller, sav_path=sav_path, game_screen=self
             )
         finally:
-            # Always restore the original method
+            # Restore original get_command
             if _original_get_command is not None:
                 provider.get_command = _original_get_command
+            # Clean up the temporary save config (RetroArch has already read it)
+            if _sinew_save_cfg:
+                try:
+                    import time as _time
+                    _time.sleep(0.5)  # Brief delay so RetroArch reads it before we delete
+                    os.remove(_sinew_save_cfg)
+                except Exception:
+                    pass
         if not success:
             print(f"[Sinew] Provider launch failed for {os.path.basename(rom_path)}")
             return False
