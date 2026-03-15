@@ -175,6 +175,10 @@ class EmulatorSessionMixin:
         The provider owns all backend-specific logic; this method only handles
         common post-launch bookkeeping.
 
+        For external (subprocess) providers, we wrap get_command() to inject
+        --savefile <sav_path> into the RetroArch command line so the correct
+        save is loaded regardless of RetroArch's default save directory config.
+
         Returns True on success, False on failure.
         """
         provider = self.emulator_manager.active_provider
@@ -182,9 +186,35 @@ class EmulatorSessionMixin:
         if sav_path:
             print(f"[Sinew] Save: {sav_path}")
 
-        success = self.emulator_manager.launch(
-            rom_path, self.controller, sav_path=sav_path, game_screen=self
-        )
+        # For external (subprocess) providers: wrap get_command to append
+        # --savefile so RetroArch loads the exact save Sinew detected,
+        # not whatever its config defaults to.
+        _original_get_command = None
+        if (
+            sav_path
+            and not getattr(provider, 'is_integrated', False)
+            and os.path.exists(sav_path)
+        ):
+            _original_get_command = provider.get_command
+
+            def _get_command_with_savefile(rom, core="auto"):
+                cmd = _original_get_command(rom, core)
+                if cmd:
+                    # Insert --savefile before the ROM path (last arg)
+                    cmd = cmd[:-1] + ["--savefile", sav_path, cmd[-1]]
+                    print(f"[Sinew] Injected --savefile: {os.path.basename(sav_path)}")
+                return cmd
+
+            provider.get_command = _get_command_with_savefile
+
+        try:
+            success = self.emulator_manager.launch(
+                rom_path, self.controller, sav_path=sav_path, game_screen=self
+            )
+        finally:
+            # Always restore the original method
+            if _original_get_command is not None:
+                provider.get_command = _original_get_command
         if not success:
             print(f"[Sinew] Provider launch failed for {os.path.basename(rom_path)}")
             return False
