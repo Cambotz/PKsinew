@@ -48,9 +48,38 @@ def is_pokemon_shiny(pokemon):
     return (tid ^ sid ^ pid_low ^ pid_high) < 8
 
 
-# =============================================================================
-# Mixin class
-# =============================================================================
+def check_hall_of_fame(raw_data) -> bool:
+    """
+    Check whether the player has ever entered the Hall of Fame.
+
+    In Gen 3 saves the Hall of Fame sits at a fixed location outside the two
+    rotating save slots:
+      - Offset 0x1C000 in a standard 128 KB (0x20000-byte) save
+      - Each of the 50 HoF entries is 60 bytes; the first 4 bytes of entry 0
+        hold the first team member's personality value.
+      - A blank / never-visited HoF reads as 0x00000000 or 0xFFFFFFFF.
+
+    Args:
+        raw_data: bytes or bytearray of the full save file.
+
+    Returns:
+        bool: True if a valid HoF entry exists.
+    """
+    if raw_data is None:
+        return False
+    try:
+        HOF_OFFSET = 0x1C000
+        if len(raw_data) < HOF_OFFSET + 4:
+            return False
+        import struct
+        first_word = struct.unpack_from("<I", raw_data, HOF_OFFSET)[0]
+        # 0x00000000 = never written; 0xFFFFFFFF = erased flash
+        return first_word not in (0x00000000, 0xFFFFFFFF)
+    except Exception:
+        return False
+
+
+
 
 class AchievementCheckerMixin:
     """
@@ -181,6 +210,12 @@ class AchievementCheckerMixin:
                                 "pc_pokemon": pc_pokemon,
                                 "owned_list": owned_list,
                                 "playtime_hours": playtime_hours,
+                                "has_hall_of_fame": check_hall_of_fame(
+                                    manager.parser.data
+                                    if hasattr(manager, "parser") and manager.parser
+                                    and hasattr(manager.parser, "data")
+                                    else None
+                                ),
                             }
 
                             game_achievements = get_achievements_for(current_game_name)
@@ -232,6 +267,10 @@ class AchievementCheckerMixin:
                                 pokemon_at_100)
                             self._achievement_manager.update_tracking("shiny_count", shiny_count)
                             self._achievement_manager.update_tracking("owned_set", set(owned_list))
+                            self._achievement_manager.update_tracking(
+                                "has_hall_of_fame",
+                                ach_save_data.get("has_hall_of_fame", False)
+                            )
 
                             unlocked_count = 0
                             for ach in game_achievements:
@@ -379,6 +418,7 @@ class AchievementCheckerMixin:
                 and hasattr(manager.parser, "data")
             ):
                 ach_save_data["raw_data"] = manager.parser.data
+                ach_save_data["has_hall_of_fame"] = check_hall_of_fame(manager.parser.data)
 
                 game_name = self.get_current_game_name()
                 if game_name in ("FireRed", "LeafGreen"):
@@ -485,6 +525,9 @@ class AchievementCheckerMixin:
             self._achievement_manager.update_tracking("pokemon_at_100", pokemon_at_100)
             self._achievement_manager.update_tracking("shiny_count", shiny_count)
             self._achievement_manager.update_tracking("owned_set", set(owned_list))
+            self._achievement_manager.update_tracking(
+                "has_hall_of_fame", ach_save_data.get("has_hall_of_fame", False)
+            )
 
             newly_unlocked = self._achievement_manager.check_and_unlock(ach_save_data, game_name)
 
@@ -599,9 +642,17 @@ class AchievementCheckerMixin:
             is_frlg = game_name in ["FireRed", "LeafGreen"]
             regional_size = 151 if is_frlg else 202
 
+            has_hof = check_hall_of_fame(
+                manager.parser.data
+                if hasattr(manager, "parser") and manager.parser
+                and hasattr(manager.parser, "data")
+                else None
+            )
+
             print(
                 f"[Achievements] Sinew cache: {game_name} -"
-                f" {badges} badges, {dex_caught} dex, {len(all_pokemon)} pokemon"
+                f" {badges} badges, {dex_caught} dex, {len(all_pokemon)} pokemon,"
+                f" hof={has_hof}"
             )
 
             return {
@@ -611,7 +662,7 @@ class AchievementCheckerMixin:
                 "playtime_hours": playtime_hours,
                 "games_with_badges": 1 if badges > 0 else 0,
                 "games_with_4plus_badges": 1 if badges >= 4 else 0,
-                "games_with_champion": 1 if badges >= 8 else 0,
+                "games_with_champion": 1 if has_hof else 0,
                 "games_with_full_party": 1 if len(active_party) >= 6 else 0,
                 "games_with_full_dex": 1 if dex_caught >= regional_size else 0,
                 "owned_set": owned_set,

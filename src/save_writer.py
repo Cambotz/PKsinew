@@ -445,6 +445,34 @@ def write_pokemon_to_pc(
         file=sys.stderr,
         flush=True,
     )
+    
+    # CRITICAL: Ensure this block has HIGHER save index than the other block
+    # Get the OTHER block's save index
+    other_block_offset = 0x0000 if block_offset == 0xE000 else 0xE000
+    other_block_index = struct.unpack("<I", save_data[other_block_offset + 0x0FFC : other_block_offset + 0x1000])[0]
+    
+    # Current block's index
+    current_index = struct.unpack("<I", save_data[block_offset + 0x0FFC : block_offset + 0x1000])[0]
+    
+    # New index must be higher than both current AND other block
+    new_save_index = max(current_index, other_block_index) + 1
+    if new_save_index == 0xFFFFFFFF:
+        new_save_index = 0  # Handle wraparound
+    
+    # Set ALL sections in this block to the new save index
+    # Each section has its own save index at offset 0x0FFC within the section
+    # ALL sections in a block must have the same save index or the game rejects it
+    for i in range(14):
+        section_off = block_offset + (i * SECTION_TOTAL_SIZE)
+        save_index_offset = section_off + 0x0FFC
+        struct.pack_into("<I", save_data, save_index_offset, new_save_index)
+    
+    print(
+        f"[SaveWriter]   Save index: Slot A={other_block_index if block_offset==0xE000 else current_index}, "
+        f"Slot B={other_block_index if block_offset==0x0000 else current_index} → {new_save_index} (active, all 14 sections)",
+        file=sys.stderr,
+        flush=True,
+    )
 
     return True
 

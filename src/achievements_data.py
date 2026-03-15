@@ -467,7 +467,6 @@ def _generate_game_achievements(game: str, start_idx: int = 1) -> List[Dict]:
         (5, "Five Badges", 30),
         (6, "Six Badges", 40),
         (7, "Seven Badges", 50),
-        (8, "Pokemon Champion!", 100),
     ]
     for badges, name, pts in badge_achs:
         achs.append(
@@ -482,6 +481,20 @@ def _generate_game_achievements(game: str, start_idx: int = 1) -> List[Dict]:
             }
         )
         idx += 1
+
+    # Pokemon Champion — checked via Hall of Fame entry, not badge count
+    achs.append(
+        {
+            "id": f"{prefix}_{idx:03d}",
+            "name": "Pokemon Champion!",
+            "desc": f"Enter the Hall of Fame in {game}.",
+            "category": "Badges",
+            "game": game,
+            "hint": "has_hall_of_fame",
+            "points": 100,
+        }
+    )
+    idx += 1
 
     # Money milestones
     money_achs = [
@@ -1680,6 +1693,10 @@ def check_achievement_unlocked(
         _, required = parse_threshold(hint)
         return badges >= required if required else False
 
+    # Hall of Fame (Pokemon Champion! achievement)
+    if hint == "has_hall_of_fame":
+        return bool(save_data.get("has_hall_of_fame", False))
+
     # Money counts
     if "money >=" in hint:
         _, required = parse_threshold(hint)
@@ -1801,15 +1818,15 @@ def check_achievement_unlocked(
     # EVENT ACHIEVEMENTS (Mystery Event Items System)
     # =========================================================================
 
-    # Endgame Access - any game with 8 badges (Champion status)
+    # Endgame Access - any game with a Hall of Fame entry (Champion status)
     if hint == "any_game_champion":
         # Check current save
-        if badges >= 8:
+        if save_data.get("has_hall_of_fame", False):
             return True
         # Check all saves if provided
         if all_saves:
             for save in all_saves:
-                if save.get("badges", 0) >= 8:
+                if save.get("has_hall_of_fame", False):
                     return True
         return False
 

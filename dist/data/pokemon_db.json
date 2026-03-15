@@ -2,9 +2,7 @@
   "items": {
     "pokeball": "sprites/items/poke-ball.png",
     "master_ball": "sprites/items/master-ball.png",
-    "2km_egg": "sprites/items/2km-egg.png",
-    "5km_egg": "sprites/items/5km-egg.png",
-    "10km_egg": "sprites/items/10km-egg.png"
+    "egg": "sprites/items/egg.png"
   },
   "001": {
     "id": 1,
@@ -41,10 +39,7 @@
         "species_id": 1
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/001.png",
-      "gen3_shiny": "sprites/gen3/shiny/001.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -88,10 +83,7 @@
         "species_id": 1
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/002.png",
-      "gen3_shiny": "sprites/gen3/shiny/002.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -135,10 +127,7 @@
         "species_id": 1
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/003.png",
-      "gen3_shiny": "sprites/gen3/shiny/003.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -181,10 +170,7 @@
         "species_id": 4
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/004.png",
-      "gen3_shiny": "sprites/gen3/shiny/004.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -227,10 +213,7 @@
         "species_id": 4
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/005.png",
-      "gen3_shiny": "sprites/gen3/shiny/005.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -274,10 +257,7 @@
         "species_id": 4
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/006.png",
-      "gen3_shiny": "sprites/gen3/shiny/006.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -320,10 +300,7 @@
         "species_id": 7
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/007.png",
-      "gen3_shiny": "sprites/gen3/shiny/007.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -366,10 +343,7 @@
         "species_id": 7
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/008.png",
-      "gen3_shiny": "sprites/gen3/shiny/008.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -412,10 +386,7 @@
         "species_id": 7
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/009.png",
-      "gen3_shiny": "sprites/gen3/shiny/009.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -457,10 +428,7 @@
         "species_id": 10
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/010.png",
-      "gen3_shiny": "sprites/gen3/shiny/010.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -501,10 +469,7 @@
         "species_id": 10
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/011.png",
-      "gen3_shiny": "sprites/gen3/shiny/011.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -547,10 +512,7 @@
         "species_id": 10
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/012.png",
-      "gen3_shiny": "sprites/gen3/shiny/012.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -593,10 +555,7 @@
         "species_id": 13
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/013.png",
-      "gen3_shiny": "sprites/gen3/shiny/013.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -638,10 +597,7 @@
         "species_id": 13
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/014.png",
-      "gen3_shiny": "sprites/gen3/shiny/014.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -684,10 +640,7 @@
         "species_id": 13
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/015.png",
-      "gen3_shiny": "sprites/gen3/shiny/015.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -731,10 +684,7 @@
         "species_id": 16
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/016.png",
-      "gen3_shiny": "sprites/gen3/shiny/016.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -778,10 +728,7 @@
         "species_id": 16
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/017.png",
-      "gen3_shiny": "sprites/gen3/shiny/017.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -825,10 +772,7 @@
         "species_id": 16
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/018.png",
-      "gen3_shiny": "sprites/gen3/shiny/018.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -871,10 +815,7 @@
         "species_id": 19
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/019.png",
-      "gen3_shiny": "sprites/gen3/shiny/019.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -917,10 +858,7 @@
         "species_id": 19
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/020.png",
-      "gen3_shiny": "sprites/gen3/shiny/020.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -963,10 +901,7 @@
         "species_id": 21
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/021.png",
-      "gen3_shiny": "sprites/gen3/shiny/021.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -1009,10 +944,7 @@
         "species_id": 21
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/022.png",
-      "gen3_shiny": "sprites/gen3/shiny/022.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -1056,10 +988,7 @@
         "species_id": 23
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/023.png",
-      "gen3_shiny": "sprites/gen3/shiny/023.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -1103,10 +1032,7 @@
         "species_id": 23
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/024.png",
-      "gen3_shiny": "sprites/gen3/shiny/024.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -1149,10 +1075,7 @@
         "species_id": 172
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/025.png",
-      "gen3_shiny": "sprites/gen3/shiny/025.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -1195,10 +1118,7 @@
         "species_id": 172
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/026.png",
-      "gen3_shiny": "sprites/gen3/shiny/026.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -1240,10 +1160,7 @@
         "species_id": 27
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/027.png",
-      "gen3_shiny": "sprites/gen3/shiny/027.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -1285,10 +1202,7 @@
         "species_id": 27
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/028.png",
-      "gen3_shiny": "sprites/gen3/shiny/028.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -1299,7 +1213,7 @@
   },
   "029": {
     "id": 29,
-    "name": "Nidoran-f",
+    "name": "Nidoran F",
     "types": [
       "Poison"
     ],
@@ -1332,10 +1246,7 @@
         "species_id": 29
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/029.png",
-      "gen3_shiny": "sprites/gen3/shiny/029.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -1378,10 +1289,7 @@
         "species_id": 29
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/030.png",
-      "gen3_shiny": "sprites/gen3/shiny/030.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -1425,10 +1333,7 @@
         "species_id": 29
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/031.png",
-      "gen3_shiny": "sprites/gen3/shiny/031.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -1439,7 +1344,7 @@
   },
   "032": {
     "id": 32,
-    "name": "Nidoran-m",
+    "name": "Nidoran M",
     "types": [
       "Poison"
     ],
@@ -1472,10 +1377,7 @@
         "species_id": 32
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/032.png",
-      "gen3_shiny": "sprites/gen3/shiny/032.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -1519,10 +1421,7 @@
         "species_id": 32
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/033.png",
-      "gen3_shiny": "sprites/gen3/shiny/033.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -1567,10 +1466,7 @@
         "species_id": 32
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/034.png",
-      "gen3_shiny": "sprites/gen3/shiny/034.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -1613,10 +1509,7 @@
         "species_id": 173
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/035.png",
-      "gen3_shiny": "sprites/gen3/shiny/035.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -1659,10 +1552,7 @@
         "species_id": 173
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/036.png",
-      "gen3_shiny": "sprites/gen3/shiny/036.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -1704,10 +1594,7 @@
         "species_id": 37
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/037.png",
-      "gen3_shiny": "sprites/gen3/shiny/037.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -1749,10 +1636,7 @@
         "species_id": 37
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/038.png",
-      "gen3_shiny": "sprites/gen3/shiny/038.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -1796,10 +1680,7 @@
         "species_id": 174
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/039.png",
-      "gen3_shiny": "sprites/gen3/shiny/039.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -1843,10 +1724,7 @@
         "species_id": 174
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/040.png",
-      "gen3_shiny": "sprites/gen3/shiny/040.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -1889,10 +1767,7 @@
         "species_id": 41
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/041.png",
-      "gen3_shiny": "sprites/gen3/shiny/041.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -1935,10 +1810,7 @@
         "species_id": 41
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/042.png",
-      "gen3_shiny": "sprites/gen3/shiny/042.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -1981,10 +1853,7 @@
         "species_id": 43
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/043.png",
-      "gen3_shiny": "sprites/gen3/shiny/043.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -2027,10 +1896,7 @@
         "species_id": 43
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/044.png",
-      "gen3_shiny": "sprites/gen3/shiny/044.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -2073,10 +1939,7 @@
         "species_id": 43
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/045.png",
-      "gen3_shiny": "sprites/gen3/shiny/045.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -2121,10 +1984,7 @@
         "species_id": 46
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/046.png",
-      "gen3_shiny": "sprites/gen3/shiny/046.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -2169,10 +2029,7 @@
         "species_id": 46
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/047.png",
-      "gen3_shiny": "sprites/gen3/shiny/047.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -2216,10 +2073,7 @@
         "species_id": 48
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/048.png",
-      "gen3_shiny": "sprites/gen3/shiny/048.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -2263,10 +2117,7 @@
         "species_id": 48
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/049.png",
-      "gen3_shiny": "sprites/gen3/shiny/049.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -2309,10 +2160,7 @@
         "species_id": 50
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/050.png",
-      "gen3_shiny": "sprites/gen3/shiny/050.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -2355,10 +2203,7 @@
         "species_id": 50
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/051.png",
-      "gen3_shiny": "sprites/gen3/shiny/051.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -2417,10 +2262,7 @@
         ]
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/052.png",
-      "gen3_shiny": "sprites/gen3/shiny/052.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -2479,10 +2321,7 @@
         ]
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/053.png",
-      "gen3_shiny": "sprites/gen3/shiny/053.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -2526,10 +2365,7 @@
         "species_id": 54
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/054.png",
-      "gen3_shiny": "sprites/gen3/shiny/054.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -2573,10 +2409,7 @@
         "species_id": 54
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/055.png",
-      "gen3_shiny": "sprites/gen3/shiny/055.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -2619,10 +2452,7 @@
         "species_id": 56
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/056.png",
-      "gen3_shiny": "sprites/gen3/shiny/056.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -2665,10 +2495,7 @@
         "species_id": 56
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/057.png",
-      "gen3_shiny": "sprites/gen3/shiny/057.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -2711,10 +2538,7 @@
         "species_id": 58
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/058.png",
-      "gen3_shiny": "sprites/gen3/shiny/058.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -2757,10 +2581,7 @@
         "species_id": 58
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/059.png",
-      "gen3_shiny": "sprites/gen3/shiny/059.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -2803,10 +2624,7 @@
         "species_id": 60
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/060.png",
-      "gen3_shiny": "sprites/gen3/shiny/060.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -2849,10 +2667,7 @@
         "species_id": 60
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/061.png",
-      "gen3_shiny": "sprites/gen3/shiny/061.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -2896,10 +2711,7 @@
         "species_id": 60
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/062.png",
-      "gen3_shiny": "sprites/gen3/shiny/062.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -2942,10 +2754,7 @@
         "species_id": 63
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/063.png",
-      "gen3_shiny": "sprites/gen3/shiny/063.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -2988,10 +2797,7 @@
         "species_id": 63
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/064.png",
-      "gen3_shiny": "sprites/gen3/shiny/064.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -3034,10 +2840,7 @@
         "species_id": 63
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/065.png",
-      "gen3_shiny": "sprites/gen3/shiny/065.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -3080,10 +2883,7 @@
         "species_id": 66
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/066.png",
-      "gen3_shiny": "sprites/gen3/shiny/066.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -3126,10 +2926,7 @@
         "species_id": 66
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/067.png",
-      "gen3_shiny": "sprites/gen3/shiny/067.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -3172,10 +2969,7 @@
         "species_id": 66
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/068.png",
-      "gen3_shiny": "sprites/gen3/shiny/068.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -3218,10 +3012,7 @@
         "species_id": 69
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/069.png",
-      "gen3_shiny": "sprites/gen3/shiny/069.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -3264,10 +3055,7 @@
         "species_id": 69
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/070.png",
-      "gen3_shiny": "sprites/gen3/shiny/070.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -3310,10 +3098,7 @@
         "species_id": 69
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/071.png",
-      "gen3_shiny": "sprites/gen3/shiny/071.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -3357,10 +3142,7 @@
         "species_id": 72
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/072.png",
-      "gen3_shiny": "sprites/gen3/shiny/072.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -3404,10 +3186,7 @@
         "species_id": 72
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/073.png",
-      "gen3_shiny": "sprites/gen3/shiny/073.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -3451,10 +3230,7 @@
         "species_id": 74
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/074.png",
-      "gen3_shiny": "sprites/gen3/shiny/074.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -3498,10 +3274,7 @@
         "species_id": 74
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/075.png",
-      "gen3_shiny": "sprites/gen3/shiny/075.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -3545,10 +3318,7 @@
         "species_id": 74
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/076.png",
-      "gen3_shiny": "sprites/gen3/shiny/076.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -3591,10 +3361,7 @@
         "species_id": 77
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/077.png",
-      "gen3_shiny": "sprites/gen3/shiny/077.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -3637,10 +3404,7 @@
         "species_id": 77
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/078.png",
-      "gen3_shiny": "sprites/gen3/shiny/078.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -3701,10 +3465,7 @@
         ]
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/079.png",
-      "gen3_shiny": "sprites/gen3/shiny/079.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -3765,10 +3526,7 @@
         ]
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/080.png",
-      "gen3_shiny": "sprites/gen3/shiny/080.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -3812,10 +3570,7 @@
         "species_id": 81
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/081.png",
-      "gen3_shiny": "sprites/gen3/shiny/081.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -3859,10 +3614,7 @@
         "species_id": 81
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/082.png",
-      "gen3_shiny": "sprites/gen3/shiny/082.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -3907,10 +3659,7 @@
         "species_id": 83
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/083.png",
-      "gen3_shiny": "sprites/gen3/shiny/083.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -3954,10 +3703,7 @@
         "species_id": 84
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/084.png",
-      "gen3_shiny": "sprites/gen3/shiny/084.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -4001,10 +3747,7 @@
         "species_id": 84
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/085.png",
-      "gen3_shiny": "sprites/gen3/shiny/085.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -4048,10 +3791,7 @@
         "species_id": 86
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/086.png",
-      "gen3_shiny": "sprites/gen3/shiny/086.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -4096,10 +3836,7 @@
         "species_id": 86
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/087.png",
-      "gen3_shiny": "sprites/gen3/shiny/087.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -4142,10 +3879,7 @@
         "species_id": 88
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/088.png",
-      "gen3_shiny": "sprites/gen3/shiny/088.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -4188,10 +3922,7 @@
         "species_id": 88
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/089.png",
-      "gen3_shiny": "sprites/gen3/shiny/089.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -4234,10 +3965,7 @@
         "species_id": 90
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/090.png",
-      "gen3_shiny": "sprites/gen3/shiny/090.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -4281,10 +4009,7 @@
         "species_id": 90
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/091.png",
-      "gen3_shiny": "sprites/gen3/shiny/091.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -4326,10 +4051,7 @@
         "species_id": 92
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/092.png",
-      "gen3_shiny": "sprites/gen3/shiny/092.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -4371,10 +4093,7 @@
         "species_id": 92
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/093.png",
-      "gen3_shiny": "sprites/gen3/shiny/093.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -4416,10 +4135,7 @@
         "species_id": 92
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/094.png",
-      "gen3_shiny": "sprites/gen3/shiny/094.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -4463,10 +4179,7 @@
         "species_id": 95
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/095.png",
-      "gen3_shiny": "sprites/gen3/shiny/095.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -4509,10 +4222,7 @@
         "species_id": 96
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/096.png",
-      "gen3_shiny": "sprites/gen3/shiny/096.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -4555,10 +4265,7 @@
         "species_id": 96
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/097.png",
-      "gen3_shiny": "sprites/gen3/shiny/097.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -4601,10 +4308,7 @@
         "species_id": 98
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/098.png",
-      "gen3_shiny": "sprites/gen3/shiny/098.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -4647,10 +4351,7 @@
         "species_id": 98
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/099.png",
-      "gen3_shiny": "sprites/gen3/shiny/099.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -4693,10 +4394,7 @@
         "species_id": 100
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/100.png",
-      "gen3_shiny": "sprites/gen3/shiny/100.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -4739,10 +4437,7 @@
         "species_id": 100
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/101.png",
-      "gen3_shiny": "sprites/gen3/shiny/101.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -4785,10 +4480,7 @@
         "species_id": 102
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/102.png",
-      "gen3_shiny": "sprites/gen3/shiny/102.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -4831,10 +4523,7 @@
         "species_id": 102
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/103.png",
-      "gen3_shiny": "sprites/gen3/shiny/103.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -4877,10 +4566,7 @@
         "species_id": 104
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/104.png",
-      "gen3_shiny": "sprites/gen3/shiny/104.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -4923,10 +4609,7 @@
         "species_id": 104
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/105.png",
-      "gen3_shiny": "sprites/gen3/shiny/105.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -4991,10 +4674,7 @@
         ]
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/106.png",
-      "gen3_shiny": "sprites/gen3/shiny/106.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -5059,10 +4739,7 @@
         ]
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/107.png",
-      "gen3_shiny": "sprites/gen3/shiny/107.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -5105,10 +4782,7 @@
         "species_id": 108
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/108.png",
-      "gen3_shiny": "sprites/gen3/shiny/108.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -5151,10 +4825,7 @@
         "species_id": 109
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/109.png",
-      "gen3_shiny": "sprites/gen3/shiny/109.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -5197,10 +4868,7 @@
         "species_id": 109
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/110.png",
-      "gen3_shiny": "sprites/gen3/shiny/110.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -5245,10 +4913,7 @@
         "species_id": 111
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/111.png",
-      "gen3_shiny": "sprites/gen3/shiny/111.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -5293,10 +4958,7 @@
         "species_id": 111
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/112.png",
-      "gen3_shiny": "sprites/gen3/shiny/112.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -5339,10 +5001,7 @@
         "species_id": 440
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/113.png",
-      "gen3_shiny": "sprites/gen3/shiny/113.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -5385,10 +5044,7 @@
         "species_id": 114
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/114.png",
-      "gen3_shiny": "sprites/gen3/shiny/114.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -5431,10 +5087,7 @@
         "species_id": 115
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/115.png",
-      "gen3_shiny": "sprites/gen3/shiny/115.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -5478,10 +5131,7 @@
         "species_id": 116
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/116.png",
-      "gen3_shiny": "sprites/gen3/shiny/116.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -5525,10 +5175,7 @@
         "species_id": 116
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/117.png",
-      "gen3_shiny": "sprites/gen3/shiny/117.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -5571,10 +5218,7 @@
         "species_id": 118
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/118.png",
-      "gen3_shiny": "sprites/gen3/shiny/118.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -5617,10 +5261,7 @@
         "species_id": 118
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/119.png",
-      "gen3_shiny": "sprites/gen3/shiny/119.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -5663,10 +5304,7 @@
         "species_id": 120
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/120.png",
-      "gen3_shiny": "sprites/gen3/shiny/120.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -5710,10 +5348,7 @@
         "species_id": 120
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/121.png",
-      "gen3_shiny": "sprites/gen3/shiny/121.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -5724,7 +5359,7 @@
   },
   "122": {
     "id": 122,
-    "name": "Mr-mime",
+    "name": "Mr Mime",
     "types": [
       "Psychic",
       "Fairy"
@@ -5757,10 +5392,7 @@
         "species_id": 439
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/122.png",
-      "gen3_shiny": "sprites/gen3/shiny/122.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -5820,10 +5452,7 @@
         ]
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/123.png",
-      "gen3_shiny": "sprites/gen3/shiny/123.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -5867,10 +5496,7 @@
         "species_id": 238
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/124.png",
-      "gen3_shiny": "sprites/gen3/shiny/124.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -5912,10 +5538,7 @@
         "species_id": 239
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/125.png",
-      "gen3_shiny": "sprites/gen3/shiny/125.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -5957,10 +5580,7 @@
         "species_id": 240
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/126.png",
-      "gen3_shiny": "sprites/gen3/shiny/126.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -6003,10 +5623,7 @@
         "species_id": 127
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/127.png",
-      "gen3_shiny": "sprites/gen3/shiny/127.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -6049,10 +5666,7 @@
         "species_id": 128
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/128.png",
-      "gen3_shiny": "sprites/gen3/shiny/128.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -6095,10 +5709,7 @@
         "species_id": 129
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/129.png",
-      "gen3_shiny": "sprites/gen3/shiny/129.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -6142,10 +5753,7 @@
         "species_id": 129
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/130.png",
-      "gen3_shiny": "sprites/gen3/shiny/130.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -6190,10 +5798,7 @@
         "species_id": 131
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/131.png",
-      "gen3_shiny": "sprites/gen3/shiny/131.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -6235,10 +5840,7 @@
         "species_id": 132
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/132.png",
-      "gen3_shiny": "sprites/gen3/shiny/132.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -6333,10 +5935,7 @@
         ]
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/133.png",
-      "gen3_shiny": "sprites/gen3/shiny/133.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -6430,10 +6029,7 @@
         ]
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/134.png",
-      "gen3_shiny": "sprites/gen3/shiny/134.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -6527,10 +6123,7 @@
         ]
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/135.png",
-      "gen3_shiny": "sprites/gen3/shiny/135.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -6624,10 +6217,7 @@
         ]
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/136.png",
-      "gen3_shiny": "sprites/gen3/shiny/136.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -6670,10 +6260,7 @@
         "species_id": 137
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/137.png",
-      "gen3_shiny": "sprites/gen3/shiny/137.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -6718,10 +6305,7 @@
         "species_id": 138
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/138.png",
-      "gen3_shiny": "sprites/gen3/shiny/138.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -6766,10 +6350,7 @@
         "species_id": 138
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/139.png",
-      "gen3_shiny": "sprites/gen3/shiny/139.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -6814,10 +6395,7 @@
         "species_id": 140
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/140.png",
-      "gen3_shiny": "sprites/gen3/shiny/140.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -6862,10 +6440,7 @@
         "species_id": 140
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/141.png",
-      "gen3_shiny": "sprites/gen3/shiny/141.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -6909,10 +6484,7 @@
         "species_id": 142
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/142.png",
-      "gen3_shiny": "sprites/gen3/shiny/142.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -6955,10 +6527,7 @@
         "species_id": 446
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/143.png",
-      "gen3_shiny": "sprites/gen3/shiny/143.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -7001,10 +6570,7 @@
         "species_id": 144
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/144.png",
-      "gen3_shiny": "sprites/gen3/shiny/144.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -7047,10 +6613,7 @@
         "species_id": 145
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/145.png",
-      "gen3_shiny": "sprites/gen3/shiny/145.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -7093,10 +6656,7 @@
         "species_id": 146
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/146.png",
-      "gen3_shiny": "sprites/gen3/shiny/146.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -7139,10 +6699,7 @@
         "species_id": 147
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/147.png",
-      "gen3_shiny": "sprites/gen3/shiny/147.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -7185,10 +6742,7 @@
         "species_id": 147
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/148.png",
-      "gen3_shiny": "sprites/gen3/shiny/148.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -7232,10 +6786,7 @@
         "species_id": 147
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/149.png",
-      "gen3_shiny": "sprites/gen3/shiny/149.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -7277,10 +6828,7 @@
         "species_id": 150
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/150.png",
-      "gen3_shiny": "sprites/gen3/shiny/150.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -7321,10 +6869,7 @@
         "species_id": 151
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/151.png",
-      "gen3_shiny": "sprites/gen3/shiny/151.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -7367,10 +6912,7 @@
         "species_id": 152
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/152.png",
-      "gen3_shiny": "sprites/gen3/shiny/152.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -7413,10 +6955,7 @@
         "species_id": 152
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/153.png",
-      "gen3_shiny": "sprites/gen3/shiny/153.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -7459,10 +6998,7 @@
         "species_id": 152
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/154.png",
-      "gen3_shiny": "sprites/gen3/shiny/154.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -7504,10 +7040,7 @@
         "species_id": 155
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/155.png",
-      "gen3_shiny": "sprites/gen3/shiny/155.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -7549,10 +7082,7 @@
         "species_id": 155
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/156.png",
-      "gen3_shiny": "sprites/gen3/shiny/156.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -7594,10 +7124,7 @@
         "species_id": 155
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/157.png",
-      "gen3_shiny": "sprites/gen3/shiny/157.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -7640,10 +7167,7 @@
         "species_id": 158
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/158.png",
-      "gen3_shiny": "sprites/gen3/shiny/158.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -7686,10 +7210,7 @@
         "species_id": 158
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/159.png",
-      "gen3_shiny": "sprites/gen3/shiny/159.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -7732,10 +7253,7 @@
         "species_id": 158
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/160.png",
-      "gen3_shiny": "sprites/gen3/shiny/160.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -7778,10 +7296,7 @@
         "species_id": 161
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/161.png",
-      "gen3_shiny": "sprites/gen3/shiny/161.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -7824,10 +7339,7 @@
         "species_id": 161
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/162.png",
-      "gen3_shiny": "sprites/gen3/shiny/162.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -7871,10 +7383,7 @@
         "species_id": 163
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/163.png",
-      "gen3_shiny": "sprites/gen3/shiny/163.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -7918,10 +7427,7 @@
         "species_id": 163
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/164.png",
-      "gen3_shiny": "sprites/gen3/shiny/164.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -7965,10 +7471,7 @@
         "species_id": 165
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/165.png",
-      "gen3_shiny": "sprites/gen3/shiny/165.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -8012,10 +7515,7 @@
         "species_id": 165
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/166.png",
-      "gen3_shiny": "sprites/gen3/shiny/166.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -8059,10 +7559,7 @@
         "species_id": 167
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/167.png",
-      "gen3_shiny": "sprites/gen3/shiny/167.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -8106,10 +7603,7 @@
         "species_id": 167
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/168.png",
-      "gen3_shiny": "sprites/gen3/shiny/168.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -8152,10 +7646,7 @@
         "species_id": 41
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/169.png",
-      "gen3_shiny": "sprites/gen3/shiny/169.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -8199,10 +7690,7 @@
         "species_id": 170
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/170.png",
-      "gen3_shiny": "sprites/gen3/shiny/170.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -8246,10 +7734,7 @@
         "species_id": 170
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/171.png",
-      "gen3_shiny": "sprites/gen3/shiny/171.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -8292,10 +7777,7 @@
         "species_id": 172
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/172.png",
-      "gen3_shiny": "sprites/gen3/shiny/172.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -8338,10 +7820,7 @@
         "species_id": 173
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/173.png",
-      "gen3_shiny": "sprites/gen3/shiny/173.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -8385,10 +7864,7 @@
         "species_id": 174
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/174.png",
-      "gen3_shiny": "sprites/gen3/shiny/174.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -8431,10 +7907,7 @@
         "species_id": 175
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/175.png",
-      "gen3_shiny": "sprites/gen3/shiny/175.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -8479,10 +7952,7 @@
         "species_id": 175
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/176.png",
-      "gen3_shiny": "sprites/gen3/shiny/176.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -8526,10 +7996,7 @@
         "species_id": 177
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/177.png",
-      "gen3_shiny": "sprites/gen3/shiny/177.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -8573,10 +8040,7 @@
         "species_id": 177
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/178.png",
-      "gen3_shiny": "sprites/gen3/shiny/178.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -8619,10 +8083,7 @@
         "species_id": 179
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/179.png",
-      "gen3_shiny": "sprites/gen3/shiny/179.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -8665,10 +8126,7 @@
         "species_id": 179
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/180.png",
-      "gen3_shiny": "sprites/gen3/shiny/180.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -8711,10 +8169,7 @@
         "species_id": 179
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/181.png",
-      "gen3_shiny": "sprites/gen3/shiny/181.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -8756,10 +8211,7 @@
         "species_id": 43
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/182.png",
-      "gen3_shiny": "sprites/gen3/shiny/182.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -8804,10 +8256,7 @@
         "species_id": 298
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/183.png",
-      "gen3_shiny": "sprites/gen3/shiny/183.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -8852,10 +8301,7 @@
         "species_id": 298
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/184.png",
-      "gen3_shiny": "sprites/gen3/shiny/184.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -8898,10 +8344,7 @@
         "species_id": 438
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/185.png",
-      "gen3_shiny": "sprites/gen3/shiny/185.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -8944,10 +8387,7 @@
         "species_id": 60
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/186.png",
-      "gen3_shiny": "sprites/gen3/shiny/186.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -8992,10 +8432,7 @@
         "species_id": 187
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/187.png",
-      "gen3_shiny": "sprites/gen3/shiny/187.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -9040,10 +8477,7 @@
         "species_id": 187
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/188.png",
-      "gen3_shiny": "sprites/gen3/shiny/188.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -9088,10 +8522,7 @@
         "species_id": 187
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/189.png",
-      "gen3_shiny": "sprites/gen3/shiny/189.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -9134,10 +8565,7 @@
         "species_id": 190
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/190.png",
-      "gen3_shiny": "sprites/gen3/shiny/190.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -9180,10 +8608,7 @@
         "species_id": 191
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/191.png",
-      "gen3_shiny": "sprites/gen3/shiny/191.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -9226,10 +8651,7 @@
         "species_id": 191
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/192.png",
-      "gen3_shiny": "sprites/gen3/shiny/192.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -9273,10 +8695,7 @@
         "species_id": 193
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/193.png",
-      "gen3_shiny": "sprites/gen3/shiny/193.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -9337,10 +8756,7 @@
         ]
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/194.png",
-      "gen3_shiny": "sprites/gen3/shiny/194.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -9401,10 +8817,7 @@
         ]
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/195.png",
-      "gen3_shiny": "sprites/gen3/shiny/195.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -9498,10 +8911,7 @@
         ]
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/196.png",
-      "gen3_shiny": "sprites/gen3/shiny/196.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -9595,10 +9005,7 @@
         ]
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/197.png",
-      "gen3_shiny": "sprites/gen3/shiny/197.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -9642,10 +9049,7 @@
         "species_id": 198
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/198.png",
-      "gen3_shiny": "sprites/gen3/shiny/198.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -9706,10 +9110,7 @@
         ]
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/199.png",
-      "gen3_shiny": "sprites/gen3/shiny/199.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -9750,10 +9151,7 @@
         "species_id": 200
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/200.png",
-      "gen3_shiny": "sprites/gen3/shiny/200.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -9821,10 +9219,7 @@
         "species_id": 201
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/201.png",
-      "gen3_shiny": "sprites/gen3/shiny/201.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -9866,10 +9261,7 @@
         "species_id": 360
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/202.png",
-      "gen3_shiny": "sprites/gen3/shiny/202.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -9913,10 +9305,7 @@
         "species_id": 203
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/203.png",
-      "gen3_shiny": "sprites/gen3/shiny/203.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -9958,10 +9347,7 @@
         "species_id": 204
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/204.png",
-      "gen3_shiny": "sprites/gen3/shiny/204.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -10004,10 +9390,7 @@
         "species_id": 204
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/205.png",
-      "gen3_shiny": "sprites/gen3/shiny/205.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -10050,10 +9433,7 @@
         "species_id": 206
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/206.png",
-      "gen3_shiny": "sprites/gen3/shiny/206.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -10097,10 +9477,7 @@
         "species_id": 207
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/207.png",
-      "gen3_shiny": "sprites/gen3/shiny/207.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -10144,10 +9521,7 @@
         "species_id": 95
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/208.png",
-      "gen3_shiny": "sprites/gen3/shiny/208.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -10191,10 +9565,7 @@
         "species_id": 209
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/209.png",
-      "gen3_shiny": "sprites/gen3/shiny/209.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -10238,10 +9609,7 @@
         "species_id": 209
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/210.png",
-      "gen3_shiny": "sprites/gen3/shiny/210.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -10285,10 +9653,7 @@
         "species_id": 211
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/211.png",
-      "gen3_shiny": "sprites/gen3/shiny/211.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -10348,10 +9713,7 @@
         ]
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/212.png",
-      "gen3_shiny": "sprites/gen3/shiny/212.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -10395,10 +9757,7 @@
         "species_id": 213
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/213.png",
-      "gen3_shiny": "sprites/gen3/shiny/213.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -10442,10 +9801,7 @@
         "species_id": 214
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/214.png",
-      "gen3_shiny": "sprites/gen3/shiny/214.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -10505,10 +9861,7 @@
         ]
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/215.png",
-      "gen3_shiny": "sprites/gen3/shiny/215.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -10551,10 +9904,7 @@
         "species_id": 216
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/216.png",
-      "gen3_shiny": "sprites/gen3/shiny/216.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -10597,10 +9947,7 @@
         "species_id": 216
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/217.png",
-      "gen3_shiny": "sprites/gen3/shiny/217.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -10643,10 +9990,7 @@
         "species_id": 218
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/218.png",
-      "gen3_shiny": "sprites/gen3/shiny/218.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -10690,10 +10034,7 @@
         "species_id": 218
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/219.png",
-      "gen3_shiny": "sprites/gen3/shiny/219.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -10737,10 +10078,7 @@
         "species_id": 220
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/220.png",
-      "gen3_shiny": "sprites/gen3/shiny/220.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -10784,10 +10122,7 @@
         "species_id": 220
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/221.png",
-      "gen3_shiny": "sprites/gen3/shiny/221.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -10832,10 +10167,7 @@
         "species_id": 222
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/222.png",
-      "gen3_shiny": "sprites/gen3/shiny/222.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -10879,10 +10211,7 @@
         "species_id": 223
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/223.png",
-      "gen3_shiny": "sprites/gen3/shiny/223.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -10926,10 +10255,7 @@
         "species_id": 223
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/224.png",
-      "gen3_shiny": "sprites/gen3/shiny/224.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -10974,10 +10300,7 @@
         "species_id": 225
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/225.png",
-      "gen3_shiny": "sprites/gen3/shiny/225.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -11021,10 +10344,7 @@
         "species_id": 458
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/226.png",
-      "gen3_shiny": "sprites/gen3/shiny/226.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -11068,10 +10388,7 @@
         "species_id": 227
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/227.png",
-      "gen3_shiny": "sprites/gen3/shiny/227.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -11115,10 +10432,7 @@
         "species_id": 228
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/228.png",
-      "gen3_shiny": "sprites/gen3/shiny/228.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -11162,10 +10476,7 @@
         "species_id": 228
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/229.png",
-      "gen3_shiny": "sprites/gen3/shiny/229.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -11210,10 +10521,7 @@
         "species_id": 116
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/230.png",
-      "gen3_shiny": "sprites/gen3/shiny/230.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -11255,10 +10563,7 @@
         "species_id": 231
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/231.png",
-      "gen3_shiny": "sprites/gen3/shiny/231.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -11300,10 +10605,7 @@
         "species_id": 231
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/232.png",
-      "gen3_shiny": "sprites/gen3/shiny/232.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -11346,10 +10648,7 @@
         "species_id": 137
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/233.png",
-      "gen3_shiny": "sprites/gen3/shiny/233.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -11392,10 +10691,7 @@
         "species_id": 234
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/234.png",
-      "gen3_shiny": "sprites/gen3/shiny/234.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -11438,10 +10734,7 @@
         "species_id": 235
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/235.png",
-      "gen3_shiny": "sprites/gen3/shiny/235.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -11506,10 +10799,7 @@
         ]
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/236.png",
-      "gen3_shiny": "sprites/gen3/shiny/236.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -11574,10 +10864,7 @@
         ]
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/237.png",
-      "gen3_shiny": "sprites/gen3/shiny/237.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -11621,10 +10908,7 @@
         "species_id": 238
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/238.png",
-      "gen3_shiny": "sprites/gen3/shiny/238.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -11666,10 +10950,7 @@
         "species_id": 239
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/239.png",
-      "gen3_shiny": "sprites/gen3/shiny/239.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -11711,10 +10992,7 @@
         "species_id": 240
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/240.png",
-      "gen3_shiny": "sprites/gen3/shiny/240.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -11757,10 +11035,7 @@
         "species_id": 241
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/241.png",
-      "gen3_shiny": "sprites/gen3/shiny/241.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -11803,10 +11078,7 @@
         "species_id": 440
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/242.png",
-      "gen3_shiny": "sprites/gen3/shiny/242.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -11848,10 +11120,7 @@
         "species_id": 243
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/243.png",
-      "gen3_shiny": "sprites/gen3/shiny/243.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -11893,10 +11162,7 @@
         "species_id": 244
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/244.png",
-      "gen3_shiny": "sprites/gen3/shiny/244.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -11938,10 +11204,7 @@
         "species_id": 245
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/245.png",
-      "gen3_shiny": "sprites/gen3/shiny/245.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -11984,10 +11247,7 @@
         "species_id": 246
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/246.png",
-      "gen3_shiny": "sprites/gen3/shiny/246.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -12029,10 +11289,7 @@
         "species_id": 246
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/247.png",
-      "gen3_shiny": "sprites/gen3/shiny/247.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -12075,10 +11332,7 @@
         "species_id": 246
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/248.png",
-      "gen3_shiny": "sprites/gen3/shiny/248.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -12121,10 +11375,7 @@
         "species_id": 249
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/249.png",
-      "gen3_shiny": "sprites/gen3/shiny/249.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -12135,7 +11386,7 @@
   },
   "250": {
     "id": 250,
-    "name": "Ho-oh",
+    "name": "Ho Oh",
     "types": [
       "Fire",
       "Flying"
@@ -12167,10 +11418,7 @@
         "species_id": 250
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/250.png",
-      "gen3_shiny": "sprites/gen3/shiny/250.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -12212,10 +11460,7 @@
         "species_id": 251
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/251.png",
-      "gen3_shiny": "sprites/gen3/shiny/251.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -12258,10 +11503,7 @@
         "species_id": 252
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/252.png",
-      "gen3_shiny": "sprites/gen3/shiny/252.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -12304,10 +11546,7 @@
         "species_id": 252
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/253.png",
-      "gen3_shiny": "sprites/gen3/shiny/253.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -12350,10 +11589,7 @@
         "species_id": 252
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/254.png",
-      "gen3_shiny": "sprites/gen3/shiny/254.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -12395,10 +11631,7 @@
         "species_id": 255
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/255.png",
-      "gen3_shiny": "sprites/gen3/shiny/255.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -12441,10 +11674,7 @@
         "species_id": 255
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/256.png",
-      "gen3_shiny": "sprites/gen3/shiny/256.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -12487,10 +11717,7 @@
         "species_id": 255
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/257.png",
-      "gen3_shiny": "sprites/gen3/shiny/257.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -12533,10 +11760,7 @@
         "species_id": 258
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/258.png",
-      "gen3_shiny": "sprites/gen3/shiny/258.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -12580,10 +11804,7 @@
         "species_id": 258
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/259.png",
-      "gen3_shiny": "sprites/gen3/shiny/259.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -12627,10 +11848,7 @@
         "species_id": 258
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/260.png",
-      "gen3_shiny": "sprites/gen3/shiny/260.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -12673,10 +11891,7 @@
         "species_id": 261
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/261.png",
-      "gen3_shiny": "sprites/gen3/shiny/261.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -12719,10 +11934,7 @@
         "species_id": 261
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/262.png",
-      "gen3_shiny": "sprites/gen3/shiny/262.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -12765,10 +11977,7 @@
         "species_id": 263
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/263.png",
-      "gen3_shiny": "sprites/gen3/shiny/263.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -12811,10 +12020,7 @@
         "species_id": 263
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/264.png",
-      "gen3_shiny": "sprites/gen3/shiny/264.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -12872,10 +12078,7 @@
         ]
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/265.png",
-      "gen3_shiny": "sprites/gen3/shiny/265.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -12932,10 +12135,7 @@
         ]
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/266.png",
-      "gen3_shiny": "sprites/gen3/shiny/266.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -12994,10 +12194,7 @@
         ]
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/267.png",
-      "gen3_shiny": "sprites/gen3/shiny/267.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -13054,10 +12251,7 @@
         ]
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/268.png",
-      "gen3_shiny": "sprites/gen3/shiny/268.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -13116,10 +12310,7 @@
         ]
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/269.png",
-      "gen3_shiny": "sprites/gen3/shiny/269.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -13164,10 +12355,7 @@
         "species_id": 270
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/270.png",
-      "gen3_shiny": "sprites/gen3/shiny/270.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -13212,10 +12400,7 @@
         "species_id": 270
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/271.png",
-      "gen3_shiny": "sprites/gen3/shiny/271.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -13260,10 +12445,7 @@
         "species_id": 270
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/272.png",
-      "gen3_shiny": "sprites/gen3/shiny/272.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -13307,10 +12489,7 @@
         "species_id": 273
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/273.png",
-      "gen3_shiny": "sprites/gen3/shiny/273.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -13355,10 +12534,7 @@
         "species_id": 273
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/274.png",
-      "gen3_shiny": "sprites/gen3/shiny/274.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -13403,10 +12579,7 @@
         "species_id": 273
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/275.png",
-      "gen3_shiny": "sprites/gen3/shiny/275.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -13449,10 +12622,7 @@
         "species_id": 276
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/276.png",
-      "gen3_shiny": "sprites/gen3/shiny/276.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -13495,10 +12665,7 @@
         "species_id": 276
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/277.png",
-      "gen3_shiny": "sprites/gen3/shiny/277.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -13543,10 +12710,7 @@
         "species_id": 278
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/278.png",
-      "gen3_shiny": "sprites/gen3/shiny/278.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -13591,10 +12755,7 @@
         "species_id": 278
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/279.png",
-      "gen3_shiny": "sprites/gen3/shiny/279.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -13639,10 +12800,7 @@
         "species_id": 280
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/280.png",
-      "gen3_shiny": "sprites/gen3/shiny/280.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -13687,10 +12845,7 @@
         "species_id": 280
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/281.png",
-      "gen3_shiny": "sprites/gen3/shiny/281.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -13735,10 +12890,7 @@
         "species_id": 280
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/282.png",
-      "gen3_shiny": "sprites/gen3/shiny/282.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -13782,10 +12934,7 @@
         "species_id": 283
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/283.png",
-      "gen3_shiny": "sprites/gen3/shiny/283.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -13829,10 +12978,7 @@
         "species_id": 283
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/284.png",
-      "gen3_shiny": "sprites/gen3/shiny/284.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -13876,10 +13022,7 @@
         "species_id": 285
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/285.png",
-      "gen3_shiny": "sprites/gen3/shiny/285.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -13924,10 +13067,7 @@
         "species_id": 285
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/286.png",
-      "gen3_shiny": "sprites/gen3/shiny/286.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -13968,10 +13108,7 @@
         "species_id": 287
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/287.png",
-      "gen3_shiny": "sprites/gen3/shiny/287.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -14012,10 +13149,7 @@
         "species_id": 287
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/288.png",
-      "gen3_shiny": "sprites/gen3/shiny/288.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -14056,10 +13190,7 @@
         "species_id": 287
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/289.png",
-      "gen3_shiny": "sprites/gen3/shiny/289.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -14118,10 +13249,7 @@
         ]
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/290.png",
-      "gen3_shiny": "sprites/gen3/shiny/290.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -14180,10 +13308,7 @@
         ]
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/291.png",
-      "gen3_shiny": "sprites/gen3/shiny/291.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -14241,10 +13366,7 @@
         ]
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/292.png",
-      "gen3_shiny": "sprites/gen3/shiny/292.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -14287,10 +13409,7 @@
         "species_id": 293
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/293.png",
-      "gen3_shiny": "sprites/gen3/shiny/293.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -14333,10 +13452,7 @@
         "species_id": 293
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/294.png",
-      "gen3_shiny": "sprites/gen3/shiny/294.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -14379,10 +13495,7 @@
         "species_id": 293
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/295.png",
-      "gen3_shiny": "sprites/gen3/shiny/295.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -14425,10 +13538,7 @@
         "species_id": 296
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/296.png",
-      "gen3_shiny": "sprites/gen3/shiny/296.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -14471,10 +13581,7 @@
         "species_id": 296
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/297.png",
-      "gen3_shiny": "sprites/gen3/shiny/297.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -14518,10 +13625,7 @@
         "species_id": 298
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/298.png",
-      "gen3_shiny": "sprites/gen3/shiny/298.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -14564,10 +13668,7 @@
         "species_id": 299
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/299.png",
-      "gen3_shiny": "sprites/gen3/shiny/299.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -14611,10 +13712,7 @@
         "species_id": 300
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/300.png",
-      "gen3_shiny": "sprites/gen3/shiny/300.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -14658,10 +13756,7 @@
         "species_id": 300
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/301.png",
-      "gen3_shiny": "sprites/gen3/shiny/301.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -14705,10 +13800,7 @@
         "species_id": 302
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/302.png",
-      "gen3_shiny": "sprites/gen3/shiny/302.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -14753,10 +13845,7 @@
         "species_id": 303
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/303.png",
-      "gen3_shiny": "sprites/gen3/shiny/303.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -14800,10 +13889,7 @@
         "species_id": 304
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/304.png",
-      "gen3_shiny": "sprites/gen3/shiny/304.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -14847,10 +13933,7 @@
         "species_id": 304
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/305.png",
-      "gen3_shiny": "sprites/gen3/shiny/305.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -14894,10 +13977,7 @@
         "species_id": 304
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/306.png",
-      "gen3_shiny": "sprites/gen3/shiny/306.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -14940,10 +14020,7 @@
         "species_id": 307
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/307.png",
-      "gen3_shiny": "sprites/gen3/shiny/307.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -14986,10 +14063,7 @@
         "species_id": 307
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/308.png",
-      "gen3_shiny": "sprites/gen3/shiny/308.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -15032,10 +14106,7 @@
         "species_id": 309
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/309.png",
-      "gen3_shiny": "sprites/gen3/shiny/309.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -15078,10 +14149,7 @@
         "species_id": 309
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/310.png",
-      "gen3_shiny": "sprites/gen3/shiny/310.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -15123,10 +14191,7 @@
         "species_id": 311
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/311.png",
-      "gen3_shiny": "sprites/gen3/shiny/311.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -15168,10 +14233,7 @@
         "species_id": 312
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/312.png",
-      "gen3_shiny": "sprites/gen3/shiny/312.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -15215,10 +14277,7 @@
         "species_id": 313
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/313.png",
-      "gen3_shiny": "sprites/gen3/shiny/313.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -15262,10 +14321,7 @@
         "species_id": 314
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/314.png",
-      "gen3_shiny": "sprites/gen3/shiny/314.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -15310,10 +14366,7 @@
         "species_id": 406
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/315.png",
-      "gen3_shiny": "sprites/gen3/shiny/315.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -15356,10 +14409,7 @@
         "species_id": 316
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/316.png",
-      "gen3_shiny": "sprites/gen3/shiny/316.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -15402,10 +14452,7 @@
         "species_id": 316
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/317.png",
-      "gen3_shiny": "sprites/gen3/shiny/317.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -15448,10 +14495,7 @@
         "species_id": 318
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/318.png",
-      "gen3_shiny": "sprites/gen3/shiny/318.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -15494,10 +14538,7 @@
         "species_id": 318
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/319.png",
-      "gen3_shiny": "sprites/gen3/shiny/319.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -15541,10 +14582,7 @@
         "species_id": 320
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/320.png",
-      "gen3_shiny": "sprites/gen3/shiny/320.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -15588,10 +14626,7 @@
         "species_id": 320
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/321.png",
-      "gen3_shiny": "sprites/gen3/shiny/321.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -15635,10 +14670,7 @@
         "species_id": 322
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/322.png",
-      "gen3_shiny": "sprites/gen3/shiny/322.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -15682,10 +14714,7 @@
         "species_id": 322
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/323.png",
-      "gen3_shiny": "sprites/gen3/shiny/323.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -15728,10 +14757,7 @@
         "species_id": 324
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/324.png",
-      "gen3_shiny": "sprites/gen3/shiny/324.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -15774,10 +14800,7 @@
         "species_id": 325
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/325.png",
-      "gen3_shiny": "sprites/gen3/shiny/325.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -15820,10 +14843,7 @@
         "species_id": 325
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/326.png",
-      "gen3_shiny": "sprites/gen3/shiny/326.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -15867,10 +14887,7 @@
         "species_id": 327
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/327.png",
-      "gen3_shiny": "sprites/gen3/shiny/327.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -15914,10 +14931,7 @@
         "species_id": 328
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/328.png",
-      "gen3_shiny": "sprites/gen3/shiny/328.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -15960,10 +14974,7 @@
         "species_id": 328
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/329.png",
-      "gen3_shiny": "sprites/gen3/shiny/329.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -16006,10 +15017,7 @@
         "species_id": 328
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/330.png",
-      "gen3_shiny": "sprites/gen3/shiny/330.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -16052,10 +15060,7 @@
         "species_id": 331
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/331.png",
-      "gen3_shiny": "sprites/gen3/shiny/331.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -16099,10 +15104,7 @@
         "species_id": 331
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/332.png",
-      "gen3_shiny": "sprites/gen3/shiny/332.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -16146,10 +15148,7 @@
         "species_id": 333
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/333.png",
-      "gen3_shiny": "sprites/gen3/shiny/333.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -16193,10 +15192,7 @@
         "species_id": 333
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/334.png",
-      "gen3_shiny": "sprites/gen3/shiny/334.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -16238,10 +15234,7 @@
         "species_id": 335
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/335.png",
-      "gen3_shiny": "sprites/gen3/shiny/335.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -16284,10 +15277,7 @@
         "species_id": 336
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/336.png",
-      "gen3_shiny": "sprites/gen3/shiny/336.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -16329,10 +15319,7 @@
         "species_id": 337
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/337.png",
-      "gen3_shiny": "sprites/gen3/shiny/337.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -16374,10 +15361,7 @@
         "species_id": 338
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/338.png",
-      "gen3_shiny": "sprites/gen3/shiny/338.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -16421,10 +15405,7 @@
         "species_id": 339
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/339.png",
-      "gen3_shiny": "sprites/gen3/shiny/339.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -16468,10 +15449,7 @@
         "species_id": 339
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/340.png",
-      "gen3_shiny": "sprites/gen3/shiny/340.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -16515,10 +15493,7 @@
         "species_id": 341
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/341.png",
-      "gen3_shiny": "sprites/gen3/shiny/341.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -16563,10 +15538,7 @@
         "species_id": 341
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/342.png",
-      "gen3_shiny": "sprites/gen3/shiny/342.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -16608,10 +15580,7 @@
         "species_id": 343
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/343.png",
-      "gen3_shiny": "sprites/gen3/shiny/343.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -16653,10 +15622,7 @@
         "species_id": 343
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/344.png",
-      "gen3_shiny": "sprites/gen3/shiny/344.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -16699,10 +15665,7 @@
         "species_id": 345
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/345.png",
-      "gen3_shiny": "sprites/gen3/shiny/345.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -16745,10 +15708,7 @@
         "species_id": 345
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/346.png",
-      "gen3_shiny": "sprites/gen3/shiny/346.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -16791,10 +15751,7 @@
         "species_id": 347
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/347.png",
-      "gen3_shiny": "sprites/gen3/shiny/347.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -16837,10 +15794,7 @@
         "species_id": 347
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/348.png",
-      "gen3_shiny": "sprites/gen3/shiny/348.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -16884,10 +15838,7 @@
         "species_id": 349
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/349.png",
-      "gen3_shiny": "sprites/gen3/shiny/349.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -16931,10 +15882,7 @@
         "species_id": 349
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/350.png",
-      "gen3_shiny": "sprites/gen3/shiny/350.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -16976,10 +15924,7 @@
         "species_id": 351
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/351.png",
-      "gen3_shiny": "sprites/gen3/shiny/351.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -17021,10 +15966,7 @@
         "species_id": 352
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/352.png",
-      "gen3_shiny": "sprites/gen3/shiny/352.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -17067,10 +16009,7 @@
         "species_id": 353
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/353.png",
-      "gen3_shiny": "sprites/gen3/shiny/353.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -17113,10 +16052,7 @@
         "species_id": 353
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/354.png",
-      "gen3_shiny": "sprites/gen3/shiny/354.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -17158,10 +16094,7 @@
         "species_id": 355
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/355.png",
-      "gen3_shiny": "sprites/gen3/shiny/355.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -17203,10 +16136,7 @@
         "species_id": 355
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/356.png",
-      "gen3_shiny": "sprites/gen3/shiny/356.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -17251,10 +16181,7 @@
         "species_id": 357
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/357.png",
-      "gen3_shiny": "sprites/gen3/shiny/357.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -17295,10 +16222,7 @@
         "species_id": 433
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/358.png",
-      "gen3_shiny": "sprites/gen3/shiny/358.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -17341,10 +16265,7 @@
         "species_id": 359
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/359.png",
-      "gen3_shiny": "sprites/gen3/shiny/359.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -17386,10 +16307,7 @@
         "species_id": 360
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/360.png",
-      "gen3_shiny": "sprites/gen3/shiny/360.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -17449,10 +16367,7 @@
         ]
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/361.png",
-      "gen3_shiny": "sprites/gen3/shiny/361.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -17512,10 +16427,7 @@
         ]
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/362.png",
-      "gen3_shiny": "sprites/gen3/shiny/362.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -17560,10 +16472,7 @@
         "species_id": 363
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/363.png",
-      "gen3_shiny": "sprites/gen3/shiny/363.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -17608,10 +16517,7 @@
         "species_id": 363
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/364.png",
-      "gen3_shiny": "sprites/gen3/shiny/364.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -17656,10 +16562,7 @@
         "species_id": 363
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/365.png",
-      "gen3_shiny": "sprites/gen3/shiny/365.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -17717,10 +16620,7 @@
         ]
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/366.png",
-      "gen3_shiny": "sprites/gen3/shiny/366.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -17778,10 +16678,7 @@
         ]
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/367.png",
-      "gen3_shiny": "sprites/gen3/shiny/367.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -17839,10 +16736,7 @@
         ]
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/368.png",
-      "gen3_shiny": "sprites/gen3/shiny/368.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -17887,10 +16781,7 @@
         "species_id": 369
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/369.png",
-      "gen3_shiny": "sprites/gen3/shiny/369.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -17932,10 +16823,7 @@
         "species_id": 370
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/370.png",
-      "gen3_shiny": "sprites/gen3/shiny/370.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -17977,10 +16865,7 @@
         "species_id": 371
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/371.png",
-      "gen3_shiny": "sprites/gen3/shiny/371.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -18022,10 +16907,7 @@
         "species_id": 371
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/372.png",
-      "gen3_shiny": "sprites/gen3/shiny/372.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -18068,10 +16950,7 @@
         "species_id": 371
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/373.png",
-      "gen3_shiny": "sprites/gen3/shiny/373.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -18114,10 +16993,7 @@
         "species_id": 374
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/374.png",
-      "gen3_shiny": "sprites/gen3/shiny/374.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -18160,10 +17036,7 @@
         "species_id": 374
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/375.png",
-      "gen3_shiny": "sprites/gen3/shiny/375.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -18206,10 +17079,7 @@
         "species_id": 374
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/376.png",
-      "gen3_shiny": "sprites/gen3/shiny/376.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -18251,10 +17121,7 @@
         "species_id": 377
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/377.png",
-      "gen3_shiny": "sprites/gen3/shiny/377.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -18296,10 +17163,7 @@
         "species_id": 378
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/378.png",
-      "gen3_shiny": "sprites/gen3/shiny/378.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -18341,10 +17205,7 @@
         "species_id": 379
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/379.png",
-      "gen3_shiny": "sprites/gen3/shiny/379.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -18386,10 +17247,7 @@
         "species_id": 380
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/380.png",
-      "gen3_shiny": "sprites/gen3/shiny/380.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -18431,10 +17289,7 @@
         "species_id": 381
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/381.png",
-      "gen3_shiny": "sprites/gen3/shiny/381.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -18475,10 +17330,7 @@
         "species_id": 382
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/382.png",
-      "gen3_shiny": "sprites/gen3/shiny/382.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -18519,10 +17371,7 @@
         "species_id": 383
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/383.png",
-      "gen3_shiny": "sprites/gen3/shiny/383.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -18564,10 +17413,7 @@
         "species_id": 384
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/384.png",
-      "gen3_shiny": "sprites/gen3/shiny/384.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -18609,10 +17455,7 @@
         "species_id": 385
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/385.png",
-      "gen3_shiny": "sprites/gen3/shiny/385.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",
@@ -18623,7 +17466,7 @@
   },
   "386": {
     "id": 386,
-    "name": "Deoxys-normal",
+    "name": "Deoxys Normal",
     "types": [
       "Psychic"
     ],
@@ -18653,10 +17496,7 @@
         "species_id": 386
       }
     ],
-    "sprites": {
-      "gen3_normal": "sprites/gen3/normal/386.png",
-      "gen3_shiny": "sprites/gen3/shiny/386.png"
-    },
+    "sprites": {},
     "games": [
       "Ruby",
       "Sapphire",

@@ -193,6 +193,7 @@ class ModalLauncherMixin:
                 on_close=self._close_modal,
                 on_event_claimed=self._on_event_claimed,
                 game_name=current_game_name,
+                is_game_running_callback=self._get_running_game_name,
             )
         elif name == "DB Builder" and DBBuilder:
             self.modal_instance = DBBuilder(

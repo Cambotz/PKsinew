@@ -22,6 +22,25 @@ from ui_components import Button
 # ====================================================================
 
 
+def _compute_is_shiny(pokemon):
+    """
+    Compute whether a Pokemon is shiny from its personality and OT ID.
+    Gen 3 formula: TID ^ SID ^ PID_HIGH ^ PID_LOW < 8.
+    Falls back to stored flags only if PID/OTID are missing.
+    """
+    if not pokemon or pokemon.get("empty") or pokemon.get("egg"):
+        return False
+    personality = pokemon.get("personality", 0)
+    ot_id = pokemon.get("ot_id", 0)
+    if personality and ot_id:
+        tid      = ot_id & 0xFFFF
+        sid      = (ot_id >> 16) & 0xFFFF
+        pid_low  = personality & 0xFFFF
+        pid_high = (personality >> 16) & 0xFFFF
+        return (tid ^ sid ^ pid_low ^ pid_high) < 8
+    return pokemon.get("is_shiny", False) or pokemon.get("shiny", False)
+
+
 class Modal:
     def __init__(
         self,
@@ -393,7 +412,7 @@ class TrainerInfoScreen:
             # Load sprite using sprite pack system
             # ------------------------------
             species = p.get("species", 0)
-            is_shiny = p.get("is_shiny", False) or p.get("shiny", False)
+            is_shiny = _compute_is_shiny(p)
             sprite_surf = None
             gif_sprite_obj = None  # Initialize for animation support
             
@@ -510,26 +529,43 @@ class TrainerInfoScreen:
 
     def update(self, events):
         """Update the trainer info screen, passing events to the active sub-modal if open."""
-        # If sub-modal is open, update it
+        # If sub-modal is open, delegate to it
         if self.sub_modal:
-            # Update animations if sub_modal supports it (like PartyScreen with GIF sprites)
             if hasattr(self.sub_modal, "update"):
-                self.sub_modal.update(events)
-            
-            # Check if sub-modal wants to close
-            if hasattr(self.sub_modal, "screen") and hasattr(
+                # Always try passing events first; fall back to no-arg for animation-only modals
+                try:
+                    result = self.sub_modal.update(events)
+                except TypeError:
+                    # Sub-modal doesn't accept events (e.g. animation-only update())
+                    result = self.sub_modal.update()
+
+                # If update() returns False the modal wants to close
+                if result is False:
+                    self.sub_modal = None
+                    return
+
+            # Check if sub-modal wants to close (screen.should_close pattern)
+            if self.sub_modal and hasattr(self.sub_modal, "screen") and hasattr(
                 self.sub_modal.screen, "should_close"
             ):
                 if self.sub_modal.screen.should_close:
                     self.sub_modal = None
+                    return
 
-            # Handle events for sub-modal
-            for e in events:
-                if e.type == pygame.KEYDOWN and e.key == pygame.K_ESCAPE:
-                    self.sub_modal = None
-                elif e.type == pygame.MOUSEBUTTONDOWN:
-                    if hasattr(self.sub_modal, "handle_mouse"):
-                        self.sub_modal.handle_mouse(e)
+            # Direct should_close flag
+            if self.sub_modal and getattr(self.sub_modal, "should_close", False):
+                self.sub_modal = None
+                return
+
+            # Escape to close sub-modal; pass mouse events through
+            if self.sub_modal:
+                for e in events:
+                    if e.type == pygame.KEYDOWN and e.key == pygame.K_ESCAPE:
+                        self.sub_modal = None
+                        return
+                    elif e.type == pygame.MOUSEBUTTONDOWN:
+                        if hasattr(self.sub_modal, "handle_mouse"):
+                            self.sub_modal.handle_mouse(e)
             return
 
         for e in events:

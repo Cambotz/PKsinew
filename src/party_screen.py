@@ -21,13 +21,29 @@ except ImportError:
     PokemonSummary = None
     SUMMARY_AVAILABLE = False
 
-# Import GIFSprite for animation support
+# Import GIFSprite and ShinyOverlay for animation support
 try:
-    from gif_sprite_handler import GIFSprite
+    from gif_sprite_handler import GIFSprite, ShinyOverlay
     GIF_AVAILABLE = True
 except ImportError:
     GIFSprite = None
+    ShinyOverlay = None
     GIF_AVAILABLE = False
+
+
+def _compute_is_shiny(pokemon):
+    """Gen 3 shiny check: TID ^ SID ^ PID_HIGH ^ PID_LOW < 8."""
+    if not pokemon or pokemon.get('empty') or pokemon.get('egg'):
+        return False
+    personality = pokemon.get('personality', 0)
+    ot_id = pokemon.get('ot_id', 0)
+    if personality and ot_id:
+        tid      = ot_id & 0xFFFF
+        sid      = (ot_id >> 16) & 0xFFFF
+        pid_low  = personality & 0xFFFF
+        pid_high = (personality >> 16) & 0xFFFF
+        return (tid ^ sid ^ pid_low ^ pid_high) < 8
+    return pokemon.get('is_shiny', False) or pokemon.get('shiny', False)
 
 SLOT_COUNT = 6
 
@@ -52,6 +68,10 @@ class PartyScreen:
         # Track GIF sprites for animation
         self.gif_sprites = []  # List of (GIFSprite, index) tuples
         self.last_update_time = pygame.time.get_ticks()
+
+        # Shiny overlay - plays once over the large sprite box for shiny pokemon
+        self._shiny_overlay = ShinyOverlay() if ShinyOverlay else None
+        self._shiny_overlay_last_idx = None  # track selection to re-trigger
 
         # ------------------------------------------------------------
         # FONTS
@@ -198,6 +218,10 @@ class PartyScreen:
             self.surface.blit(
                 placeholder, placeholder.get_rect(center=self.sprite_rect.center)
             )
+
+        # Draw shiny overlay over the large sprite box
+        if self._shiny_overlay is not None:
+            self._shiny_overlay.draw(self.surface)
 
         # INFO BOX
         pygame.draw.rect(self.surface, ui_colors.COLOR_BUTTON, self.info_rect)
@@ -520,3 +544,12 @@ class PartyScreen:
         # Update all GIF sprite animations
         for gif_sprite, idx in self.gif_sprites:
             gif_sprite.update(dt)
+
+        # Trigger shiny overlay when selection changes to a shiny
+        if self._shiny_overlay is not None:
+            if self.selected_index != self._shiny_overlay_last_idx:
+                self._shiny_overlay_last_idx = self.selected_index
+                selected = self.party_data[self.selected_index]
+                if selected and _compute_is_shiny(selected):
+                    self._shiny_overlay.trigger(self.sprite_rect)
+            self._shiny_overlay.update(dt)

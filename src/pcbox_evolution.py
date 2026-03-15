@@ -13,6 +13,7 @@ Methods call back into self.* for state (sinew_storage, manager, box_index,
 warning_message, etc.) and other mixins (_show_warning, refresh_data).
 """
 
+from config import ECHO_DELIVERED_PATH
 import sys
 
 try:
@@ -397,10 +398,11 @@ class PCBoxEvolutionMixin:
         self.altering_cave_remaining = remaining
 
         import random
+        from ui_scale import ui
         result_index = random.randint(0, len(remaining) - 1)
         self.altering_cave_spinner_result = remaining[result_index]
 
-        item_height = 56
+        item_height = ui.s(56)  # Must match draw code in ui_pcbox_draw.py
         full_rotations = random.randint(3, 5) * len(remaining) * item_height
         target_offset = full_rotations + (result_index * item_height)
         self.altering_cave_target_offset = target_offset
@@ -479,7 +481,9 @@ class PCBoxEvolutionMixin:
     def _complete_altering_cave_exchange(self):
         """
         Complete the Altering Cave exchange - replace Zubat with won Pokemon.
-        Uses pokemon_generator for dynamic generation instead of .pks files.
+        
+        ENHANCED: Now uses UPO system for automatic validation and debugging.
+        Falls back to legacy generation if UPO unavailable.
         """
         if not self.altering_cave_spinner_result or not self.altering_cave_location:
             return
@@ -487,23 +491,86 @@ class PCBoxEvolutionMixin:
         result_pokemon = self.altering_cave_spinner_result
 
         try:
-            from pokemon_generator import generate_echo_pokemon
-            result = generate_echo_pokemon(result_pokemon["name"])
-            if result is None:
-                print(f"[PCBox] ERROR: Could not generate {result_pokemon['name']}")
-                self.warning_message = (
-                    f"Error: Could not generate {result_pokemon['name']}!"
-                )
-                self.warning_message_timer = self.warning_message_duration
-                self._close_altering_cave_spinner()
-                return
+            # Try UPO-enhanced generation first
+            try:
+                from pokemon_generator import generate_echo_pokemon_upo
 
-            pks_data, pokemon_dict = result
-            pokemon_dict["raw_bytes"] = pks_data
-            print(
-                f"[PCBox] Generated {result_pokemon['name']}: {len(pks_data)} bytes, "
-                f"species={pokemon_dict.get('species')}"
-            )
+                current_game = self.get_current_game() if hasattr(self, "get_current_game") else "emerald"
+                print(f"[PCBox] Echo generation - current_game='{current_game}'")
+                result = generate_echo_pokemon_upo(result_pokemon["name"], current_game)
+                if result is None:
+                    print(f"[PCBox] ERROR: Could not generate {result_pokemon['name']}")
+                    self.warning_message = (
+                        f"Error: Could not generate {result_pokemon['name']}!"
+                    )
+                    self.warning_message_timer = self.warning_message_duration
+                    self._close_altering_cave_spinner()
+                    return
+                
+                pokemon_upo, pks_data, pokemon_dict = result
+                pokemon_dict["raw_bytes"] = pks_data
+                
+                print(
+                    f"[PCBox] Generated {result_pokemon['name']} (UPO): "
+                    f"{len(pks_data)} bytes, species={pokemon_dict.get('species')}"
+                )
+                
+                # Validate the generated Pokemon
+                from legality_engine import validate_pokemon, ValidationLevel
+                
+                errors = validate_pokemon(pokemon_upo, ValidationLevel.STANDARD)
+                if errors:
+                    print(f"[PCBox] WARNING: Generated Pokemon has validation errors:")
+                    for error in errors:
+                        print(f"  - {error}")
+                    print(f"[PCBox] Species: {result_pokemon['name']}")
+                    print(f"[PCBox] PID: 0x{pokemon_upo.pid:08X}")
+                    print(f"[PCBox] Proceeding with exchange anyway...")
+                else:
+                    print(f"[PCBox] ✓ Pokemon validation passed")
+                
+                # Optional: Log Echo deliveries
+                try:
+                    import json
+                    import time
+                    log_path = ECHO_DELIVERED_PATH
+                    with open(log_path, "a") as f:
+                        log_entry = {
+                            "timestamp": time.time(),
+                            "species": result_pokemon['name'],
+                            "species_id": result_pokemon['species'],
+                            "pid": f"0x{pokemon_upo.pid:08X}",
+                            "shiny": pokemon_upo.is_shiny,
+                            "ivs": pokemon_upo.ivs.to_tuple(),
+                            "validation_passed": len(errors) == 0
+                        }
+                        f.write(json.dumps(log_entry) + "\n")
+                except Exception as log_error:
+                    # Don't fail exchange if logging fails
+                    print(f"[PCBox] Could not log Echo delivery: {log_error}")
+                
+            except ImportError:
+                # Fall back to legacy generation
+                print("[PCBox] UPO not available, using legacy generation")
+                from pokemon_generator import generate_echo_pokemon
+
+                current_game = self.get_current_game() if hasattr(self, "get_current_game") else "emerald"
+                result = generate_echo_pokemon(result_pokemon["name"], current_game)
+                if result is None:
+                    print(f"[PCBox] ERROR: Could not generate {result_pokemon['name']}")
+                    self.warning_message = (
+                        f"Error: Could not generate {result_pokemon['name']}!"
+                    )
+                    self.warning_message_timer = self.warning_message_duration
+                    self._close_altering_cave_spinner()
+                    return
+
+                pks_data, pokemon_dict = result
+                pokemon_dict["raw_bytes"] = pks_data
+                print(
+                    f"[PCBox] Generated {result_pokemon['name']} (legacy): "
+                    f"{len(pks_data)} bytes, species={pokemon_dict.get('species')}"
+                )
 
             location = self.altering_cave_location
             print(f"[PCBox] Exchange location tuple: {location}")

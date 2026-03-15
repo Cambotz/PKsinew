@@ -95,8 +95,8 @@ class ItemBagScreen:
         # List area is from y=90 to h-40 (bottom margin for hints)
         # Item height is 20 + 2 gap = 22 pixels per item
         # With 8px top padding inside the box
-        list_height = self.h - ui.s(130) - ui.s(16)  # subtract padding
-        item_total_height = ui.s(22)  # 20 height + 2 gap
+        list_height = self.h - 130 - 16  # matches draw rect: h-130, minus 8px top+bottom padding
+        item_total_height = 22  # 20 height + 2 gap
         self.items_per_page = max(1, list_height // item_total_height)
         self.selected_item_index = 0
 

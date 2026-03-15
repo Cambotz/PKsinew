@@ -57,6 +57,17 @@ ROMS_DIR = os.path.join(EXT_DIR, "roms")
 SAVES_DIR = os.path.join(EXT_DIR, "saves")
 SYSTEM_DIR = os.path.join(EXT_DIR, "system")
 
+# ROM data extracted from game ROMs (species, moves, learnsets, etc.)
+ROM_DATA_DIR = os.path.join(DATA_DIR, "rom_data")
+ROM_DATA_GEN3_DIR = os.path.join(ROM_DATA_DIR, "gen3")
+
+# Per-game ROM data directories
+ROM_DATA_EMERALD = os.path.join(ROM_DATA_GEN3_DIR, "emerald")
+ROM_DATA_RUBY = os.path.join(ROM_DATA_GEN3_DIR, "ruby")
+ROM_DATA_SAPPHIRE = os.path.join(ROM_DATA_GEN3_DIR, "sapphire")
+ROM_DATA_FIRERED = os.path.join(ROM_DATA_GEN3_DIR, "firered")
+ROM_DATA_LEAFGREEN = os.path.join(ROM_DATA_GEN3_DIR, "leafgreen")
+
 # ===== Save File Settings =====
 # Canonical set of GBA save file extensions — used everywhere saves are scanned.
 # .sav  - most emulators (mGBA, VBA, etc.)
@@ -71,6 +82,8 @@ BACKUPS_DIR = os.path.join(SAVES_DIR, "backups")
 # Sinew-specific save paths
 ACH_SAVE_PATH = os.path.join(SAVES_DIR, "sinew", "achievements_progress.json")
 ACH_REWARDS_PATH = os.path.join(DATA_DIR, "achievements", "rewards", "rewards.json")
+ACH_DELIVERED_PATH = os.path.join(DATA_DIR, "achievements", "rewards", "achievements_delivered.json")
+ECHO_DELIVERED_PATH = os.path.join(DATA_DIR, "achievements", "rewards", "echo_delivered.json")
 SETTINGS_FILE = os.path.join(SAVES_DIR, "sinew", "sinew_settings.json")
 
 # Sprite directories (organized by pack)
@@ -94,6 +107,24 @@ GEN3_BOX_ANIM_DIR = os.path.join(PACKS_DIR, "gen3box")
 GEN8_ICONS_DIR = os.path.join(SPRITES_DIR, "gen8", "icons")
 
 TITLE_SPRITES_DIR = os.path.join(SPRITES_DIR, "title")
+ITEMS_SPRITES_DIR = os.path.join(SPRITES_DIR, "items")
+RIBBONS_DIR        = os.path.join(SPRITES_DIR, "ribbons")
+
+# Item sprite paths
+EGG_SPRITE_PATH    = os.path.join(ITEMS_SPRITES_DIR, "egg.png")
+SHINY_EFFECT_PATH  = os.path.join(ITEMS_SPRITES_DIR, "shiny.gif")
+
+# Sound effect paths
+SOUNDS_DIR         = os.path.join(DATA_DIR, "sounds")
+EFFECTS_DIR        = os.path.join(SOUNDS_DIR, "effects")
+SHINY_SOUND_PATH   = os.path.join(EFFECTS_DIR, "shiny.mp3")
+
+# Music paths
+MUSIC_DIR          = os.path.join(SOUNDS_DIR, "music")
+MENU_MUSIC_PATH    = os.path.join(MUSIC_DIR, "SinewMenu.mp3")
+
+# Supported music file extensions for the Jukebox
+MUSIC_EXTENSIONS   = (".mp3", ".ogg", ".wav", ".flac", ".opus")
 
 # Database paths
 POKEMON_DB_PATH = os.path.join(DATA_DIR, "pokemon_db.json")
@@ -228,6 +259,10 @@ def _default_use_external_providers():
 
 
 DEFAULT_USE_EXTERNAL_PROVIDERS = _default_use_external_providers()
+
+# Whether to use an external emulator binary by default (vs integrated mGBA).
+# Matches the external-providers default — handhelds and RetroPie use external.
+DEFAULT_USE_EXTERNAL_EMULATOR = DEFAULT_USE_EXTERNAL_PROVIDERS
 
 
 def _detect_video_driver():
@@ -771,16 +806,13 @@ def get_egg_sprite_path(sprite_type="gen3"):
     Returns:
         str: Absolute path to egg sprite
     """
-    if sprite_type == "showdown":
-        return os.path.join(SHOWDOWN_NORMAL_DIR, "egg.gif")
-    else:
-        return os.path.join(GEN3_NORMAL_DIR, "egg.png")
+    return EGG_SPRITE_PATH
 
 
 # ===== Directory Creation =====
 # Create necessary directories if they don't exist
 # Other external directories (data, themes, sprites) should be included in the distribution
-for dir_path in [ROMS_DIR, SAVES_DIR, BACKUPS_DIR, SYSTEM_DIR, os.path.dirname(SETTINGS_FILE)]:
+for dir_path in [ROMS_DIR, SAVES_DIR, BACKUPS_DIR, SYSTEM_DIR, os.path.dirname(SETTINGS_FILE), MUSIC_DIR]:
     os.makedirs(dir_path, exist_ok=True)
 
 

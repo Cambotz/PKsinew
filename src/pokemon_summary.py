@@ -267,21 +267,21 @@ def get_game_info(game_version_code):
     """
     Get game name and icon path from Gen3 game version code.
     
-    Gen3 game version codes:
-    1 = Sapphire, 2 = Ruby, 3 = Emerald
-    4 = FireRed, 5 = LeafGreen
-    15 = Colosseum/XD (Gamecube)
+    Gen3 game version codes (per PKHeX GameVersion enum):
+    1 = Ruby, 2 = Sapphire, 4 = FireRed, 5 = LeafGreen
+    8 = Emerald, 15 = Colosseum/XD (Gamecube)
     
     Returns:
         tuple: (game_name, icon_path) or (None, None) if unknown
     """
     game_map = {
-        1: ("Sapphire", os.path.join(TITLE_SPRITES_DIR, "sapphire.gif")),
-        2: ("Ruby", os.path.join(TITLE_SPRITES_DIR, "ruby.gif")),
-        3: ("Emerald", os.path.join(TITLE_SPRITES_DIR, "emerald.gif")),
-        4: ("FireRed", os.path.join(TITLE_SPRITES_DIR, "firered.gif")),
+        # Correct Gen 3 origin codes per PKHeX GameVersion enum
+        1: ("Ruby",      os.path.join(TITLE_SPRITES_DIR, "ruby.gif")),
+        2: ("Sapphire",  os.path.join(TITLE_SPRITES_DIR, "sapphire.gif")),
+        4: ("FireRed",   os.path.join(TITLE_SPRITES_DIR, "firered.gif")),
         5: ("LeafGreen", os.path.join(TITLE_SPRITES_DIR, "leafgreen.gif")),
-        15: ("Colosseum", None),  # No icon for Gamecube games
+        8: ("Emerald",   os.path.join(TITLE_SPRITES_DIR, "emerald.gif")),
+        15: ("Colosseum", None),
     }
     return game_map.get(game_version_code, (None, None))
 
@@ -343,6 +343,29 @@ NATURE_EFFECTS = {
 # Move data - basic Gen 3 moves (we'd need a full database for this)
 # For now, just display move IDs and what info we have
 MOVE_NAMES = {}  # Will be loaded from file if available
+
+
+def _compute_is_shiny(pokemon):
+    """
+    Compute whether a Pokemon is shiny from its personality and OT ID.
+    Falls back to stored 'is_shiny'/'shiny' flags if PID/OTID are missing.
+    Gen 3 shiny formula: TID ^ SID ^ PID_HIGH ^ PID_LOW < 8
+    """
+    if not pokemon or pokemon.get("empty") or pokemon.get("egg"):
+        return False
+
+    personality = pokemon.get("personality", 0)
+    ot_id = pokemon.get("ot_id", 0)
+
+    if personality and ot_id:
+        tid = ot_id & 0xFFFF
+        sid = (ot_id >> 16) & 0xFFFF
+        pid_low = personality & 0xFFFF
+        pid_high = (personality >> 16) & 0xFFFF
+        return (tid ^ sid ^ pid_low ^ pid_high) < 8
+
+    # Fall back to stored flag if PID/OTID unavailable
+    return pokemon.get("is_shiny", False) or pokemon.get("shiny", False)
 
 
 class PokemonOptionsMenu:
@@ -485,11 +508,8 @@ class PokemonSummary:
         # Current tab
         self.current_tab = self.TAB_INFO
 
-        # Tab names - 3 tabs now (INFO combines with SKILLS)
-        if game_type == "FRLG":
-            self.tabs = ["INFO", "MOVES"]
-        else:
-            self.tabs = ["INFO", "MOVES", "CONTEST"]
+        # Tab names - always show all 3 tabs
+        self.tabs = ["INFO", "MOVES", "CONTEST"]
 
         # Font sizes for refresh
         self.small_font_size = 12
@@ -526,7 +546,14 @@ class PokemonSummary:
             # Also try 'species_id' or 'national_dex'
             species = self.pokemon.get("species_id", 0) or self.pokemon.get("national_dex", 0)
         
-        is_shiny = self.pokemon.get("is_shiny", False) or self.pokemon.get("shiny", False)
+        is_shiny = _compute_is_shiny(self.pokemon)
+
+        # Init and trigger shiny overlay
+        if not hasattr(self, '_shiny_overlay'):
+            from gif_sprite_handler import ShinyOverlay
+            self._shiny_overlay = ShinyOverlay()
+        if is_shiny:
+            self._shiny_overlay_pending = True
         
         # Get current game name for per-game sprite pack support
         game_name = None
@@ -689,6 +716,10 @@ class PokemonSummary:
         elif self.current_tab == self.TAB_CONTEST:
             self._draw_contest_page(card_surf)
 
+        # Draw shiny overlay onto card surface (local coords)
+        if hasattr(self, '_shiny_overlay'):
+            self._shiny_overlay.draw(card_surf)
+
         # Draw border
         pygame.draw.rect(card_surf, ui_colors.COLOR_BORDER, card_surf.get_rect(), 2)
         
@@ -698,14 +729,20 @@ class PokemonSummary:
         y = (full_h - self.height) // 2
         surf.blit(card_surf, (x, y))
     
-    def update(self, dt):
-        """Update animations"""
+    def update(self, dt=16):
+        """Update animations. dt in ms; also accepts events list (ignored)."""
+        if not isinstance(dt, (int, float)):
+            dt = 16  # called with events list - use default
         # Update GIF sprite animation if present
         if hasattr(self, 'is_animated') and self.is_animated and self.sprite:
             try:
                 self.sprite.update(dt)
             except Exception:
                 pass
+
+        # Update shiny overlay animation
+        if hasattr(self, '_shiny_overlay'):
+            self._shiny_overlay.update(dt)
 
     def _draw_tabs(self, surf):
         """Draw the tab bar"""
@@ -758,6 +795,12 @@ class PokemonSummary:
         pygame.draw.rect(surf, ui_colors.COLOR_BUTTON, sprite_box)
         pygame.draw.rect(surf, ui_colors.COLOR_BORDER, sprite_box, 1)
 
+        # Store rect and trigger overlay if pending
+        self._sprite_box_rect = sprite_box
+        if getattr(self, '_shiny_overlay_pending', False) and hasattr(self, '_shiny_overlay'):
+            self._shiny_overlay_pending = False
+            self._shiny_overlay.trigger(sprite_box)
+
         if self.sprite:
             from gif_sprite_handler import GIFSprite
             
@@ -773,6 +816,7 @@ class PokemonSummary:
                 )
                 sprite_rect = scaled_sprite.get_rect(center=sprite_box.center)
                 surf.blit(scaled_sprite, sprite_rect)
+
 
         # Basic info (middle - next to sprite)
         info_x = sprite_box.right + pad
@@ -847,7 +891,7 @@ class PokemonSummary:
         surf.blit(exp_text, (info_x, info_y))
 
         # Shiny indicator (sparkling gold text below EXP)
-        is_shiny = self.pokemon.get("is_shiny", False) or self.pokemon.get("shiny", False)
+        is_shiny = _compute_is_shiny(self.pokemon)
         if is_shiny:
             info_y += 18
             # Sparkling gold color - use asterisk instead of Unicode star
@@ -1239,67 +1283,100 @@ class PokemonSummary:
 
         y += 32
 
-        # Ribbons section - only show earned ribbons
-        ribbons = self.pokemon.get("ribbons", {})
-        if not ribbons:
+        # Ribbons - built from contest_ribbons (integer ranks from parser)
+        # 0=none, 1=Normal, 2=Super, 3=Hyper, 4=Master
+        RANK_LABELS  = ["", "N", "S", "H", "M"]
+        RANK_NAMES   = ["", "Normal", "Super", "Hyper", "Master"]
+        RANK_COLORS  = [
+            None,
+            (180, 180, 180),   # Normal - silver
+            (80,  160, 255),   # Super  - blue
+            (255, 180,  50),   # Hyper  - gold
+            (255,  80, 200),   # Master - pink/purple
+        ]
+        CATEGORY_COLORS = {
+            "cool":   (255, 100, 100),
+            "beauty": (100, 100, 255),
+            "cute":   (255, 150, 200),
+            "smart":  (100, 220, 100),
+            "tough":  (255, 200, 100),
+        }
+
+        contest_ribbons = self.pokemon.get("contest_ribbons", {})
+        if not contest_ribbons:
             raw = self.pokemon.get("raw", {})
-            ribbons = raw.get("ribbons", {})
+            contest_ribbons = raw.get("contest_ribbons", {})
 
-        # Collect earned ribbons
+        # Each earned ribbon is (label, badge_color, tooltip)
         earned_ribbons = []
-
-        # Contest ribbons with ranks
-        ribbon_data = [
-            ("cool", "C", (255, 100, 100)),
-            ("beauty", "B", (100, 100, 255)),
-            ("cute", "U", (255, 150, 200)),
-            ("smart", "S", (100, 255, 100)),
-            ("tough", "T", (255, 200, 100)),
-        ]
-
-        for rkey, rname, rcolor in ribbon_data:
-            rank = ribbons.get(rkey, "None")
-            if rank != "None":
-                earned_ribbons.append((rname, rcolor))
-
-        # Special ribbons
-        special_ribbons_data = [
-            ("champion", "★", (255, 215, 0)),
-            ("winning", "W", (150, 255, 150)),
-            ("victory", "V", (200, 150, 255)),
-        ]
-
-        for rkey, symbol, rcolor in special_ribbons_data:
-            if ribbons.get(rkey, False):
-                earned_ribbons.append((symbol, rcolor))
+        RANK_FILENAMES = ["", "", "super", "hyper", "master"]
+        for rkey in ("cool", "beauty", "cute", "smart", "tough"):
+            rank = contest_ribbons.get(rkey, 0)
+            if rank and 1 <= rank <= 4:
+                label   = RANK_LABELS[rank]
+                tooltip = f"{rkey.capitalize()} {RANK_NAMES[rank]}"
+                color   = RANK_COLORS[rank]
+                # Build pokesprite filename e.g. cool-ribbon-hoenn.png / cool-ribbon-super-hoenn.png
+                rank_part = RANK_FILENAMES[rank]
+                if rank_part:
+                    sprite_file = f"{rkey}-ribbon-{rank_part}-hoenn.png"
+                else:
+                    sprite_file = f"{rkey}-ribbon-hoenn.png"
+                earned_ribbons.append((label, color, tooltip, sprite_file))
 
         # Only draw ribbon section if there are earned ribbons
         if earned_ribbons:
-            ribbon_y = self.height - 32
+            badge_size = 40
+            badge_spacing = 44
+            section_h = badge_size + 8  # tight fit around icons
+            ribbon_y = self.height - section_h - 10  # move up ~1 char height
 
-            # Draw section background
-            ribbon_bg = pygame.Rect(pad, ribbon_y - 4, self.width - pad * 2, 28)
+            # Draw section background tall enough for icons
+            ribbon_bg = pygame.Rect(pad, ribbon_y - 4, self.width - pad * 2, section_h)
             pygame.draw.rect(surf, (30, 30, 35), ribbon_bg)
             pygame.draw.rect(surf, ui_colors.COLOR_BORDER, ribbon_bg, 1)
 
             ribbon_title = self.small_font.render("RIBBONS", True, (150, 150, 150))
-            surf.blit(ribbon_title, (pad + 4, ribbon_y - 2))
+            # Vertically centre the label on the icon row
+            badge_y = ribbon_y - 4 + (section_h - badge_size) // 2
+            title_y = badge_y + (badge_size - ribbon_title.get_height()) // 2
+            surf.blit(ribbon_title, (pad + 4, title_y))
 
             badge_x = pad + 60
-            badge_y = ribbon_y + 2
-            badge_size = 18
-            badge_spacing = 22
 
-            for symbol, rcolor in earned_ribbons:
+            # Preload ribbon sprite cache on first draw
+            if not hasattr(self, '_ribbon_sprite_cache'):
+                self._ribbon_sprite_cache = {}
+
+            for label, badge_color, tooltip, sprite_file in earned_ribbons:
                 badge_rect = pygame.Rect(badge_x, badge_y, badge_size, badge_size)
 
-                # Draw colored badge
-                pygame.draw.rect(surf, rcolor, badge_rect)
-                pygame.draw.rect(surf, (255, 255, 255), badge_rect, 1)
+                # Try to load ribbon sprite
+                drawn = False
+                if sprite_file:
+                    if sprite_file not in self._ribbon_sprite_cache:
+                        try:
+                            from config import RIBBONS_DIR
+                            import os as _os
+                            path = _os.path.join(RIBBONS_DIR, sprite_file)
+                            if _os.path.exists(path):
+                                img = pygame.image.load(path).convert_alpha()
+                                self._ribbon_sprite_cache[sprite_file] = img
+                            else:
+                                self._ribbon_sprite_cache[sprite_file] = None
+                        except Exception:
+                            self._ribbon_sprite_cache[sprite_file] = None
+                    ribbon_img = self._ribbon_sprite_cache.get(sprite_file)
+                    if ribbon_img:
+                        surf.blit(ribbon_img, badge_rect.topleft)
+                        drawn = True
 
-                # Draw symbol in center
-                symbol_text = self.small_font.render(symbol, True, (255, 255, 255))
-                symbol_rect = symbol_text.get_rect(center=badge_rect.center)
-                surf.blit(symbol_text, symbol_rect)
+                if not drawn:
+                    # Fallback: coloured badge with rank label
+                    pygame.draw.rect(surf, badge_color, badge_rect)
+                    pygame.draw.rect(surf, (255, 255, 255), badge_rect, 1)
+                    symbol_text = self.small_font.render(label, True, (255, 255, 255))
+                    symbol_rect = symbol_text.get_rect(center=badge_rect.center)
+                    surf.blit(symbol_text, symbol_rect)
 
                 badge_x += badge_spacing

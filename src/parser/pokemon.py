@@ -73,6 +73,10 @@ def parse_party_pokemon(data, offset):
         origins_info = struct.unpack(
             "<H", decrypted_data[misc_start + 2 : misc_start + 4]
         )[0]
+        met_level = origins_info & 0x7F
+        game_of_origin = (origins_info >> 7) & 0xF
+        pokeball = (origins_info >> 11) & 0xF
+        ot_gender_flag = (origins_info >> 15) & 0x1
         iv_egg_ability = struct.unpack(
             "<I", decrypted_data[misc_start + 4 : misc_start + 8]
         )[0]
@@ -126,6 +130,29 @@ def parse_party_pokemon(data, offset):
             "sp_defense": decrypted_data[evs_start + 5],
         }
 
+        # Contest stats are bytes 6-11 of the EVs block
+        contest_stats = {
+            "cool":   decrypted_data[evs_start + 6],
+            "beauty": decrypted_data[evs_start + 7],
+            "cute":   decrypted_data[evs_start + 8],
+            "smart":  decrypted_data[evs_start + 9],
+            "tough":  decrypted_data[evs_start + 10],
+            "sheen":  decrypted_data[evs_start + 11],
+        }
+
+        # Contest ribbons: 32-bit bitfield at misc_start+6
+        # 4 bits per category (Cool/Beauty/Cute/Smart/Tough)
+        # Values: 0=none, 1=Normal, 2=Super, 3=Hyper, 4=Master
+        ribbon_word = struct.unpack(
+            "<I", decrypted_data[misc_start + 6 : misc_start + 10]
+        )[0]
+        contest_ribbons = {
+            "cool":   (ribbon_word >> 0)  & 0xF,
+            "beauty": (ribbon_word >> 4)  & 0xF,
+            "cute":   (ribbon_word >> 8)  & 0xF,
+            "smart":  (ribbon_word >> 12) & 0xF,
+            "tough":  (ribbon_word >> 16) & 0xF,
+        }
         # Parse IVs (misc block already read earlier for egg check)
         ivs = {
             "hp": iv_egg_ability & 0x1F,
@@ -170,6 +197,8 @@ def parse_party_pokemon(data, offset):
             "ivs": ivs,
             "pokerus": pokerus,
             "met_location": met_location,
+            "contest_stats": contest_stats,
+            "contest_ribbons": contest_ribbons,
             "current_hp": current_hp,
             "max_hp": max_hp,
             "attack": attack,
@@ -178,6 +207,9 @@ def parse_party_pokemon(data, offset):
             "sp_attack": sp_attack,
             "sp_defense": sp_defense,
             "egg": is_egg,
+            "met_level": met_level,
+            "game_of_origin": game_of_origin,
+            "pokeball": pokeball,
             "ability_bit": ability_bit,
             "raw_bytes": bytes(
                 data[offset : offset + 0x50]
@@ -243,6 +275,10 @@ def parse_pc_pokemon(pokemon_bytes):
         origins_info = struct.unpack(
             "<H", decrypted_data[misc_start + 2 : misc_start + 4]
         )[0]
+        met_level = origins_info & 0x7F
+        game_of_origin = (origins_info >> 7) & 0xF
+        pokeball = (origins_info >> 11) & 0xF
+        ot_gender_flag = (origins_info >> 15) & 0x1
         iv_egg_ability = struct.unpack(
             "<I", decrypted_data[misc_start + 4 : misc_start + 8]
         )[0]
@@ -294,6 +330,29 @@ def parse_pc_pokemon(pokemon_bytes):
             "sp_defense": decrypted_data[evs_start + 5],
         }
 
+        # Contest stats are bytes 6-11 of the EVs block
+        contest_stats = {
+            "cool":   decrypted_data[evs_start + 6],
+            "beauty": decrypted_data[evs_start + 7],
+            "cute":   decrypted_data[evs_start + 8],
+            "smart":  decrypted_data[evs_start + 9],
+            "tough":  decrypted_data[evs_start + 10],
+            "sheen":  decrypted_data[evs_start + 11],
+        }
+
+        # Contest ribbons: 32-bit bitfield at misc_start+6
+        # 4 bits per category (Cool/Beauty/Cute/Smart/Tough)
+        # Values: 0=none, 1=Normal, 2=Super, 3=Hyper, 4=Master
+        ribbon_word = struct.unpack(
+            "<I", decrypted_data[misc_start + 6 : misc_start + 10]
+        )[0]
+        contest_ribbons = {
+            "cool":   (ribbon_word >> 0)  & 0xF,
+            "beauty": (ribbon_word >> 4)  & 0xF,
+            "cute":   (ribbon_word >> 8)  & 0xF,
+            "smart":  (ribbon_word >> 12) & 0xF,
+            "tough":  (ribbon_word >> 16) & 0xF,
+        }
         # Parse IVs (misc block already read earlier for egg check)
         ivs = {
             "hp": iv_egg_ability & 0x1F,
@@ -325,7 +384,12 @@ def parse_pc_pokemon(pokemon_bytes):
             "ivs": ivs,
             "pokerus": pokerus,
             "met_location": met_location,
+            "contest_stats": contest_stats,
+            "contest_ribbons": contest_ribbons,
             "egg": is_egg,
+            "met_level": met_level,
+            "game_of_origin": game_of_origin,
+            "pokeball": pokeball,
             "ability_bit": ability_bit,
             "raw_bytes": bytes(pokemon_bytes),  # Store original 80 bytes for transfers
             # PC Pokemon don't have battle stats

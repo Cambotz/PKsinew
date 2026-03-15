@@ -520,49 +520,158 @@ class DBBuilderScreen:
         self.build_thread.start()
 
     def _run_build(self):
-        def execute():
-            self.is_building = True
-            self.cancel_requested = False
-            old_stdout = sys.stdout
-            old_stderr = sys.stderr
+        """Fetch Pokemon metadata from PokeAPI and write to pokemon_db.json."""
+        self.is_building = True
+        self.cancel_requested = False
 
-            try:
-                if getattr(sys, "frozen", False):
-                    bundle_dir = sys._MEIPASS
-                    if bundle_dir not in sys.path:
-                        sys.path.insert(0, bundle_dir)
+        try:
+            import json
+            import time as _time
 
-                script_path = os.path.join(BASE_DIR, "DBbuilder.py")
+            MAX_POKEMON = 386
+            DB_PATH = os.path.join(config.DATA_DIR, "pokemon_db.json")
+            os.makedirs(config.DATA_DIR, exist_ok=True)
 
-                class UILogger:
-                    def __init__(self, func):
-                        self.func = func
-                    def write(self, s):
-                        if s.strip():
-                            self.func(s.strip())
-                    def flush(self):
-                        pass
+            self._add_line(f"DB path: {DB_PATH}")
 
-                sys.stdout = UILogger(self._add_line)
-                sys.stderr = UILogger(self._add_line)
+            session = requests.Session()
+            session.headers.update({"User-Agent": "Sinew-DBBuilder/2.0"})
 
-                custom_globals = globals().copy()
-                custom_globals.update(
-                    {"ui_instance": self, "config": config, "__name__": "__main__"}
-                )
-                runpy.run_path(
-                    script_path, init_globals=custom_globals, run_name="__main__"
-                )
-                self._add_line("Build finished successfully!")
+            def _fetch_json(url, retries=3):
+                for attempt in range(retries):
+                    try:
+                        r = session.get(url, timeout=10)
+                        if r.status_code == 200:
+                            return r.json()
+                        if r.status_code == 404:
+                            return None
+                    except Exception as e:
+                        self._add_line(f"[warn] {e}")
+                    _time.sleep(0.5 * (attempt + 1))
+                return None
 
-            except Exception:
-                self._add_line(f"Build Error: {traceback.format_exc()}")
-            finally:
-                sys.stdout = old_stdout
-                sys.stderr = old_stderr
-                self.is_building = False
+            def _english_desc(species_data):
+                for entry in species_data.get("flavor_text_entries", []):
+                    if entry.get("language", {}).get("name") == "en":
+                        text = entry.get("flavor_text", "")
+                        return text.replace("\n", " ").replace("\f", " ").strip()
+                return None
 
-        threading.Thread(target=execute, daemon=True).start()
+            def _parse_evo(node):
+                results = []
+                species = node.get("species", {})
+                url = species.get("url", "")
+                try:
+                    pid = int(url.rstrip("/").split("/")[-1])
+                except Exception:
+                    pid = None
+                results.append({"name": species.get("name"), "species_id": pid})
+                evolves_to = node.get("evolves_to") or []
+                if evolves_to:
+                    branches = [_parse_evo(e) for e in evolves_to]
+                    if len(branches) == 1:
+                        return [*results, *branches[0][1:]]
+                    return [{"base": results[0], "branches": branches}]
+                return results
+
+            def _is_complete(entry):
+                required = ("id", "name", "types", "stats", "abilities",
+                            "height", "weight", "description", "egg_groups")
+                return all(entry.get(k) is not None for k in required)
+
+            if os.path.exists(DB_PATH):
+                with open(DB_PATH, "r", encoding="utf-8") as fh:
+                    pokemon_db = json.load(fh)
+                self._add_line(f"Loaded DB: {len(pokemon_db)} entries")
+            else:
+                pokemon_db = {}
+                self._add_line("Starting fresh DB")
+
+            if "items" not in pokemon_db:
+                pokemon_db["items"] = {
+                    "pokeball":    "sprites/items/poke-ball.png",
+                    "master_ball": "sprites/items/master-ball.png",
+                    "egg":         "sprites/items/egg.png",
+                }
+
+            updated = skipped = failed = 0
+            self._add_line(f"Fetching 1-{MAX_POKEMON}...")
+
+            for i in range(1, MAX_POKEMON + 1):
+                if self.cancel_requested:
+                    self._add_line("Cancelled.")
+                    break
+
+                pid_str = f"{i:03d}"
+                existing = pokemon_db.get(pid_str, {})
+
+                if _is_complete(existing):
+                    skipped += 1
+                    continue
+
+                p_data = _fetch_json(f"https://pokeapi.co/api/v2/pokemon/{i}/")
+                if not p_data:
+                    self._add_line(f"[{pid_str}] FAILED")
+                    failed += 1
+                    _time.sleep(0.5)
+                    continue
+
+                s_data = _fetch_json(f"https://pokeapi.co/api/v2/pokemon-species/{i}/") or {}
+
+                name = p_data.get("name", str(i)).replace("-", " ").title()
+                types = [t["type"]["name"].title()
+                         for t in sorted(p_data.get("types", []), key=lambda x: x.get("slot", 0))]
+                stats = {s["stat"]["name"]: s["base_stat"] for s in p_data.get("stats", [])}
+                abilities = [ab["ability"]["name"].replace("-", " ").title()
+                             for ab in p_data.get("abilities", [])]
+                egg_groups = [eg["name"].replace("-", " ").title()
+                              for eg in s_data.get("egg_groups", [])]
+                forms = [f.get("name") for f in p_data.get("forms", [])]
+                description = _english_desc(s_data)
+
+                evo_info = None
+                evo_url = s_data.get("evolution_chain", {}).get("url")
+                if evo_url:
+                    evo_data = _fetch_json(evo_url)
+                    if evo_data:
+                        evo_info = _parse_evo(evo_data.get("chain", {}))
+
+                pokemon_db[pid_str] = {
+                    "id": i,
+                    "name": name,
+                    "types": types,
+                    "height": p_data.get("height"),
+                    "weight": p_data.get("weight"),
+                    "description": description,
+                    "abilities": abilities,
+                    "egg_groups": egg_groups,
+                    "forms": forms,
+                    "stats": stats,
+                    "evolution_chain": evo_info,
+                    "sprites": existing.get("sprites", {}),
+                    "games": ["Ruby", "Sapphire", "Emerald", "FireRed", "LeafGreen"],
+                }
+
+                self._add_line(f"[{pid_str}] {name}")
+                updated += 1
+
+                if updated % 25 == 0:
+                    with open(DB_PATH, "w", encoding="utf-8") as fh:
+                        json.dump(pokemon_db, fh, indent=2, ensure_ascii=False)
+                    self._add_line(f"Checkpoint: {updated} saved")
+
+                _time.sleep(0.15)
+
+            with open(DB_PATH, "w", encoding="utf-8") as fh:
+                json.dump(pokemon_db, fh, indent=2, ensure_ascii=False)
+
+            self._add_line(f"Done! Updated={updated} Skipped={skipped} Failed={failed}")
+            self._add_line(f"Saved: {DB_PATH}")
+
+        except Exception:
+            self._add_line(f"Build Error: {traceback.format_exc()}")
+        finally:
+            self.is_building = False
 
     def _start_wallpaper_build(self):
         if self.is_building:

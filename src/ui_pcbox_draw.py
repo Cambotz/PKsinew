@@ -55,6 +55,29 @@ class PCBoxDrawMixin:
     """Mixin providing all rendering methods for PCBox."""
 
     # ------------------------------------------------------------------ #
+    #  Shiny detection helper                                              #
+    # ------------------------------------------------------------------ #
+
+    @staticmethod
+    def _compute_is_shiny(pokemon):
+        """
+        Compute whether a Pokemon is shiny from its personality and OT ID.
+        Gen 3 formula: TID ^ SID ^ PID_HIGH ^ PID_LOW < 8.
+        Falls back to stored flags only if PID/OTID are missing.
+        """
+        if not pokemon or pokemon.get("empty") or pokemon.get("egg"):
+            return False
+        personality = pokemon.get("personality", 0)
+        ot_id = pokemon.get("ot_id", 0)
+        if personality and ot_id:
+            tid     = ot_id & 0xFFFF
+            sid     = (ot_id >> 16) & 0xFFFF
+            pid_low = personality & 0xFFFF
+            pid_high = (personality >> 16) & 0xFFFF
+            return (tid ^ sid ^ pid_low ^ pid_high) < 8
+        return pokemon.get("is_shiny", False) or pokemon.get("shiny", False)
+
+    # ------------------------------------------------------------------ #
     #  Sprite scaling helpers                                              #
     # ------------------------------------------------------------------ #
 
@@ -444,7 +467,7 @@ class PCBoxDrawMixin:
 
                 # Get Pokemon ID and shiny status
                 poke_id = poke.get("species", 0)  # National dex number
-                is_shiny = poke.get("is_shiny", False) or poke.get("shiny", False)
+                is_shiny = self._compute_is_shiny(poke)
                 
                 # Calculate target size with margin
                 cell_size = min(rect.width, rect.height)
@@ -594,9 +617,11 @@ class PCBoxDrawMixin:
 
     def _draw_sinew_scrollbar(self, surf):
         """Draw scrollbar for Sinew storage's 120-slot boxes."""
-        # Scrollbar position - inside right edge of grid
-        scrollbar_width = ui.s(12)
-        scrollbar_x = self.grid_rect.right - scrollbar_width - 3
+        # Scrollbar sits in the gap between the left panel and the grid
+        scrollbar_width = ui.s(8)
+        gap_left = self.sprite_area.right
+        gap_right = self.grid_rect.left
+        scrollbar_x = gap_left + ui.s(5)
         scrollbar_y = self.grid_rect.top + 2
         scrollbar_height = self.grid_rect.height - 4
 
@@ -636,8 +661,9 @@ class PCBoxDrawMixin:
             )
             indicator_text = f"Rows {start_row}-{end_row}/{self.sinew_total_rows}"
             text_surf = tiny_font.render(indicator_text, True, ui_colors.COLOR_TEXT)
+            gap_cx = gap_left + ui.s(5) + scrollbar_width // 2
             text_rect = text_surf.get_rect(
-                right=self.grid_rect.right, top=self.grid_rect.bottom + ui.s(3)
+                centerx=gap_cx + ui.s(30), top=self.grid_rect.bottom + ui.s(3) + ui.s(10)
             )
             surf.blit(text_surf, text_rect)
         except Exception:
@@ -655,6 +681,28 @@ class PCBoxDrawMixin:
             surf: Surface to draw on
             dt: Delta time in milliseconds (for GIF animation)
         """
+
+        # Init shiny overlay on first draw
+        if not hasattr(self, '_shiny_overlay'):
+            from gif_sprite_handler import ShinyOverlay
+            self._shiny_overlay = ShinyOverlay()
+            self._shiny_overlay_last_pid = None
+
+        # Trigger shiny overlay when a new shiny is selected
+        current_pid = (
+            self.selected_pokemon.get('personality')
+            if self.selected_pokemon and not self.selected_pokemon.get('empty')
+            else None
+        )
+        if current_pid != self._shiny_overlay_last_pid:
+            self._shiny_overlay_last_pid = current_pid
+            if (self.selected_pokemon
+                    and not self.selected_pokemon.get('empty')
+                    and not self.selected_pokemon.get('egg')
+                    and self._compute_is_shiny(self.selected_pokemon)):
+                self._shiny_overlay.trigger(self.sprite_area)
+
+        self._shiny_overlay.update(dt)
 
         # Background overlay (darken using theme BG color)
         overlay = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
@@ -791,7 +839,7 @@ class PCBoxDrawMixin:
                 else:
                     # Valid Pokemon - load sprite
                     poke_id = self.selected_pokemon.get("species", 0)
-                    is_shiny = self.selected_pokemon.get("is_shiny", False) or self.selected_pokemon.get("shiny", False)
+                    is_shiny = self._compute_is_shiny(self.selected_pokemon)
                     
                     # Get best sprite (prioritize GIF for animation)
                     sprite_path, is_gif = self._get_best_sprite_path(poke_id, is_shiny, prefer_gif=True)
@@ -861,6 +909,10 @@ class PCBoxDrawMixin:
                 # Draw ROM HACK overlay for Pokemon from ROM hacks
                 if self.selected_pokemon.get("rom_hack"):
                     self._draw_rom_hack_overlay(surf, self.sprite_area, size="large")
+
+            # Draw shiny overlay (plays once when a shiny is selected)
+            if hasattr(self, '_shiny_overlay'):
+                self._shiny_overlay.draw(surf)
 
         # Info area - show selected Pokemon info (semi-transparent like grid)
         info_bg = pygame.Surface(
@@ -1279,7 +1331,7 @@ class PCBoxDrawMixin:
                     if not poke.get("egg"):
                         # Get Pokemon ID and shiny status
                         poke_id = poke.get("species", 0)
-                        is_shiny = poke.get("is_shiny", False) or poke.get("shiny", False)
+                        is_shiny = self._compute_is_shiny(poke)
                         
                         # Calculate sprite size
                         max_sprite_w = int(slot.width * 0.7)
@@ -1450,6 +1502,8 @@ class PCBoxDrawMixin:
 
         # Draw sub_modal (summary screen) on top of everything
         if self.sub_modal:
+            if hasattr(self.sub_modal, "update"):
+                self.sub_modal.update(dt)
             if hasattr(self.sub_modal, "draw"):
                 self.sub_modal.draw(surf)
 
@@ -1916,7 +1970,7 @@ class PCBoxDrawMixin:
                     if hasattr(self, 'get_current_game_callback') and self.get_current_game_callback:
                         game_name = self.get_current_game_callback()
                     
-                    is_shiny = poke.get("is_shiny", False) or poke.get("shiny", False)
+                    is_shiny = self._compute_is_shiny(poke)
                     
                     # Try sprite_paths system with fallback to global
                     try:

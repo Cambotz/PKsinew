@@ -13,7 +13,7 @@ import time
 import pygame
 
 import ui_colors
-from config import ACH_SAVE_PATH, FONT_PATH, SETTINGS_FILE, SPRITES_DIR
+from config import ACH_DELIVERED_PATH, ACH_SAVE_PATH, FONT_PATH, SETTINGS_FILE, SPRITES_DIR
 from ui_scale import ui, scaled_font
 from controller import get_controller
 
@@ -546,6 +546,15 @@ class AchievementManager:
                             f" {ach['name']} (Legendary Birds in {game})"
                         )
 
+                # Hall of Fame (Pokemon Champion!)
+                if hint == "has_hall_of_fame":
+                    if game_tracking.get("has_hall_of_fame", False):
+                        unlocked = True
+                        print(
+                            f"[Achievements] Force unlock: {ach['name']}"
+                            f" (Hall of Fame entry in {game})"
+                        )
+
                 if unlocked:
                     if self.unlock(ach["id"], ach):
                         newly_unlocked.append(ach["id"])
@@ -1065,27 +1074,85 @@ class AchievementManager:
 
     def _deliver_pokemon(self, achievement_id):
         """
-        Deliver a Pokemon reward by generating it dynamically.
-        UPDATED: Uses pokemon_generator instead of .pks files.
+        Deliver a Pokemon reward by generating it dynamically with UPO validation.
+        
+        ENHANCED: Now uses UPO system for automatic validation and debugging.
+        Falls back to legacy generation if UPO unavailable.
+        
         Returns: (success: bool, message: str)
         """
         try:
-            # Import the generator
-            from pokemon_generator import generate_achievement_pokemon
-
-            # Generate the Pokemon
-            result = generate_achievement_pokemon(achievement_id)
-            if result is None:
+            # Try UPO-enhanced generation first
+            try:
+                from pokemon_generator import generate_achievement_pokemon_upo
+                
+                result = generate_achievement_pokemon_upo(achievement_id)
+                if result is None:
+                    print(
+                        f"[Achievements] No recipe found for achievement: {achievement_id}"
+                    )
+                    return False, f"No recipe found for achievement: {achievement_id}"
+                
+                pokemon_upo, pokemon_bytes, pokemon_dict = result
+                species_name = pokemon_dict.get("species_name", "Pokemon")
+                
                 print(
-                    f"[Achievements] No recipe found for achievement: {achievement_id}"
+                    f"[Achievements] Generated {species_name} (UPO): "
+                    f"{len(pokemon_bytes)} bytes"
                 )
-                return False, f"No recipe found for achievement: {achievement_id}"
-
-            pokemon_bytes, pokemon_dict = result
-            species_name = pokemon_dict.get("species_name", "Pokemon")
-            print(
-                f"[Achievements] Generated {species_name}: {len(pokemon_bytes)} bytes"
-            )
+                
+                # Validate the generated Pokemon
+                from legality_engine import validate_pokemon, ValidationLevel
+                
+                errors = validate_pokemon(pokemon_upo, ValidationLevel.STANDARD)
+                if errors:
+                    print(f"[Achievements] WARNING: Generated Pokemon has validation errors:")
+                    for error in errors:
+                        print(f"  - {error}")
+                    print(f"[Achievements] Species: {species_name}")
+                    print(f"[Achievements] PID: 0x{pokemon_upo.pid:08X}")
+                    print(f"[Achievements] Proceeding with delivery anyway...")
+                    # Note: We proceed anyway for now, but you could reject here
+                else:
+                    print(f"[Achievements] ✓ Pokemon validation passed")
+                
+                # Optional: Log to file for debugging
+                try:
+                    import json
+                    log_path = ACH_DELIVERED_PATH
+                    with open(log_path, "a") as f:
+                        log_entry = {
+                            "timestamp": time.time(),
+                            "achievement_id": achievement_id,
+                            "species": species_name,
+                            "pid": f"0x{pokemon_upo.pid:08X}",
+                            "shiny": pokemon_upo.is_shiny,
+                            "ivs": pokemon_upo.ivs.to_tuple(),
+                            "validation_passed": len(errors) == 0
+                        }
+                        f.write(json.dumps(log_entry) + "\n")
+                except Exception as log_error:
+                    # Don't fail delivery if logging fails
+                    print(f"[Achievements] Could not log delivery: {log_error}")
+                
+            except ImportError:
+                # Fall back to legacy generation
+                print("[Achievements] UPO not available, using legacy generation")
+                from pokemon_generator import generate_achievement_pokemon
+                
+                result = generate_achievement_pokemon(achievement_id)
+                if result is None:
+                    print(
+                        f"[Achievements] No recipe found for achievement: {achievement_id}"
+                    )
+                    return False, f"No recipe found for achievement: {achievement_id}"
+                
+                pokemon_bytes, pokemon_dict = result
+                species_name = pokemon_dict.get("species_name", "Pokemon")
+                print(
+                    f"[Achievements] Generated {species_name} (legacy): "
+                    f"{len(pokemon_bytes)} bytes"
+                )
 
             # Import Sinew storage
             try:
@@ -1836,6 +1903,13 @@ class AchievementManager:
                         should_be_unlocked = (
                             144 in owned and 145 in owned and 146 in owned
                         )
+
+                elif hint == "has_hall_of_fame":
+                    if not game_has_tracking:
+                        # No tracking data - cannot validate, keep the achievement
+                        should_be_unlocked = True
+                    else:
+                        should_be_unlocked = game_tracking.get("has_hall_of_fame", False)
 
                 else:
                     # Unknown hint type, keep the achievement

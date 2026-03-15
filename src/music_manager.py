@@ -12,13 +12,19 @@ Manages the Sinew menu music lifecycle:
 Menu music plays while the user is in the Sinew menu and is stopped before
 handing control back to the mGBA emulator so the emulator's own audio system
 gets a clean mixer.
+
+Track selection:
+  - Default track is MENU_MUSIC_PATH (dist/data/sounds/music/SinewMenu.mp3).
+  - If the user has chosen a different track in the Jukebox, its path is stored
+    under the 'jukebox_track' key in sinew_settings.json and used instead.
+  - If the saved jukebox_track no longer exists on disk, falls back to the default.
 """
 
 import os
 
 import pygame
 
-from config import DATA_DIR, VOLUME_DEFAULT
+from config import MENU_MUSIC_PATH, VOLUME_DEFAULT
 from settings import load_sinew_settings, save_sinew_settings_merged as save_settings_file
 
 
@@ -36,13 +42,21 @@ class MusicManagerMixin:
 
     def _init_menu_music(self):
         """Locate the menu music file and initialise playback state."""
-        self._menu_music_path = os.path.join(DATA_DIR, "sounds", "SinewMenu.mp3")
         self._menu_music_playing = False
         self._menu_music_muted = self.settings.get("mute_menu_music", False)
 
-        if not os.path.exists(self._menu_music_path):
-            print(f"[Sinew] Menu music not found: {self._menu_music_path}")
+        # Use the Jukebox-selected track if one has been saved and still exists,
+        # otherwise fall back to the default SinewMenu.mp3.
+        saved_track = self.settings.get("jukebox_track")
+        if saved_track and os.path.exists(saved_track):
+            self._menu_music_path = saved_track
+            print(f"[Sinew] Using jukebox track: {os.path.basename(saved_track)}")
+        elif os.path.exists(MENU_MUSIC_PATH):
+            self._menu_music_path = MENU_MUSIC_PATH
+            print(f"[Sinew] Using default menu music: {MENU_MUSIC_PATH}")
+        else:
             self._menu_music_path = None
+            print(f"[Sinew] Menu music not found: {MENU_MUSIC_PATH}")
 
     def _start_menu_music(self):
         """Start looping menu music (no-op if muted, missing, or already playing)."""
