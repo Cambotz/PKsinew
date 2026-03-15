@@ -1,3 +1,34 @@
+PKsinew v1.3.8
+
+⚠️ Important: Sprite packs have moved to the new packs/ directory.
+Users must manually move existing sprite packs from the old location into the new folder structure for them to be detected.
+
+NEW:
+-Sprite Pack Manager with per-game pack support
+-Custom sprite packs (place in packs/packname/normal/001.png or .gif and packs/packname/shiny/001.png or .gif)
+-Support for animated .gif Pokémon sprites
+-Fast Forward support in the internal emulator
+-RetroPie provider
+
+Improvements:
+-All screens adjusted to use an internal virtual resolution of 640 x 480
+-Trainer Card updated to match the new resolution
+-Summary screen now shows Met Location, Origin Game, and Shiny indication
+-Reduced text truncation on the summary screen
+-Fast scrolling in the Pokédex when holding Up or Down
+-Improved UX when using external providers and emulators
+-Further separation of Ruby/Sapphire and Emerald handling to prevent achievement and event issues
+
+Controls:
+-When Fast Forward is enabled:
+ -L Shoulder toggles Fast Forward
+ -R Shoulder enables Fast Forward while held
+
+Technical:
+-Internal UI scaling refactor to support the new 640x480 virtual resolution system
+
+==================================================================
+
 PKsinew v1.3.7
 
 -External Emulator (Experimental), Major Refactor & Save Improvements
