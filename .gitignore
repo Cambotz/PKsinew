@@ -26,6 +26,7 @@ dist/data/sprites/gen3/normal/**
 !dist/data/sprites/gen3/normal/egg.png
 dist/data/sprites/gen3/shiny/*
 dist/data/sprites/gen8
+dist/data/sprites/ribbons
 dist/data/sprites/items/master-ball.png
 dist/data/sprites/items/poke-ball.png
 dist/data/achievements/rewards/backup

@@ -339,6 +339,117 @@ class UniversalPokemon:
         """
         return cls.from_dict(json.loads(json_str))
 
+    @classmethod
+    def from_gen3_dict(cls, d: Dict) -> 'UniversalPokemon':
+        """
+        Build a UniversalPokemon from a Gen 3 parser dict (as produced by
+        pokemon.py parse_party_pokemon / parse_pc_pokemon).
+
+        Key mappings:
+            personality -> pid
+            ot_id       -> tid (low 16) + sid (high 16)
+            ability_bit -> ability_slot
+            egg         -> is_egg
+            contest_stats (dict) -> ContestStats
+            contest_ribbons (dict of rank ints) -> ribbons (List[int] of bit positions)
+                Ribbon bit layout (matches Gen 3 Misc block):
+                  0-3: Cool  (Normal/Super/Hyper/Master)
+                  4-7: Beauty, 8-11: Cute, 12-15: Smart, 16-19: Tough
+        """
+        # --- trainer IDs ---
+        ot_id_full = d.get("ot_id", 0)
+        tid = ot_id_full & 0xFFFF
+        sid = (ot_id_full >> 16) & 0xFFFF
+
+        # --- IVs / EVs ---
+        raw_ivs = d.get("ivs", {})
+        ivs = IVSet(
+            hp=raw_ivs.get("hp", 0),
+            attack=raw_ivs.get("attack", 0),
+            defense=raw_ivs.get("defense", 0),
+            sp_attack=raw_ivs.get("sp_attack", 0),
+            sp_defense=raw_ivs.get("sp_defense", 0),
+            speed=raw_ivs.get("speed", 0),
+        )
+        raw_evs = d.get("evs", {})
+        evs = EVSet(
+            hp=raw_evs.get("hp", 0),
+            attack=raw_evs.get("attack", 0),
+            defense=raw_evs.get("defense", 0),
+            sp_attack=raw_evs.get("sp_attack", 0),
+            sp_defense=raw_evs.get("sp_defense", 0),
+            speed=raw_evs.get("speed", 0),
+        )
+
+        # --- contest stats ---
+        cs = d.get("contest_stats", {})
+        contest_stats = ContestStats(
+            cool=cs.get("cool", 0),
+            beauty=cs.get("beauty", 0),
+            cute=cs.get("cute", 0),
+            smart=cs.get("smart", 0),
+            tough=cs.get("tough", 0),
+            sheen=cs.get("sheen", 0),
+        )
+
+        # --- contest ribbons -> flat list of earned bit positions ---
+        # Each category has 4 bits (Normal/Super/Hyper/Master).
+        # A rank of N means the Pokemon holds ribbons at bit offsets
+        # base+0 through base+(N-1) for that category.
+        RIBBON_BASE = {"cool": 0, "beauty": 4, "cute": 8, "smart": 12, "tough": 16}
+        cr = d.get("contest_ribbons", {})
+        ribbons: List[int] = []
+        for cat, base in RIBBON_BASE.items():
+            rank = cr.get(cat, 0)
+            for r in range(rank):          # rank 2 -> bits base+0, base+1
+                ribbons.append(base + r)
+
+        # --- moves ---
+        raw_moves = d.get("moves", [0, 0, 0, 0])
+        raw_pp    = d.get("pp",    [0, 0, 0, 0])
+        moves = [
+            MoveSlot(move_id=mid, pp=pp) if mid else None
+            for mid, pp in zip(raw_moves, raw_pp)
+        ]
+
+        # --- battle stats (party only; None for PC) ---
+        stats = StatSet(
+            hp=d.get("max_hp") or 0,
+            attack=d.get("attack") or 0,
+            defense=d.get("defense") or 0,
+            sp_attack=d.get("sp_attack") or 0,
+            sp_defense=d.get("sp_defense") or 0,
+            speed=d.get("speed") or 0,
+        )
+
+        return cls(
+            species=d.get("species", 0),
+            nickname=d.get("nickname", ""),
+            ot_name=d.get("ot_name", ""),
+            tid=tid,
+            sid=sid,
+            pid=d.get("personality"),
+            level=d.get("level", 1),
+            experience=d.get("experience", 0),
+            is_egg=bool(d.get("egg", False)),
+            held_item=d.get("held_item") or None,
+            nature=d.get("personality", 0) % 25 if d.get("personality") else None,
+            ability_slot=1 if d.get("ability_bit") else 0,
+            ivs=ivs,
+            evs=evs,
+            moves=moves,
+            stats=stats,
+            current_hp=d.get("current_hp") or 0,
+            pokerus=d.get("pokerus", 0),
+            met_location=d.get("met_location"),
+            met_level=d.get("met_level"),
+            pokeball=d.get("pokeball"),
+            contest_stats=contest_stats,
+            ribbons=ribbons,
+            origin_generation=3,
+            raw_data=d,
+        )
+
     # =========================================================================
     # DERIVED CALCULATIONS
     # =========================================================================

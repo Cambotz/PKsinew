@@ -306,6 +306,101 @@ class _SpriteDownloader:
 # ---------------------------------------------------------------------------
 # Main screen class
 # ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# Ribbon sprite downloader (runs on a background thread)
+# ---------------------------------------------------------------------------
+
+# Gen 3 Hoenn contest ribbon sprites from pokesprite
+_HOENN_RIBBON_FILES = [
+    "cool-ribbon-hoenn.png",
+    "cool-ribbon-super-hoenn.png",
+    "cool-ribbon-hyper-hoenn.png",
+    "cool-ribbon-master-hoenn.png",
+    "beauty-ribbon-hoenn.png",
+    "beauty-ribbon-super-hoenn.png",
+    "beauty-ribbon-hyper-hoenn.png",
+    "beauty-ribbon-master-hoenn.png",
+    "cute-ribbon-hoenn.png",
+    "cute-ribbon-super-hoenn.png",
+    "cute-ribbon-hyper-hoenn.png",
+    "cute-ribbon-master-hoenn.png",
+    "smart-ribbon-hoenn.png",
+    "smart-ribbon-super-hoenn.png",
+    "smart-ribbon-hyper-hoenn.png",
+    "smart-ribbon-master-hoenn.png",
+    "tough-ribbon-hoenn.png",
+    "tough-ribbon-super-hoenn.png",
+    "tough-ribbon-hyper-hoenn.png",
+    "tough-ribbon-master-hoenn.png",
+    # Gen 3 misc ribbons
+    "champion-ribbon.png",
+    "winning-ribbon.png",
+    "victory-ribbon.png",
+    "effort-ribbon.png",
+    "artist-ribbon.png",
+    "country-ribbon.png",
+    "national-ribbon.png",
+    "earth-ribbon.png",
+    "world-ribbon.png",
+]
+_POKESPRITE_RIBBON_BASE = (
+    "https://raw.githubusercontent.com/msikma/pokesprite/master/misc/ribbon/"
+)
+
+
+class _RibbonDownloader:
+    """Downloads Gen 3 Hoenn contest ribbon sprites from pokesprite into RIBBONS_DIR."""
+
+    def __init__(self, log_fn, done_fn):
+        self.log = log_fn
+        self.done = done_fn
+        self.cancel_requested = False
+        self._session = requests.Session()
+        self._session.headers.update({"User-Agent": "Sinew-RibbonDownloader/1.0"})
+
+    def _dl(self, url, path) -> bool:
+        try:
+            r = self._session.get(url, timeout=10)
+            if r.status_code == 200 and r.content:
+                with open(path, "wb") as f:
+                    f.write(r.content)
+                return True
+            return False
+        except Exception:
+            return False
+
+    def run(self):
+        from config import RIBBONS_DIR
+        os.makedirs(RIBBONS_DIR, exist_ok=True)
+
+        self.log("Downloading ribbon sprites...")
+        self.log(f"Target: {RIBBONS_DIR}")
+        self.log("")
+
+        ok = skip = fail = 0
+        for filename in _HOENN_RIBBON_FILES:
+            if self.cancel_requested:
+                self.log("Download cancelled.")
+                break
+
+            dest = os.path.join(RIBBONS_DIR, filename)
+            if os.path.exists(dest) and os.path.getsize(dest) > 0:
+                skip += 1
+                continue
+
+            url = _POKESPRITE_RIBBON_BASE + filename
+            if self._dl(url, dest):
+                self.log(f"[OK] {filename}")
+                ok += 1
+            else:
+                self.log(f"[!!] {filename}")
+                fail += 1
+
+        self.log("")
+        self.log(f"Done: {ok} downloaded, {skip} skipped, {fail} failed.")
+        self.done()
+
+
 class DBBuilderScreen:
     """Screen for building the Pokemon database with sprite pack selector."""
 
@@ -414,6 +509,7 @@ class DBBuilderScreen:
         self.buttons = [
             "Apply Pack To...",   # Opens game selector popup
             "Download Sprites",
+            "Download Ribbons",
             "Build Pokemon DB",
             "Build Wallpapers",
             "Back",
@@ -497,6 +593,19 @@ class DBBuilderScreen:
         self._add_line("'Build Pokemon DB' downloads")
         self._add_line("metadata (names, types, etc.)")
         self._add_line("")
+
+    def _ribbons_exist(self) -> bool:
+        """Check if ribbon sprites are downloaded (at least one file present)."""
+        try:
+            from config import RIBBONS_DIR
+            if not os.path.exists(RIBBONS_DIR):
+                return False
+            return any(
+                f.lower().endswith('.png') and os.path.isfile(os.path.join(RIBBONS_DIR, f))
+                for f in os.listdir(RIBBONS_DIR)
+            )
+        except Exception:
+            return False
 
     # ------------------------------------------------------------------
     # Pack persistence
@@ -628,11 +737,9 @@ class DBBuilderScreen:
         tx = preview_rect.left
         ty = preview_rect.bottom + self._PADDING
         
-        # Extend to right edge of buttons (instead of left edge)
-        if btn_rects:
-            tw = (btn_rects[0].right - tx)
-        else:
-            tw = self.width - tx - self._PADDING
+        # Match width of preview area (same right edge as preview, not buttons)
+        preview_width = preview_rect.width
+        tw = preview_width
         
         th = self.height - ty - self._FOOTER_H - self._PADDING
         
@@ -664,6 +771,22 @@ class DBBuilderScreen:
     def _on_download_done(self):
         self.is_building = False
         self._sprite_downloader = None
+
+    def _start_ribbon_download(self):
+        if self.is_building:
+            return
+        self.is_building = True
+        self.cancel_requested = False
+        self.terminal_lines = []
+        downloader = _RibbonDownloader(
+            log_fn=self._add_line,
+            done_fn=self._on_ribbon_download_done,
+        )
+        t = threading.Thread(target=downloader.run, daemon=True)
+        t.start()
+
+    def _on_ribbon_download_done(self):
+        self.is_building = False
 
     def _start_build(self):
         if self.is_building:
@@ -922,8 +1045,10 @@ class DBBuilderScreen:
         elif idx == 1:
             self._start_sprite_download()
         elif idx == 2:
-            self._start_build()
+            self._start_ribbon_download()
         elif idx == 3:
+            self._start_build()
+        elif idx == 4:
             self._start_wallpaper_build()
         else:
             self._close()
@@ -1796,8 +1921,15 @@ class DBBuilderScreen:
             btn_color = ui_colors.COLOR_BUTTON
             text_color = ui_colors.COLOR_TEXT
             
-            # Special handling for DB/Wallpaper buttons
-            if i == 2:  # Build Pokemon DB
+            # Special handling for ribbon/DB/Wallpaper buttons
+            if i == 2:  # Download Ribbons
+                if self._ribbons_exist():
+                    btn_color = (40, 80, 40)   # Dark green
+                    text_color = (100, 255, 100)
+                else:
+                    btn_color = (80, 40, 40)   # Dark red
+                    text_color = (255, 100, 100)
+            elif i == 3:  # Build Pokemon DB
                 if self._db_exists():
                     display_text = "Rebuild Pokemon DB"
                     btn_color = (40, 80, 40)  # Dark green
@@ -1805,7 +1937,7 @@ class DBBuilderScreen:
                 else:
                     btn_color = (80, 40, 40)  # Dark red
                     text_color = (255, 100, 100)  # Light red text
-            elif i == 3:  # Build Wallpapers
+            elif i == 4:  # Build Wallpapers
                 if self._wallpapers_exist():
                     display_text = "Rebuild Wallpapers"
                     btn_color = (40, 80, 40)  # Dark green
@@ -1815,7 +1947,7 @@ class DBBuilderScreen:
                     text_color = (255, 100, 100)  # Light red text
             
             # Override colors if building
-            if self.is_building and i < 3:
+            if self.is_building and i < 4:
                 display_text = "Cancel"
                 btn_color = ui_colors.COLOR_BUTTON
                 text_color = ui_colors.COLOR_TEXT

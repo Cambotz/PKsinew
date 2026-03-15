@@ -508,11 +508,8 @@ class PokemonSummary:
         # Current tab
         self.current_tab = self.TAB_INFO
 
-        # Tab names - 3 tabs now (INFO combines with SKILLS)
-        if game_type == "FRLG":
-            self.tabs = ["INFO", "MOVES"]
-        else:
-            self.tabs = ["INFO", "MOVES", "CONTEST"]
+        # Tab names - always show all 3 tabs
+        self.tabs = ["INFO", "MOVES", "CONTEST"]
 
         # Font sizes for refresh
         self.small_font_size = 12
@@ -1286,67 +1283,100 @@ class PokemonSummary:
 
         y += 32
 
-        # Ribbons section - only show earned ribbons
-        ribbons = self.pokemon.get("ribbons", {})
-        if not ribbons:
+        # Ribbons - built from contest_ribbons (integer ranks from parser)
+        # 0=none, 1=Normal, 2=Super, 3=Hyper, 4=Master
+        RANK_LABELS  = ["", "N", "S", "H", "M"]
+        RANK_NAMES   = ["", "Normal", "Super", "Hyper", "Master"]
+        RANK_COLORS  = [
+            None,
+            (180, 180, 180),   # Normal - silver
+            (80,  160, 255),   # Super  - blue
+            (255, 180,  50),   # Hyper  - gold
+            (255,  80, 200),   # Master - pink/purple
+        ]
+        CATEGORY_COLORS = {
+            "cool":   (255, 100, 100),
+            "beauty": (100, 100, 255),
+            "cute":   (255, 150, 200),
+            "smart":  (100, 220, 100),
+            "tough":  (255, 200, 100),
+        }
+
+        contest_ribbons = self.pokemon.get("contest_ribbons", {})
+        if not contest_ribbons:
             raw = self.pokemon.get("raw", {})
-            ribbons = raw.get("ribbons", {})
+            contest_ribbons = raw.get("contest_ribbons", {})
 
-        # Collect earned ribbons
+        # Each earned ribbon is (label, badge_color, tooltip)
         earned_ribbons = []
-
-        # Contest ribbons with ranks
-        ribbon_data = [
-            ("cool", "C", (255, 100, 100)),
-            ("beauty", "B", (100, 100, 255)),
-            ("cute", "U", (255, 150, 200)),
-            ("smart", "S", (100, 255, 100)),
-            ("tough", "T", (255, 200, 100)),
-        ]
-
-        for rkey, rname, rcolor in ribbon_data:
-            rank = ribbons.get(rkey, "None")
-            if rank != "None":
-                earned_ribbons.append((rname, rcolor))
-
-        # Special ribbons
-        special_ribbons_data = [
-            ("champion", "★", (255, 215, 0)),
-            ("winning", "W", (150, 255, 150)),
-            ("victory", "V", (200, 150, 255)),
-        ]
-
-        for rkey, symbol, rcolor in special_ribbons_data:
-            if ribbons.get(rkey, False):
-                earned_ribbons.append((symbol, rcolor))
+        RANK_FILENAMES = ["", "", "super", "hyper", "master"]
+        for rkey in ("cool", "beauty", "cute", "smart", "tough"):
+            rank = contest_ribbons.get(rkey, 0)
+            if rank and 1 <= rank <= 4:
+                label   = RANK_LABELS[rank]
+                tooltip = f"{rkey.capitalize()} {RANK_NAMES[rank]}"
+                color   = RANK_COLORS[rank]
+                # Build pokesprite filename e.g. cool-ribbon-hoenn.png / cool-ribbon-super-hoenn.png
+                rank_part = RANK_FILENAMES[rank]
+                if rank_part:
+                    sprite_file = f"{rkey}-ribbon-{rank_part}-hoenn.png"
+                else:
+                    sprite_file = f"{rkey}-ribbon-hoenn.png"
+                earned_ribbons.append((label, color, tooltip, sprite_file))
 
         # Only draw ribbon section if there are earned ribbons
         if earned_ribbons:
-            ribbon_y = self.height - 32
+            badge_size = 40
+            badge_spacing = 44
+            section_h = badge_size + 8  # tight fit around icons
+            ribbon_y = self.height - section_h - 10  # move up ~1 char height
 
-            # Draw section background
-            ribbon_bg = pygame.Rect(pad, ribbon_y - 4, self.width - pad * 2, 28)
+            # Draw section background tall enough for icons
+            ribbon_bg = pygame.Rect(pad, ribbon_y - 4, self.width - pad * 2, section_h)
             pygame.draw.rect(surf, (30, 30, 35), ribbon_bg)
             pygame.draw.rect(surf, ui_colors.COLOR_BORDER, ribbon_bg, 1)
 
             ribbon_title = self.small_font.render("RIBBONS", True, (150, 150, 150))
-            surf.blit(ribbon_title, (pad + 4, ribbon_y - 2))
+            # Vertically centre the label on the icon row
+            badge_y = ribbon_y - 4 + (section_h - badge_size) // 2
+            title_y = badge_y + (badge_size - ribbon_title.get_height()) // 2
+            surf.blit(ribbon_title, (pad + 4, title_y))
 
             badge_x = pad + 60
-            badge_y = ribbon_y + 2
-            badge_size = 18
-            badge_spacing = 22
 
-            for symbol, rcolor in earned_ribbons:
+            # Preload ribbon sprite cache on first draw
+            if not hasattr(self, '_ribbon_sprite_cache'):
+                self._ribbon_sprite_cache = {}
+
+            for label, badge_color, tooltip, sprite_file in earned_ribbons:
                 badge_rect = pygame.Rect(badge_x, badge_y, badge_size, badge_size)
 
-                # Draw colored badge
-                pygame.draw.rect(surf, rcolor, badge_rect)
-                pygame.draw.rect(surf, (255, 255, 255), badge_rect, 1)
+                # Try to load ribbon sprite
+                drawn = False
+                if sprite_file:
+                    if sprite_file not in self._ribbon_sprite_cache:
+                        try:
+                            from config import RIBBONS_DIR
+                            import os as _os
+                            path = _os.path.join(RIBBONS_DIR, sprite_file)
+                            if _os.path.exists(path):
+                                img = pygame.image.load(path).convert_alpha()
+                                self._ribbon_sprite_cache[sprite_file] = img
+                            else:
+                                self._ribbon_sprite_cache[sprite_file] = None
+                        except Exception:
+                            self._ribbon_sprite_cache[sprite_file] = None
+                    ribbon_img = self._ribbon_sprite_cache.get(sprite_file)
+                    if ribbon_img:
+                        surf.blit(ribbon_img, badge_rect.topleft)
+                        drawn = True
 
-                # Draw symbol in center
-                symbol_text = self.small_font.render(symbol, True, (255, 255, 255))
-                symbol_rect = symbol_text.get_rect(center=badge_rect.center)
-                surf.blit(symbol_text, symbol_rect)
+                if not drawn:
+                    # Fallback: coloured badge with rank label
+                    pygame.draw.rect(surf, badge_color, badge_rect)
+                    pygame.draw.rect(surf, (255, 255, 255), badge_rect, 1)
+                    symbol_text = self.small_font.render(label, True, (255, 255, 255))
+                    symbol_rect = symbol_text.get_rect(center=badge_rect.center)
+                    surf.blit(symbol_text, symbol_rect)
 
                 badge_x += badge_spacing

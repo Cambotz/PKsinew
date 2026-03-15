@@ -62,7 +62,8 @@ class EventsModal:
     """Modal wrapper for events screen"""
 
     def __init__(
-        self, w, h, font, on_close=None, on_event_claimed=None, game_name=None
+        self, w, h, font, on_close=None, on_event_claimed=None, game_name=None,
+        is_game_running_callback=None
     ):
         self.width = w
         self.height = h
@@ -70,7 +71,8 @@ class EventsModal:
         self.on_close = on_close
         self.on_event_claimed = on_event_claimed
         self.screen = EventsScreen(
-            w, h, on_event_claimed=on_event_claimed, game_name=game_name
+            w, h, on_event_claimed=on_event_claimed, game_name=game_name,
+            is_game_running_callback=is_game_running_callback
         )
 
     def update(self, events):
@@ -90,11 +92,13 @@ class EventsModal:
 class EventsScreen:
     """Events screen for claiming event items"""
 
-    def __init__(self, w, h, on_event_claimed=None, game_name=None):
+    def __init__(self, w, h, on_event_claimed=None, game_name=None,
+                 is_game_running_callback=None):
         self.w = w
         self.h = h
         self.should_close = False
         self.on_event_claimed = on_event_claimed
+        self.is_game_running_callback = is_game_running_callback
 
         # Fonts
         self.font_header = scaled_font(14)
@@ -334,6 +338,12 @@ class EventsScreen:
 
     def _claim_event(self, event_key):
         """Claim an event item and add it to the current save"""
+        # Block if a game is currently running - save could be in use
+        if self.is_game_running_callback and self.is_game_running_callback():
+            running = self.is_game_running_callback()
+            self._show_message(f"Stop {running} first!", (255, 100, 100))
+            return False
+
         if not self.manager or not self.manager.is_loaded():
             self._show_message("No save file loaded!", (255, 100, 100))
             return False

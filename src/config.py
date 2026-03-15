@@ -108,6 +108,7 @@ GEN8_ICONS_DIR = os.path.join(SPRITES_DIR, "gen8", "icons")
 
 TITLE_SPRITES_DIR = os.path.join(SPRITES_DIR, "title")
 ITEMS_SPRITES_DIR = os.path.join(SPRITES_DIR, "items")
+RIBBONS_DIR        = os.path.join(SPRITES_DIR, "ribbons")
 
 # Item sprite paths
 EGG_SPRITE_PATH    = os.path.join(ITEMS_SPRITES_DIR, "egg.png")
