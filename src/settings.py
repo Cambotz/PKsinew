@@ -1234,7 +1234,7 @@ class MainSetup:
             ],
             "Emu": self._build_mgba_tab_options(),
             "Info": [
-                {"name": "Sinew Version", "type": "label", "value": "v1.3.8"},
+                {"name": "Sinew Version", "type": "label", "value": "v1.3.9"},
                 {"name": "Author", "type": "label", "value": "Cameron Penna"},
                 {"name": "Pokemon DB Status", "type": "label", "value": "Checking..."},
                 {"name": "About/Legal", "type": "button"},
