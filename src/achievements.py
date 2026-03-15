@@ -546,6 +546,15 @@ class AchievementManager:
                             f" {ach['name']} (Legendary Birds in {game})"
                         )
 
+                # Hall of Fame (Pokemon Champion!)
+                if hint == "has_hall_of_fame":
+                    if game_tracking.get("has_hall_of_fame", False):
+                        unlocked = True
+                        print(
+                            f"[Achievements] Force unlock: {ach['name']}"
+                            f" (Hall of Fame entry in {game})"
+                        )
+
                 if unlocked:
                     if self.unlock(ach["id"], ach):
                         newly_unlocked.append(ach["id"])
@@ -1894,6 +1903,13 @@ class AchievementManager:
                         should_be_unlocked = (
                             144 in owned and 145 in owned and 146 in owned
                         )
+
+                elif hint == "has_hall_of_fame":
+                    if not game_has_tracking:
+                        # No tracking data - cannot validate, keep the achievement
+                        should_be_unlocked = True
+                    else:
+                        should_be_unlocked = game_tracking.get("has_hall_of_fame", False)
 
                 else:
                     # Unknown hint type, keep the achievement
