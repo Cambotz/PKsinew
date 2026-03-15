@@ -186,19 +186,40 @@ class EmulatorSessionMixin:
         if sav_path:
             print(f"[Sinew] Save: {sav_path}")
 
-        # For external (subprocess) providers: write the save path into a
-        # temporary RetroArch appendconfig so it loads the exact save Sinew
-        # detected. Using appendconfig is more compatible than --savefile CLI
-        # flag (which some older RetroArch builds don't support).
+        # For external providers that call RetroArch directly (RetroPie,
+        # DesktopRetroarch), inject the save path via --appendconfig so
+        # RetroArch loads the exact save Sinew detected.
+        #
+        # We skip this for:
+        #   - Integrated providers (handle sav_path via launch_integrated)
+        #   - Script-based launchers like ROCKNIX's runemu.sh — these wrap
+        #     RetroArch internally and don't accept --appendconfig themselves.
+        #     ROCKNIX RetroArch saves to the directory Sinew already scanned,
+        #     so no injection is needed.
         _sinew_save_cfg = None
         _original_get_command = None
-        if (
+        # Detect script-based launchers (like ROCKNIX's runemu.sh) that wrap
+        # RetroArch internally — they don't accept --appendconfig directly.
+        # Check via attribute (providers can set is_script_launcher=True) or
+        # by provider class name as a fallback.
+        _provider_class = type(provider).__name__
+        _is_script_launcher = (
+            getattr(provider, 'is_script_launcher', False)
+            or 'rocknix' in _provider_class.lower()
+            or 'jelos' in _provider_class.lower()
+        )
+        _is_direct_retroarch = (
             sav_path
-            and not getattr(provider, 'is_integrated', False)
             and os.path.exists(sav_path)
-        ):
+            and not getattr(provider, 'is_integrated', False)
+            and not _is_script_launcher
+        )
+        if _is_direct_retroarch:
+            # Choose a temp path that exists on the current platform
+            import tempfile as _tempfile
+            _tmp_dir = "/dev/shm" if os.path.isdir("/dev/shm") else _tempfile.gettempdir()
+            _sinew_save_cfg = os.path.join(_tmp_dir, "retroarch_sinew_save.cfg")
             try:
-                _sinew_save_cfg = "/dev/shm/retroarch_sinew_save.cfg"
                 with open(_sinew_save_cfg, "w") as _f:
                     _f.write(f'savefile_path = "{sav_path}"\n')
                 print(f"[Sinew] Save cfg written: {sav_path}")
@@ -212,7 +233,7 @@ class EmulatorSessionMixin:
                 def _get_command_with_save_cfg(rom, core="auto", _cfg=_sinew_save_cfg):
                     cmd = _original_get_command(rom, core)
                     if cmd:
-                        # Insert our save cfg via --appendconfig before the ROM (last arg)
+                        # Insert save cfg via --appendconfig before the ROM (last arg)
                         cmd = cmd[:-1] + ["--appendconfig", _cfg, cmd[-1]]
                         print(f"[Sinew] Injected save appendconfig: {_cfg}")
                     return cmd
@@ -227,11 +248,11 @@ class EmulatorSessionMixin:
             # Restore original get_command
             if _original_get_command is not None:
                 provider.get_command = _original_get_command
-            # Clean up the temporary save config (RetroArch has already read it)
-            if _sinew_save_cfg:
+            # Clean up the temporary save config
+            if _sinew_save_cfg and os.path.exists(_sinew_save_cfg):
                 try:
                     import time as _time
-                    _time.sleep(0.5)  # Brief delay so RetroArch reads it before we delete
+                    _time.sleep(0.5)  # Brief delay so RetroArch reads it first
                     os.remove(_sinew_save_cfg)
                 except Exception:
                     pass
