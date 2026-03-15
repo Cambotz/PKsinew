@@ -687,8 +687,12 @@ class Settings:
         self.screen.draw(surf)
 
     def revert_provider_toggle(self, use_external):
-        """Passthrough so emulator_session can flip the toggle and rebuild the mGBA tab."""
+        """Passthrough so emulator_session can flip the External Files toggle."""
         self.screen.revert_provider_toggle(use_external)
+
+    def revert_emulator_toggle(self, use_external_emulator):
+        """Passthrough so emulator_session can flip the External Emulator toggle."""
+        self.screen.revert_emulator_toggle(use_external_emulator)
 
 
 # Alias for backwards compatibility
@@ -1421,6 +1425,16 @@ class MainSetup:
         reverted. Syncs the 'External Files' toggle in the Emu tab.
         """
         self._rebuild_mgba_tab(use_external)
+
+    def revert_emulator_toggle(self, use_external_emulator):
+        """
+        Called by emulator_session when the emulator binary changes.
+        Syncs the 'External Emulator' toggle in the Emu tab.
+        """
+        for opt in self.tab_options.get('Emu', []):
+            if opt['name'] == 'External Emulator':
+                opt['value'] = use_external_emulator
+                break
 
     def _update_option_nav(self):
         """Update NavigableList for current tab"""

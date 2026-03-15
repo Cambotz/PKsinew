@@ -391,15 +391,19 @@ class EmulatorSessionMixin:
             if not had_external_paths:
                 self.settings['use_emulator_provider'] = False
                 builtins.SINEW_USE_EMULATOR_PROVIDER = False
-                _ssm({'use_emulator_provider': False})
+                _ssm({'use_emulator_provider': False, 'use_external_emulator': False})
+            else:
+                _ssm({'use_external_emulator': False})
+            self.settings['use_external_emulator'] = False
 
-            # Sync settings UI: mGBA tab → integrated options, General toggle unchanged
+            # Sync settings UI: External Files toggle reflects file-path state,
+            # External Emulator toggle flips to OFF (now using integrated mGBA)
             if hasattr(self, '_pending_settings_modal') and self._pending_settings_modal:
                 try:
-                    # Pass current use_emulator_provider value so General toggle is correct
                     self._pending_settings_modal.revert_provider_toggle(
                         self.settings.get('use_emulator_provider', False)
                     )
+                    self._pending_settings_modal.revert_emulator_toggle(False)
                 except Exception:
                     pass
             self.modal_instance = None
@@ -417,6 +421,64 @@ class EmulatorSessionMixin:
                                                         'revert_provider_toggle'):
             self._pending_settings_modal = self.modal_instance
         self.modal_instance = dialog
+
+    def _on_external_files_toggled(self, enabled):
+        """
+        Toggle external file path scanning independently of the emulator binary.
+
+        Saves use_emulator_provider and rescans games using either the active
+        provider's roms_dir/saves_dir (when enabled) or Sinew's internal
+        ROMS_DIR/SAVES_DIR (when disabled). Does NOT change which emulator
+        binary (integrated vs external) is active.
+        """
+        import builtins
+        from config import ROMS_DIR, SAVES_DIR, _save_scan_cache
+        from settings import save_sinew_settings_merged as _ssm
+
+        try:
+            screen = pygame.display.get_surface()
+        except Exception:
+            screen = self._loading_screen
+
+        # Persist the file-path preference only
+        self.settings['use_emulator_provider'] = enabled
+        builtins.SINEW_USE_EMULATOR_PROVIDER = enabled
+        _ssm({'use_emulator_provider': enabled})
+
+        # Sync the External Files toggle in the Settings UI
+        if hasattr(self, '_pending_settings_modal') and self._pending_settings_modal:
+            try:
+                self._pending_settings_modal.revert_provider_toggle(enabled)
+            except Exception:
+                pass
+
+        if screen:
+            msg = "Scanning external ROMs..." if enabled else "Scanning internal ROMs..."
+            self._draw_loading_screen(screen, msg, 0, 2)
+
+        # Clear scan caches and re-detect games — emulator binary is unchanged
+        _rom_scan_cache.clear()
+        _save_scan_cache.clear()
+        if hasattr(self, '_sinew_game_data_cache'):
+            self._sinew_game_data_cache.clear()
+
+        if screen:
+            self._draw_loading_screen(screen, "Loading save data...", 1, 2)
+
+        self._init_games()
+        self.current_game = 0
+        self.menu_index = 0
+
+        if not self.is_on_sinew() and self.game_names:
+            gname = self.game_names[self.current_game]
+            sav_path = self.games[gname].get('sav')
+            if sav_path and os.path.exists(sav_path):
+                manager = get_manager()
+                manager.load_save(sav_path, game_hint=gname)
+
+        self.load_game_and_background()
+        toggled = 'ON (external)' if enabled else 'OFF (internal)'
+        print(f"[GameScreen] External Files toggled {toggled} -- emulator binary unchanged")
 
     def _on_emulator_provider_toggled(self, enabled):
         """Rebuild the game list when the user toggles the emulator provider setting.
@@ -630,13 +692,15 @@ class EmulatorSessionMixin:
 
         builtins.SINEW_USE_EMULATOR_PROVIDER = enabled
         self.settings['use_emulator_provider'] = enabled
-        _ssm({'use_emulator_provider': enabled})
+        # Also track the emulator binary choice separately
+        self.settings['use_external_emulator'] = enabled
+        _ssm({'use_emulator_provider': enabled, 'use_external_emulator': enabled})
 
-        # If the settings modal is still open, sync its toggles and mGBA tab
-        # (find it via modal stack — GameScreen re-opens settings after dialog)
+        # If the settings modal is still open, sync its toggles
         if hasattr(self, '_pending_settings_modal') and self._pending_settings_modal:
             try:
                 self._pending_settings_modal.revert_provider_toggle(enabled)
+                self._pending_settings_modal.revert_emulator_toggle(enabled)
             except Exception:
                 pass
 
