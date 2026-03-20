@@ -135,9 +135,8 @@ class GameScreen(
 
         # Determine default for external providers — ON for handhelds/RetroPie,
         # OFF for desktop users (they can opt in via settings).
-        from config import DEFAULT_USE_EXTERNAL_PROVIDERS, DEFAULT_USE_EXTERNAL_EMULATOR
+        from config import DEFAULT_USE_EXTERNAL_PROVIDERS
         _provider_default = DEFAULT_USE_EXTERNAL_PROVIDERS
-        _emulator_default = DEFAULT_USE_EXTERNAL_EMULATOR
         if not hasattr(builtins, 'SINEW_USE_EMULATOR_PROVIDER'):
             # First-run: seed the setting from hardware-detected default if not saved yet
             if 'use_emulator_provider' not in self.settings:
@@ -149,13 +148,7 @@ class GameScreen(
             builtins.SINEW_USE_EMULATOR_PROVIDER = self.settings.get(
                 'use_emulator_provider', _provider_default)
 
-        # First-run: seed use_external_emulator from hardware-detected default
-        if 'use_external_emulator' not in self.settings:
-            self.settings['use_external_emulator'] = _emulator_default
-            from settings import save_sinew_settings_merged as _ssm2
-            _ssm2({'use_external_emulator': _emulator_default})
-            print(f'[GameScreen] Defaulting external emulator to {_emulator_default}'
-                  f' (IS_HANDHELD/IS_RETROPIE)')
+
 
         # Emulator manager — always initialized; use_provider controls whether
         # external (subprocess) providers are included alongside built-in mGBA.

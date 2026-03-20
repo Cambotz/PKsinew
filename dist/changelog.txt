@@ -1,3 +1,17 @@
+PKsinew v1.3.9
+
+NEW: -Universal Pokémon Object implementation to support future expansion -Rebuilt Gen 3 Pokémon generator -Game of Origin displayed on Pokémon Summary screen -Met Level displayed on Pokémon Summary screen -Ribbon display added to Pokémon Summary Contest screen -Shiny sprite loading, animation, and sound added to Pokémon Summary screen -Shiny sprite loading, animation, and sound added to PC Box -Ribbon downloads button added to Sprite Pack Manager -Jukebox added to Settings (place music in dist/data/sounds/music)
+
+Improvements: -External provider toggle moved to Emu settings and renamed to External Files -mGBA renamed to Emu in settings -Activated sprite pack notification moved to a more visible location -Downloaded indication added to sprite packs in the Sprite Pack Manager -Settings keyboard binding added (default: Backspace) -External files and emulator can now be mixed (e.g., internal emulator with external saves/ROMs)
+
+Fixes: -PC Box sprite now correctly uses the game’s designated sprite pack when moving Pokémon -Sprite Pack Manager database builder fixed
+
+Gameplay / Logic: -Event items can no longer be rewarded while a game is active -Pokémon Champion achievement now requires a Hall of Fame entry instead of just 8 badges -Safeguard added to prevent 151 sprite packs from being used as global packs
+
+Technical: -Internal systems updated to support the Universal Pokémon Object architecture
+
+====================================================================
+
 PKsinew v1.3.8
 
 ⚠️ Important: Sprite packs have moved to the new packs/ directory.
