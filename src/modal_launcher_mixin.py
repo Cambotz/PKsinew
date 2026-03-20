@@ -13,7 +13,10 @@ from settings import Settings
 from db_builder_screen import DBBuilder
 from PokedexModal import PokedexModal
 from export_modal import ExportModal
-from events_screen import EventsModal
+try:
+    from events_screen import EventsModal
+except ImportError:
+    EventsModal = None
 from game_dialogs import PlaceholderModal
 from save_data_manager import get_manager
 from ui_scale import ui
@@ -185,7 +188,6 @@ class ModalLauncherMixin:
             )
         elif name == "Events" and EventsModal:
             # Events modal - for claiming mystery event items
-            # Pass the current game name from the game screen (determined by filename)
             current_game_name = self.get_current_game_name()
             self.modal_instance = EventsModal(
                 modal_w,

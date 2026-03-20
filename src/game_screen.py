@@ -42,7 +42,6 @@ from settings import Settings
 from db_builder_screen import DBBuilder
 from PokedexModal import PokedexModal
 from export_modal import ExportModal
-from events_screen import EventsModal
 
 from game_detection import (
     GAME_DEFINITIONS, GAME_FULL, GAME_SAVE_ONLY, GAME_UNAVAILABLE,
@@ -147,6 +146,8 @@ class GameScreen(
                       f' (IS_HANDHELD/IS_RETROPIE)')
             builtins.SINEW_USE_EMULATOR_PROVIDER = self.settings.get(
                 'use_emulator_provider', _provider_default)
+
+
 
         # Emulator manager — always initialized; use_provider controls whether
         # external (subprocess) providers are included alongside built-in mGBA.
