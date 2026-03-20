@@ -19,7 +19,6 @@ from config import (
     AUDIO_BUFFER_DEFAULT, AUDIO_BUFFER_DEFAULT_ARM, AUDIO_QUEUE_DEPTH_DEFAULT,
     VOLUME_DEFAULT, VOLUME_MIN, VOLUME_MAX, VOLUME_STEP,
     MUSIC_DIR, MUSIC_EXTENSIONS,
-    DEFAULT_USE_EXTERNAL_EMULATOR,
 )
 from ui_scale import ui, scaled_font
 
@@ -526,7 +525,7 @@ class PauseComboSelector:
 
         # Options with toggle switches
         start_y = 75
-        option_height = ui.s(32)
+        option_height = ui.s(31)
 
         for i, option in enumerate(self.COMBO_OPTIONS):
             y = start_y + i * option_height
@@ -653,7 +652,7 @@ class Settings:
         reload_combo_callback=None,
         emulator_provider_callback=None,
         use_integrated_mgba_callback=None,
-        external_files_callback=None,
+        use_external_emulator_callback=None,
     ):
         self.width = w
         self.height = h
@@ -670,7 +669,7 @@ class Settings:
             reload_combo_callback=reload_combo_callback,
             emulator_provider_callback=emulator_provider_callback,
             use_integrated_mgba_callback=use_integrated_mgba_callback,
-            external_files_callback=external_files_callback,
+            use_external_emulator_callback=use_external_emulator_callback,
         )
         self.visible = True
 
@@ -691,10 +690,6 @@ class Settings:
     def revert_provider_toggle(self, use_external):
         """Passthrough so emulator_session can rebuild the Emu tab."""
         self.screen.revert_provider_toggle(use_external)
-
-    def revert_emulator_toggle(self, use_external_emulator):
-        """No-op passthrough for API compatibility."""
-        pass
 
 
 # Alias for backwards compatibility
@@ -1169,7 +1164,7 @@ class MainSetup:
         reload_combo_callback=None,
         emulator_provider_callback=None,
         use_integrated_mgba_callback=None,
-        external_files_callback=None,
+        use_external_emulator_callback=None,
     ):
         self.width = width
         self.height = height
@@ -1183,7 +1178,7 @@ class MainSetup:
         self.reload_combo_callback = reload_combo_callback
         self.emulator_provider_callback = emulator_provider_callback
         self.use_integrated_mgba_callback = use_integrated_mgba_callback
-        self.external_files_callback = external_files_callback
+        self.use_external_emulator_callback = use_external_emulator_callback
         self.controller = get_controller()
 
         # Sub-screen state
@@ -1220,6 +1215,7 @@ class MainSetup:
                 # Fullscreen has no meaning on a handheld — hide it entirely
                 *([] if IS_HANDHELD else [{"name": "Fullscreen", "type": "toggle",
                     "value": False}]),
+                {"name": "Use External Providers", "type": "toggle", "value": False},
                 {
                     "name": "Volume",
                     "type": "slider",
@@ -1282,6 +1278,9 @@ class MainSetup:
                 opt["value"] = settings.get("mute_menu_music", False)
             elif opt["name"] == "Fullscreen":
                 opt["value"] = settings.get("fullscreen", False)
+            elif opt["name"] == "Use External Providers":
+                from config import DEFAULT_USE_EXTERNAL_PROVIDERS
+                opt["value"] = settings.get("use_emulator_provider", DEFAULT_USE_EXTERNAL_PROVIDERS)
             elif opt["name"] == "Volume":
                 saved_vol = settings.get("master_volume", VOLUME_DEFAULT)
                 vol_values = opt.get("volume_values", list(range(VOLUME_MIN, VOLUME_MAX + 1,
@@ -1296,12 +1295,9 @@ class MainSetup:
             if opt["name"] == "Swap A/B Buttons":
                 opt["value"] = settings.get("swap_ab", False)
 
-        # Load Emu tab settings
+        # Load Emu tab settings — structure varies by provider state
         for opt in self.tab_options["Emu"]:
-            if opt["name"] == "Use External Providers":
-                from config import DEFAULT_USE_EXTERNAL_PROVIDERS
-                opt["value"] = settings.get("use_emulator_provider", DEFAULT_USE_EXTERNAL_PROVIDERS)
-            elif opt["name"] == "Controller FF Buttons":
+            if opt["name"] == "Controller FF Buttons":
                 opt["value"] = settings.get("mgba_ctrl_ff_enabled", True)
             elif opt["name"] == "Fast-Forward Speed":
                 saved_idx = settings.get("mgba_fastforward_index", 0)
@@ -1355,16 +1351,23 @@ class MainSetup:
         """
         Build the Emu tab option list.
 
-        When external providers are active the tab shows only the
-        'Use Integrated mGBA' toggle (so the user can switch back) plus
-        an info label explaining that mGBA options are hidden.
+        Three states:
+          - Providers OFF → internal files + integrated mGBA
+            Shows mGBA audio/speed options only.
 
-        When integrated mGBA is active all audio/speed options are shown
-        plus a 'Use External Providers' toggle at the top.
+          - Providers ON + external emulator → external files + external emu
+            Shows "Use Integrated mGBA" toggle so user can switch binary
+            while keeping external files.
+
+          - Providers ON + integrated mGBA → external files + integrated mGBA
+            Shows "Use External Emulator" toggle + all mGBA options.
+
+        Turning providers OFF (in General) always resets to internal + integrated.
         """
-        from config import DEFAULT_USE_EXTERNAL_PROVIDERS
-        settings = load_sinew_settings()
-        use_external = settings.get("use_emulator_provider", DEFAULT_USE_EXTERNAL_PROVIDERS)
+        from config import DEFAULT_USE_EXTERNAL_PROVIDERS, DEFAULT_USE_EXTERNAL_EMULATOR
+        _s = load_sinew_settings()
+        use_ext_files = _s.get("use_emulator_provider", DEFAULT_USE_EXTERNAL_PROVIDERS)
+        use_ext_emu = _s.get("use_external_emulator", DEFAULT_USE_EXTERNAL_EMULATOR)
 
         integrated_opts = [
             {"name": "Controller FF Buttons", "type": "toggle", "value": True},
@@ -1394,33 +1397,52 @@ class MainSetup:
             },
         ]
 
-        if use_external:
+        if not use_ext_files:
+            # Providers OFF — internal files, integrated mGBA, no emulator choice
+            return integrated_opts
+
+        if use_ext_emu:
+            # Providers ON, external emulator — show switch-to-integrated option
             return [
+                {
+                    "name": "Emulator",
+                    "type": "label",
+                    "value": "Using External Emulator",
+                },
                 {
                     "name": "Use Integrated mGBA",
                     "type": "toggle",
                     "value": False,
                 },
-                {
-                    "name": "Using External Emulator",
-                    "type": "label",
-                    "value": "mGBA options hidden",
-                },
             ]
         else:
+            # Providers ON, integrated mGBA — show switch-to-external + mGBA options
             return [
                 {
-                    "name": "Use External Providers",
+                    "name": "Emulator",
+                    "type": "label",
+                    "value": "Using Integrated mGBA",
+                },
+                {
+                    "name": "Use External Emulator",
                     "type": "toggle",
                     "value": False,
                 },
             ] + integrated_opts
 
-    def _rebuild_mgba_tab(self, use_external):
+    def _rebuild_mgba_tab(self, use_external, use_external_emu=None):
         """
         Rebuild the Emu tab options in-place when the provider mode changes.
         Preserves current slider/toggle values, resets cursor to top.
         """
+        # If caller is explicitly setting the emulator state, persist it first
+        # so _build_mgba_tab_options reads the right value from settings.
+        if use_external_emu is not None:
+            from settings import save_sinew_settings_merged as _ssm
+            try:
+                _ssm({"use_external_emulator": use_external_emu})
+            except Exception:
+                pass
         self.tab_options["Emu"] = self._build_mgba_tab_options()
 
         settings = load_sinew_settings()
@@ -1451,13 +1473,14 @@ class MainSetup:
     def revert_provider_toggle(self, use_external):
         """
         Called by emulator_session when a provider switch is committed or reverted.
-        Rebuilds the Emu tab to reflect the new state.
+        Flips the General tab toggle and rebuilds the Emu tab.
         """
+        for opt in self.tab_options.get("General", []):
+            if opt["name"] == "Use External Providers":
+                opt["value"] = use_external
+                break
         self._rebuild_mgba_tab(use_external)
 
-    def revert_emulator_toggle(self, use_external_emulator):
-        """No-op — emulator state is handled by revert_provider_toggle."""
-        pass
 
     def _update_option_nav(self):
         """Update NavigableList for current tab"""
@@ -1591,12 +1614,16 @@ class MainSetup:
                 self.emulator_provider_callback(value)
 
         elif name == "Use External Emulator":
-            # Emu tab: switch FROM integrated TO external binary
-            if self.emulator_provider_callback:
+            # Providers ON: switch binary from integrated → external
+            # Keeps external files active.
+            if self.use_external_emulator_callback:
+                self.use_external_emulator_callback()
+            elif self.emulator_provider_callback:
                 self.emulator_provider_callback(True)
 
         elif name == "Use Integrated mGBA":
-            # Emu tab: switch FROM external binary TO integrated mGBA
+            # Providers ON: switch binary from external → integrated mGBA
+            # External files stay active.
             if self.use_integrated_mgba_callback:
                 self.use_integrated_mgba_callback()
             elif self.emulator_provider_callback:
@@ -2647,8 +2674,9 @@ class MainSetup:
 
         # Draw options for current tab
         y_start = ui.s(85)
-        option_height = ui.s(32)
-        max_visible = (self.height - y_start - 30) // option_height
+        option_height = ui.s(31)
+        hint_clearance = ui.s(16) + 10  # hint bar height + bottom margin
+        max_visible = (self.height - y_start - hint_clearance) // option_height
 
         options = self.current_options()
 
