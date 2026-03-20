@@ -145,11 +145,7 @@ class EventsScreen:
             if hasattr(self.manager, "parser"):
                 raw_name = getattr(self.manager.parser, "game_name", None)
                 if raw_name and raw_name in [
-                    "Ruby",
-                    "Sapphire",
-                    "Emerald",
-                    "FireRed",
-                    "LeafGreen",
+                    "Ruby", "Sapphire", "Emerald", "FireRed", "LeafGreen",
                 ]:
                     return raw_name
         except Exception:
@@ -161,28 +157,16 @@ class EventsScreen:
         """Get the game type (RSE or FRLG) based on game name"""
         if self.game_name in ("FireRed", "LeafGreen"):
             return "FRLG"
-        return "RSE"  # Ruby, Sapphire, Emerald all use RSE format
+        return "RSE"
 
     def _is_compatible_save(self, loaded_game):
-        """Check if the loaded save is compatible with the expected game.
-
-        The parser returns paired names like 'Ruby/Sapphire' or 'FireRed/LeafGreen'
-        because it can't distinguish between paired games. This method handles that.
-
-        Args:
-            loaded_game: The game name returned by parser.game_name
-
-        Returns:
-            bool: True if the loaded save is compatible with self.game_name
-        """
+        """Check if the loaded save is compatible with the expected game."""
         if not loaded_game or not self.game_name:
             return False
 
-        # Exact match
         if loaded_game == self.game_name:
             return True
 
-        # Handle paired game names from parser
         paired_games = {
             "Ruby/Sapphire": ["Ruby", "Sapphire"],
             "FireRed/LeafGreen": ["FireRed", "LeafGreen"],
@@ -192,7 +176,6 @@ class EventsScreen:
             if loaded_game == paired_name and self.game_name in games:
                 return True
 
-        # Emerald is its own thing
         if loaded_game == "Emerald" and self.game_name == "Emerald":
             return True
 
@@ -222,7 +205,6 @@ class EventsScreen:
         for event_key in self.available_events:
             self._ownership_cache[event_key] = self._check_has_item(event_key)
 
-        # Log status once
         for event_key in self.available_events:
             owned = self._ownership_cache.get(event_key, False)
             status = "OWNED" if owned else "Available"
@@ -234,8 +216,6 @@ class EventsScreen:
             return False
 
         try:
-            # Verify the loaded save matches the expected game
-            # Parser returns "Ruby/Sapphire" or "FireRed/LeafGreen" for paired games
             loaded_game = getattr(self.manager.parser, "game_name", None)
             if not self._is_compatible_save(loaded_game):
                 print(
@@ -245,45 +225,26 @@ class EventsScreen:
                 return False
 
             from save_writer import has_event_item
-
             return has_event_item(self.manager.parser.data, self.game_type, event_key)
         except Exception as e:
             print(f"[Events] Error checking item: {e}")
             return False
 
     def _load_claimed_events(self):
-        """
-        Load which events have been claimed for the current game from sinew_settings.json.
-
-        Storage format (per-game):
-            { "events_claimed": { "LeafGreen": { "aurora_ticket": true },
-                                   "Ruby": { "eon_ticket": true } } }
-
-        Legacy flat format (pre-fix) is detected and ignored for safety — it will be
-        replaced with the per-game format the next time a claim is saved.
-            { "events_claimed": { "eon_ticket": true } }
-        """
+        """Load which events have been claimed for the current game."""
         try:
             from settings import load_sinew_settings
-
             data = load_sinew_settings()
-
             all_claimed = data.get("events_claimed", {})
 
-            # Detect legacy flat format: values are bools rather than dicts
             is_legacy = bool(all_claimed) and all(
                 isinstance(v, bool) for v in all_claimed.values()
             )
 
             if is_legacy:
-                # Cannot safely attribute legacy data to any specific game.
-                # Return empty — will be overwritten with per-game format on next claim.
-                print(
-                    "[Events] Legacy flat events_claimed detected — will migrate on next save"
-                )
+                print("[Events] Legacy flat events_claimed detected — will migrate on next save")
                 return {}
 
-            # Per-game format: return only this game's claimed dict
             if self.game_name:
                 return dict(all_claimed.get(self.game_name, {}))
 
@@ -293,42 +254,27 @@ class EventsScreen:
         return {}
 
     def _save_claimed_events(self):
-        """
-        Save claimed events for the current game to sinew_settings.json.
-
-        Writes in per-game format:
-            { "events_claimed": { "LeafGreen": { "aurora_ticket": true }, ... } }
-        """
+        """Save claimed events for the current game to sinew_settings.json."""
         if not self.game_name:
             print("[Events] Cannot save claimed events — no game_name set")
             return
 
         try:
             from settings import load_sinew_settings, save_sinew_settings
-
             data = load_sinew_settings()
-
             existing = data.get("events_claimed", {})
 
-            # If the existing structure is the old flat format, wipe it cleanly
             is_legacy = bool(existing) and all(
                 isinstance(v, bool) for v in existing.values()
             )
             if is_legacy:
-                print(
-                    "[Events] Replacing legacy flat events_claimed with per-game format"
-                )
+                print("[Events] Replacing legacy flat events_claimed with per-game format")
                 existing = {}
 
-            # Write only this game's slice — preserve all other games
             existing[self.game_name] = self.claimed_events
             data["events_claimed"] = existing
-
             save_sinew_settings(data)
-
-            print(
-                f"[Events] Saved claimed events for {self.game_name}: {self.claimed_events}"
-            )
+            print(f"[Events] Saved claimed events for {self.game_name}: {self.claimed_events}")
         except Exception as e:
             print(f"[Events] Error saving claimed events: {e}")
 
@@ -338,7 +284,6 @@ class EventsScreen:
 
     def _claim_event(self, event_key):
         """Claim an event item and add it to the current save"""
-        # Block if a game is currently running - save could be in use
         if self.is_game_running_callback and self.is_game_running_callback():
             running = self.is_game_running_callback()
             self._show_message(f"Stop {running} first!", (255, 100, 100))
@@ -351,66 +296,47 @@ class EventsScreen:
         try:
             from save_writer import add_event_item, write_save_file
 
-            # Verify the loaded save matches the expected game
-            # Parser returns "Ruby/Sapphire" or "FireRed/LeafGreen" for paired games
             loaded_game = getattr(self.manager.parser, "game_name", None)
             if not self._is_compatible_save(loaded_game):
-                self._show_message(
-                    f"Wrong save loaded! ({loaded_game})", (255, 100, 100)
-                )
+                self._show_message(f"Wrong save loaded! ({loaded_game})", (255, 100, 100))
                 return False
 
             event_info = EVENT_ITEMS[event_key]
 
-            # Primary guard: item physically present in the save's key items pocket
             if self._has_item_in_save(event_key):
-                self._show_message(
-                    f"Already have {event_info['name']}!", (255, 200, 100)
-                )
+                self._show_message(f"Already have {event_info['name']}!", (255, 200, 100))
                 return False
 
-            # Secondary guard: Sinew's per-game claim record (catches cases where
-            # the save was reset/corrupted but a ticket was already distributed)
             if self.claimed_events.get(event_key, False):
-                self._show_message(
-                    f"{event_info['name']} already distributed!", (255, 200, 100)
-                )
+                self._show_message(f"{event_info['name']} already distributed!", (255, 200, 100))
                 return False
 
-            # Add the item to save data
             success, msg = add_event_item(
                 self.manager.parser.data, self.game_type, self.game_name, event_key
             )
 
             if success:
-                # Write the modified save
                 write_save_file(
                     self.manager.save_path,
                     self.manager.parser.data,
                     create_backup_first=True,
                 )
-
-                # Record this claim for this game in sinew_settings.json
                 self.claimed_events[event_key] = True
                 self._save_claimed_events()
 
-                # Trigger callback for achievement tracking
                 if self.on_event_claimed:
                     self.on_event_claimed(event_key)
 
                 self._show_message(f"Received {event_info['name']}!", (100, 255, 100))
-
-                # Refresh cache since we now own the item
                 self._ownership_cache[event_key] = True
-
                 return True
+
             self._show_message(msg, (255, 100, 100))
             return False
 
         except Exception as e:
             print(f"[Events] Error claiming event: {e}")
             import traceback
-
             traceback.print_exc()
             self._show_message(f"Error: {str(e)[:30]}", (255, 100, 100))
             return False
@@ -424,7 +350,6 @@ class EventsScreen:
         """Handle controller input"""
         consumed = False
 
-        # Handle confirmation dialog
         if self.confirming:
             if ctrl.is_button_just_pressed("A"):
                 ctrl.consume_button("A")
@@ -439,33 +364,25 @@ class EventsScreen:
                 consumed = True
             return consumed
 
-        # Normal navigation
         if ctrl.is_dpad_just_pressed("up"):
             ctrl.consume_dpad("up")
             if len(self.available_events) > 0:
-                self.selected_index = (self.selected_index - 1) % len(
-                    self.available_events
-                )
+                self.selected_index = (self.selected_index - 1) % len(self.available_events)
             consumed = True
 
         if ctrl.is_dpad_just_pressed("down"):
             ctrl.consume_dpad("down")
             if len(self.available_events) > 0:
-                self.selected_index = (self.selected_index + 1) % len(
-                    self.available_events
-                )
+                self.selected_index = (self.selected_index + 1) % len(self.available_events)
             consumed = True
 
         if ctrl.is_button_just_pressed("A"):
             ctrl.consume_button("A")
             if len(self.available_events) > 0:
                 event_key = self.available_events[self.selected_index]
-
-                # Only block if already have the ticket item
                 if self._has_item_in_save(event_key):
                     self._show_message("Already in your Key Items!", (255, 200, 100))
                 else:
-                    # Show confirmation - allow claiming even if Pokemon already caught
                     self.confirming = True
                     self.confirm_event_key = event_key
             consumed = True
@@ -490,44 +407,31 @@ class EventsScreen:
 
     def draw(self, surf):
         """Draw the events screen"""
-        # Background
         surf.fill((30, 30, 45))
 
-        # Title
         title = "Mystery Events"
         title_surf = self.font_header.render(title, True, (255, 215, 0))
         surf.blit(title_surf, (self.w // 2 - title_surf.get_width() // 2, 8))
 
-        # Subtitle with game name
         if self.game_name:
             subtitle = f"Playing: {self.game_name}"
             sub_surf = self.font_small.render(subtitle, True, (150, 150, 150))
             surf.blit(sub_surf, (self.w // 2 - sub_surf.get_width() // 2, 26))
 
-        # No events available message
         if len(self.available_events) == 0:
             no_events_text = "No events available for this game"
-            no_events_surf = self.font_text.render(
-                no_events_text, True, (200, 200, 200)
-            )
-            surf.blit(
-                no_events_surf,
-                (self.w // 2 - no_events_surf.get_width() // 2, self.h // 2),
-            )
+            no_events_surf = self.font_text.render(no_events_text, True, (200, 200, 200))
+            surf.blit(no_events_surf, (self.w // 2 - no_events_surf.get_width() // 2, self.h // 2))
         else:
-            # Draw event list
             self._draw_event_list(surf)
 
-        # Draw confirmation dialog if active
         if self.confirming and self.confirm_event_key:
             self._draw_confirmation(surf)
 
-        # Draw message if active
         current_time = pygame.time.get_ticks()
         if self.message and current_time - self.message_time < self.message_duration:
             self._draw_message(surf)
 
-        # Controller hints - very bottom, small and dimmed
         if self.confirming:
             hints = "A:Confirm  B:Cancel"
         else:
@@ -539,7 +443,7 @@ class EventsScreen:
         """Draw the list of available events"""
         list_y = 42
         item_height = 52
-        max_visible = 4  # Max items that fit
+        max_visible = 4
 
         for i, event_key in enumerate(self.available_events):
             if i >= max_visible:
@@ -548,54 +452,37 @@ class EventsScreen:
             event_info = EVENT_ITEMS[event_key]
             y = list_y + (i * item_height)
 
-            # Item box
             item_rect = pygame.Rect(12, y, self.w - 24, item_height - 3)
-
-            # Selection highlight
             is_selected = i == self.selected_index
+
             if is_selected:
                 pygame.draw.rect(surf, (60, 70, 100), item_rect, border_radius=5)
-                pygame.draw.rect(
-                    surf, ui_colors.COLOR_HIGHLIGHT, item_rect, 2, border_radius=5
-                )
+                pygame.draw.rect(surf, ui_colors.COLOR_HIGHLIGHT, item_rect, 2, border_radius=5)
             else:
                 pygame.draw.rect(surf, (40, 45, 60), item_rect, border_radius=5)
                 pygame.draw.rect(surf, (60, 60, 80), item_rect, 1, border_radius=5)
 
-            # Icon/color indicator
             icon_rect = pygame.Rect(item_rect.x + 5, item_rect.y + 5, 36, 36)
             pygame.draw.rect(surf, event_info["icon_color"], icon_rect, border_radius=5)
 
-            # Check status
             has_item = self._has_item_in_save(event_key)
-
-            # Name color based on ownership
-            if has_item:
-                name_color = (100, 200, 100)  # Green for owned
-            else:
-                name_color = (255, 255, 255)  # White for available
+            name_color = (100, 200, 100) if has_item else (255, 255, 255)
             name_surf = self.font_text.render(event_info["name"], True, name_color)
             surf.blit(name_surf, (item_rect.x + 48, item_rect.y + 4))
 
-            # Status badge - right side
-            if has_item:
-                status = "OWNED"
-                status_color = (100, 255, 100)  # Bright green
+            is_claimed = self.claimed_events.get(event_key, False)
+            if has_item or is_claimed:
+                status, status_color = "OWNED", (100, 255, 100)
             else:
-                status = "Available"
-                status_color = (200, 200, 100)  # Yellow
+                status, status_color = "Available", (200, 200, 100)
             status_surf = self.font_small.render(status, True, status_color)
-            surf.blit(
-                status_surf,
-                (item_rect.right - status_surf.get_width() - 6, item_rect.y + 6),
-            )
+            surf.blit(status_surf, (item_rect.right - status_surf.get_width() - 6, item_rect.y + 6))
 
-            # Pokemon unlocked
-            pokemon_text = f"Unlocks: {event_info['pokemon']}"
-            pokemon_surf = self.font_small.render(pokemon_text, True, (180, 180, 180))
+            pokemon_surf = self.font_small.render(
+                f"Unlocks: {event_info['pokemon']}", True, (180, 180, 180)
+            )
             surf.blit(pokemon_surf, (item_rect.x + 48, item_rect.y + 20))
 
-            # Description (truncate if too long)
             desc = event_info["desc"]
             if len(desc) > 45:
                 desc = desc[:42] + "..."
@@ -606,14 +493,11 @@ class EventsScreen:
         """Draw confirmation dialog"""
         event_info = EVENT_ITEMS.get(self.confirm_event_key, {})
 
-        # Overlay
         overlay = pygame.Surface((self.w, self.h), pygame.SRCALPHA)
         overlay.fill((0, 0, 0, 180))
         surf.blit(overlay, (0, 0))
 
-        # Dialog box
-        dialog_w = 260
-        dialog_h = 90
+        dialog_w, dialog_h = 260, 90
         dialog_x = (self.w - dialog_w) // 2
         dialog_y = (self.h - dialog_h) // 2
         dialog_rect = pygame.Rect(dialog_x, dialog_y, dialog_w, dialog_h)
@@ -621,72 +505,32 @@ class EventsScreen:
         pygame.draw.rect(surf, (40, 45, 60), dialog_rect, border_radius=8)
         pygame.draw.rect(surf, (255, 215, 0), dialog_rect, 3, border_radius=8)
 
-        # Title
-        title = f"Receive {event_info.get('name', 'Item')}?"
-        title_surf = self.font_text.render(title, True, (255, 255, 255))
-        surf.blit(
-            title_surf,
-            (dialog_x + dialog_w // 2 - title_surf.get_width() // 2, dialog_y + 12),
+        title_surf = self.font_text.render(
+            f"Receive {event_info.get('name', 'Item')}?", True, (255, 255, 255)
         )
+        surf.blit(title_surf, (dialog_x + dialog_w // 2 - title_surf.get_width() // 2, dialog_y + 12))
 
-        # Warning text
-        warn_text = "Item will be added to Key Items"
-        warn_surf = self.font_small.render(warn_text, True, (180, 180, 180))
-        surf.blit(
-            warn_surf,
-            (dialog_x + dialog_w // 2 - warn_surf.get_width() // 2, dialog_y + 38),
-        )
+        warn_surf = self.font_small.render("Item will be added to Key Items", True, (180, 180, 180))
+        surf.blit(warn_surf, (dialog_x + dialog_w // 2 - warn_surf.get_width() // 2, dialog_y + 38))
 
-        # Buttons hint
-        btn_text = "A = Yes   B = No"
-        btn_surf = self.font_small.render(btn_text, True, (150, 200, 150))
-        surf.blit(
-            btn_surf,
-            (dialog_x + dialog_w // 2 - btn_surf.get_width() // 2, dialog_y + 62),
-        )
+        btn_surf = self.font_small.render("A = Yes   B = No", True, (150, 200, 150))
+        surf.blit(btn_surf, (dialog_x + dialog_w // 2 - btn_surf.get_width() // 2, dialog_y + 62))
 
     def _draw_message(self, surf):
         """Draw temporary message"""
         if not self.message:
             return
-
         text, color = self.message
-
-        # Message box positioned above footer
         msg_surf = self.font_text.render(text, True, color)
         msg_rect = msg_surf.get_rect(centerx=self.w // 2, bottom=self.h - 22)
-
-        # Background
         bg_rect = msg_rect.inflate(16, 8)
         pygame.draw.rect(surf, (40, 40, 50), bg_rect, border_radius=4)
         pygame.draw.rect(surf, color, bg_rect, 2, border_radius=4)
-
         surf.blit(msg_surf, msg_rect)
 
 
-# =============================================================================
-# INTEGRATION HELPER
-# =============================================================================
-
-
 def is_events_unlocked(manager=None):
-    """
-    Check if the Events menu should be unlocked for current game.
-    Requires: Player is Champion (8 badges) in the current save.
-
-    For FRLG games, also requires:
-    - National Dex unlocked
-    - Rainbow Pass obtained
-
-    Note: The full unlock also requires the Endgame Access achievement
-    to be claimed, which is checked in main.py
-
-    Args:
-        manager: SaveDataManager instance (uses get_manager() if None)
-
-    Returns:
-        bool: True if current save meets requirements
-    """
+    """Check if the Events menu should be unlocked for current game."""
     if manager is None:
         manager = get_manager()
 
@@ -700,12 +544,10 @@ def is_events_unlocked(manager=None):
         if badge_count < 8:
             return False
 
-        # For FRLG, check additional prerequisites
         game_name = getattr(manager.parser, "game_name", None)
         if game_name in ("FireRed", "LeafGreen"):
             try:
                 from save_writer import check_frlg_event_prerequisites
-
                 prereqs_met, details = check_frlg_event_prerequisites(
                     manager.parser.data, "FRLG", game_name
                 )
@@ -714,7 +556,6 @@ def is_events_unlocked(manager=None):
                     return False
             except Exception as e:
                 print(f"[Events] Error checking FRLG prerequisites: {e}")
-                # Default to NOT allowing access if we can't verify prerequisites
                 return False
 
         return True
@@ -725,21 +566,7 @@ def is_events_unlocked(manager=None):
 
 
 def get_events_unlock_status(manager=None):
-    """
-    Get detailed unlock status for Events menu.
-
-    Args:
-        manager: SaveDataManager instance (uses get_manager() if None)
-
-    Returns:
-        dict: {
-            'unlocked': bool,
-            'badge_count': int,
-            'is_champion': bool,
-            'game_name': str or None,
-            'frlg_prereqs': dict or None (for FRLG games)
-        }
-    """
+    """Get detailed unlock status for Events menu."""
     if manager is None:
         manager = get_manager()
 
@@ -763,11 +590,9 @@ def get_events_unlock_status(manager=None):
         if not status["is_champion"]:
             return status
 
-        # For FRLG, check additional prerequisites
         if status["game_name"] in ("FireRed", "LeafGreen"):
             try:
                 from save_writer import check_frlg_event_prerequisites
-
                 prereqs_met, details = check_frlg_event_prerequisites(
                     manager.parser.data, "FRLG", status["game_name"]
                 )
@@ -775,7 +600,7 @@ def get_events_unlock_status(manager=None):
                 status["unlocked"] = prereqs_met
             except Exception as e:
                 print(f"[Events] Error checking FRLG prerequisites: {e}")
-                status["unlocked"] = True  # Default to allowing
+                status["unlocked"] = True
         else:
             status["unlocked"] = True
 
@@ -786,22 +611,7 @@ def get_events_unlock_status(manager=None):
 
 
 def check_frlg_prerequisites(manager=None):
-    """
-    Check if FRLG-specific event prerequisites are met.
-    This is a helper function for main.py to call.
-
-    For FireRed/LeafGreen, events require:
-    - National Dex unlocked
-    - Rainbow Pass obtained
-
-    For RSE games, always returns True.
-
-    Args:
-        manager: SaveDataManager instance (uses get_manager() if None)
-
-    Returns:
-        tuple: (met: bool, details: dict or None)
-    """
+    """Check if FRLG-specific event prerequisites are met."""
     if manager is None:
         manager = get_manager()
 
@@ -811,13 +621,10 @@ def check_frlg_prerequisites(manager=None):
     try:
         game_name = getattr(manager.parser, "game_name", None)
 
-        # RSE games don't have additional prerequisites
         if game_name not in ("FireRed", "LeafGreen"):
             return (True, {"game": game_name, "required": False})
 
-        # Check FRLG prerequisites
         from save_writer import check_frlg_event_prerequisites
-
         return check_frlg_event_prerequisites(manager.parser.data, "FRLG", game_name)
     except Exception as e:
         print(f"[Events] Error checking FRLG prerequisites: {e}")
