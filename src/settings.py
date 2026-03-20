@@ -691,6 +691,10 @@ class Settings:
         """Passthrough so emulator_session can rebuild the Emu tab."""
         self.screen.revert_provider_toggle(use_external)
 
+    def revert_emulator_toggle(self, use_external_emulator):
+        """No-op passthrough for API compatibility."""
+        pass
+
 
 # Alias for backwards compatibility
 Modal = Settings
@@ -1366,8 +1370,7 @@ class MainSetup:
         """
         from config import DEFAULT_USE_EXTERNAL_PROVIDERS, DEFAULT_USE_EXTERNAL_EMULATOR
         settings = load_sinew_settings()
-        use_ext_files = settings.get("use_emulator_provider", DEFAULT_USE_EXTERNAL_PROVIDERS)
-        use_ext_emu   = settings.get("use_external_emulator", DEFAULT_USE_EXTERNAL_EMULATOR)
+        use_external = settings.get("use_emulator_provider", DEFAULT_USE_EXTERNAL_PROVIDERS)
 
         integrated_opts = [
             {"name": "Controller FF Buttons", "type": "toggle", "value": True},
