@@ -691,10 +691,6 @@ class Settings:
         """Passthrough so emulator_session can rebuild the Emu tab."""
         self.screen.revert_provider_toggle(use_external)
 
-    def revert_emulator_toggle(self, use_external_emulator):
-        """No-op passthrough for API compatibility."""
-        pass
-
 
 # Alias for backwards compatibility
 Modal = Settings
