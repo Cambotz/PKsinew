@@ -169,6 +169,7 @@ class ModalLauncherMixin:
                 reload_combo_callback=self._reload_pause_combo_setting,
                 emulator_provider_callback=self._on_emulator_provider_toggled,
                 use_integrated_mgba_callback=self._on_use_integrated_mgba,
+                use_external_emulator_callback=self._on_use_external_emulator,
             )
             self.modal_instance = settings_modal
             # Keep a reference so provider dialogs can sync the Settings UI

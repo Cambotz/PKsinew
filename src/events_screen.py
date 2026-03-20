@@ -1,824 +1,595 @@
 #!/usr/bin/env python3
 
 """
-Events Screen - Event Item Distribution System
-Allows players who have become Champion (8 badges) to obtain event items
-that unlock legendary Pokemon encounters.
+game_screen.py — Main game screen class for Sinew; composes all mixin modules into the primary UI.
 """
 
+import json
+import os
+import sys
+import time
+import builtins
+from datetime import datetime
+
 import pygame
-
+from PIL import Image, ImageSequence
 import ui_colors
-from config import FONT_PATH
-from ui_scale import ui, scaled_font
-from controller import get_controller
+from config import (
+    CORES_DIR, DATA_DIR, EXT_DIR, FONT_PATH, IS_HANDHELD,
+    MGBA_CORE_PATH, ROMS_DIR, SAVES_DIR, SAVE_PATHS,
+    SPRITES_DIR, SYSTEM_DIR,
+)
 from save_data_manager import get_manager
+from ui_components import Button
+from ui_scale import ui, scaled_font
+from sinew_logging import init_redirectors
+_log_file_path = init_redirectors()
 
-# Event item definitions
-EVENT_ITEMS = {
-    "eon_ticket": {
-        "id": 275,
-        "name": "Eon Ticket",
-        "desc": "A ticket for the ferry to Southern Island.",
-        "pokemon": "Latios/Latias",
-        "pokemon_ids": [380, 381],  # Latias, Latios
-        "compatible": ["Ruby", "Sapphire", "Emerald"],
-        "icon_color": (100, 150, 255),  # Blue
-    },
-    "aurora_ticket": {
-        "id": 371,
-        "name": "Aurora Ticket",
-        "desc": "A ticket for the ferry to Birth Island.",
-        "pokemon": "Deoxys",
-        "pokemon_ids": [386],  # Deoxys
-        "compatible": ["FireRed", "LeafGreen", "Emerald"],
-        "icon_color": (255, 150, 200),  # Pink
-    },
-    "mystic_ticket": {
-        "id": 370,
-        "name": "Mystic Ticket",
-        "desc": "A ticket for the ferry to Navel Rock.",
-        "pokemon": "Ho-Oh & Lugia",
-        "pokemon_ids": [249, 250],  # Lugia, Ho-Oh
-        "compatible": ["FireRed", "LeafGreen", "Emerald"],
-        "icon_color": (255, 200, 100),  # Gold
-    },
-    "old_sea_map": {
-        "id": 376,
-        "name": "Old Sea Map",
-        "desc": "A faded sea chart to a faraway island.",
-        "pokemon": "Mew",
-        "pokemon_ids": [151],  # Mew
-        "compatible": ["Emerald"],
-        "icon_color": (150, 255, 150),  # Green
-    },
-}
+# Ensure SDL audio change flag is set before pygame mixer init
+os.environ.setdefault('SDL_AUDIO_ALLOW_CHANGES', '0')
 
-# Order for display
-EVENT_ORDER = ["eon_ticket", "aurora_ticket", "mystic_ticket", "old_sea_map"]
+# On Windows (non-frozen), force directsound for reliable audio
+if sys.platform == 'win32' and not getattr(sys, 'frozen', False):
+    os.environ.setdefault('SDL_AUDIODRIVER', 'directsound')
+
+# Modal imports
+from pc_box import PCBox
+from trainerinfo import Modal as TrainerInfoModal
+from Itembag import Modal as ItemBagModal
+from achievements import Modal as AchievementsModal
+from achievements import get_achievement_notification, init_achievement_system
+from settings import Settings
+from db_builder_screen import DBBuilder
+from PokedexModal import PokedexModal
+from export_modal import ExportModal
+from events_screen import EventsModal
+
+from game_detection import (
+    GAME_DEFINITIONS, GAME_FULL, GAME_SAVE_ONLY, GAME_UNAVAILABLE,
+    GAMES, _rom_scan_cache,
+    detect_games_with_dirs, find_rom_for_game, find_save_for_game,
+    get_game_availability,
+)
+from settings import (
+    load_sinew_settings as load_settings,
+    save_sinew_settings_merged as save_settings_file,
+)
+
+from game_dialogs import PlaceholderModal, DBWarningPopup
+
+# Mixin imports
+from achievement_checker import AchievementCheckerMixin
+from pause_combo import PauseComboMixin
+from notifications import NotificationsMixin
+from music_manager import MusicManagerMixin
+from emulator_session import EmulatorSessionMixin
+from ui_gamescreen_draw import GameScreenDrawMixin
+from save_load_mixin import SaveLoadMixin
+from settings_apply_mixin import SettingsApplyMixin
+from game_nav_mixin import GameNavMixin
+from db_check_mixin import DBCheckMixin
+from modal_launcher_mixin import ModalLauncherMixin
 
 
-class EventsModal:
-    """Modal wrapper for events screen"""
+def load_gif_frames(path, width, height):  # noqa: F401  # kept for external callers
+    """Load GIF frames scaled to specified size"""
+    frames = []
+    durations = []
 
-    def __init__(
-        self, w, h, font, on_close=None, on_event_claimed=None, game_name=None,
-        is_game_running_callback=None
-    ):
-        self.width = w
-        self.height = h
+    if not path or not os.path.exists(path):
+        return (frames, durations)
+
+    try:
+        pil_img = Image.open(path)
+        for frame in ImageSequence.Iterator(pil_img):
+            frame = frame.convert('RGBA').resize((width, height), Image.NEAREST)
+            data = frame.tobytes()
+            surf = pygame.image.fromstring(data, frame.size, frame.mode).convert_alpha()
+            frames.append(surf)
+            durations.append(frame.info.get('duration', 100))
+        pil_img.close()
+        return (frames, durations)
+    except Exception as e:
+        print(f'Failed to open GIF {path}: {e}')
+        return (frames, durations)
+
+
+class GameScreen(
+    AchievementCheckerMixin,
+    PauseComboMixin,
+    NotificationsMixin,
+    MusicManagerMixin,
+    EmulatorSessionMixin,
+    GameScreenDrawMixin,
+    SaveLoadMixin,
+    SettingsApplyMixin,
+    GameNavMixin,
+    DBCheckMixin,
+    ModalLauncherMixin,
+):
+    """
+    Game selection and management screen
+    Displays animated title GIFs and provides access to game features
+    Sinew is the first entry - a combined view of all saves
+    """
+
+    INPUT_COOLDOWN = 0.25
+
+    def __init__(self, width, height, font, back_callback=None, controller=None, scaler=None,
+        screen=None):
+        self.width = width
+        self.height = height
         self.font = font
-        self.on_close = on_close
-        self.on_event_claimed = on_event_claimed
-        self.screen = EventsScreen(
-            w, h, on_event_claimed=on_event_claimed, game_name=game_name,
-            is_game_running_callback=is_game_running_callback
-        )
+        self.back_callback = back_callback
+        self.controller = controller
+        self.scaler = scaler
+        self._loading_screen = screen
 
-    def update(self, events):
-        """Delegate event handling to the inner events screen and return True while open."""
-        self.screen.update(events)
-        return not self.screen.should_close
+        # Load settings
+        self.settings = load_settings()
 
-    def handle_controller(self, ctrl):
-        """Delegate controller input to the inner events screen."""
-        return self.screen.handle_controller(ctrl)
+        # Dev mode flag stored in builtins for cross-module access
+        import builtins
+        if not hasattr(builtins, 'SINEW_DEV_MODE'):
+            builtins.SINEW_DEV_MODE = self.settings.get('dev_mode', False)
 
-    def draw(self, surf):
-        """Delegate the draw call to the inner events screen."""
-        self.screen.draw(surf)
+        # Determine default for external providers — ON for handhelds/RetroPie,
+        # OFF for desktop users (they can opt in via settings).
+        from config import DEFAULT_USE_EXTERNAL_PROVIDERS
+        _provider_default = DEFAULT_USE_EXTERNAL_PROVIDERS
+        if not hasattr(builtins, 'SINEW_USE_EMULATOR_PROVIDER'):
+            # First-run: seed the setting from hardware-detected default if not saved yet
+            if 'use_emulator_provider' not in self.settings:
+                self.settings['use_emulator_provider'] = _provider_default
+                from settings import save_sinew_settings_merged as _ssm
+                _ssm({'use_emulator_provider': _provider_default})
+                print(f'[GameScreen] Defaulting external providers to {_provider_default}'
+                      f' (IS_HANDHELD/IS_RETROPIE)')
+            builtins.SINEW_USE_EMULATOR_PROVIDER = self.settings.get(
+                'use_emulator_provider', _provider_default)
 
 
-class EventsScreen:
-    """Events screen for claiming event items"""
 
-    def __init__(self, w, h, on_event_claimed=None, game_name=None,
-                 is_game_running_callback=None):
-        self.w = w
-        self.h = h
-        self.should_close = False
-        self.on_event_claimed = on_event_claimed
-        self.is_game_running_callback = is_game_running_callback
+        # Emulator manager — always initialized; use_provider controls whether
+        # external (subprocess) providers are included alongside built-in mGBA.
+        use_provider = self.settings.get('use_emulator_provider', _provider_default)
+        try:
+            from emulator_manager import EmulatorManager
+            self.emulator_manager = EmulatorManager(use_external_providers=use_provider)
+            if self.emulator_manager.active_provider:
+                print(f'[EmulatorManager] Provider ready: {type(\
+                    self.emulator_manager.active_provider).__name__}')
+            else:
+                print('[EmulatorManager] No provider matched this environment')
+        except ImportError:
+            self.emulator_manager = None
+            print('[EmulatorManager] emulator_manager.py not found — provider unavailable')  # pylint: disable=line-too-long  # noqa: E501
 
-        # Fonts
-        self.font_header = scaled_font(14)
-        self.font_text = scaled_font(10)
-        self.font_small = scaled_font(8)
-        # Get save manager and controller
-        self.manager = get_manager()
-        self.controller = get_controller()
+        # Pause combo
+        self._load_pause_combo_setting()
 
-        # Use provided game name (from main screen) or fallback to detection
-        self.game_name = game_name if game_name else self._get_game_name()
-        self.game_type = self._get_game_type()
+        # Music
+        self._init_menu_music()
 
-        print(f"[Events] Game: {self.game_name} (type: {self.game_type})")
-
-        # Filter available events for current game
-        self.available_events = self._get_available_events()
-
-        # Cache ownership status (checked once, not every frame)
-        self._ownership_cache = {}
-        self._refresh_status_cache()
+        # Games
+        self.games = {}
+        self.game_names = []
+        self._init_games()
 
         # Navigation state
-        self.selected_index = 0
+        self.current_game = 0
+        self.menu_index = 0
+        self.modal_instance = None
+        self.should_close = False
+        self._pending_settings_modal = None
 
-        # Message display
-        self.message = None
-        self.message_time = 0
-        self.message_duration = 3000  # 3 seconds
+        # Emulator state
+        self.emulator = None
+        self.emulator_active = False
+        self._emulator_pause_combo_released = True
+        self._ext_emu_closed_needs_reload = False
 
-        # Confirmation dialog state
-        self.confirming = False
-        self.confirm_event_key = None
+        # Notification state
+        self._notification_text = None
+        self._notification_subtext = None
+        self._notification_timer = 0
+        self._notification_duration = 3000
+        self._notification_y = ui.s(-60)
+        self._notification_target_y = ui.s(10)
 
-        # Load claimed events tracker
-        self.claimed_events = self._load_claimed_events()
+        # Resume banner animation
+        self._resume_banner_scroll_offset = 0
+        self._resume_banner_scroll_speed = 1.5
+        self._resume_banner_pulse_time = 0
 
-    def _get_game_name(self):
-        """Fallback game name detection from parser (used if not passed from main)"""
-        if not self.manager or not self.manager.is_loaded():
-            return None
+        # Input timing
+        self._last_input_time = time.time()
+        self._modal_just_closed = False
 
-        try:
-            if hasattr(self.manager, "parser"):
-                raw_name = getattr(self.manager.parser, "game_name", None)
-                if raw_name and raw_name in [
-                    "Ruby",
-                    "Sapphire",
-                    "Emerald",
-                    "FireRed",
-                    "LeafGreen",
-                ]:
-                    return raw_name
-        except Exception:
-            pass
+        # Precache flag
+        self._precached = False
 
-        return None
+        # Loading screen steps
+        self._draw_loading_screen(self._loading_screen, 'Starting up...', 0, 3)
+        self._draw_loading_screen(self._loading_screen, 'Loading save data...', 1, 3)
+        self.load_game_and_background()
+        self._start_menu_music()
+        self._draw_loading_screen(self._loading_screen, 'Checking database...', 2, 3)
+        self._check_database()
+        self._init_achievement_system()
+        self._check_all_achievements_on_startup()
 
-    def _get_game_type(self):
-        """Get the game type (RSE or FRLG) based on game name"""
-        if self.game_name in ("FireRed", "LeafGreen"):
-            return "FRLG"
-        return "RSE"  # Ruby, Sapphire, Emerald all use RSE format
+    def _close_modal(self):
+        """Close current modal"""
+        self.modal_instance = None
+        self._pending_settings_modal = None
+        self._last_input_time = time.time()
+        self._modal_just_closed = True
 
-    def _is_compatible_save(self, loaded_game):
-        """Check if the loaded save is compatible with the expected game.
+    def _resume_game_from_modal(self):
+        """Close modal and resume game (called by START+SELECT in modals)"""
+        self.modal_instance = None
+        self._last_input_time = time.time()
+        self._modal_just_closed = True
 
-        The parser returns paired names like 'Ruby/Sapphire' or 'FireRed/LeafGreen'
-        because it can't distinguish between paired games. This method handles that.
+        if self.emulator and self.emulator.loaded:
+            self._stop_menu_music()
+            self.emulator.resume()
+            self.emulator_active = True
+            if self.scaler:
+                self.scaler.set_virtual_resolution(240, 160)
+            print('[Sinew] Resumed game from modal via START+SELECT')
+
+    def update(self, events, dt):
+        """
+        Update game screen state
 
         Args:
-            loaded_game: The game name returned by parser.game_name
+            events: List of pygame events
+            dt: Delta time in milliseconds
 
         Returns:
-            bool: True if the loaded save is compatible with self.game_name
+            bool: False if screen should close, True otherwise
         """
-        if not loaded_game or not self.game_name:
-            return False
+        # Reset modal close flag only after cooldown has passed
+        if self._modal_just_closed and (
+            time.time() - self._last_input_time >= self.INPUT_COOLDOWN
+        ):
+            self._modal_just_closed = False
 
-        # Exact match
-        if loaded_game == self.game_name:
-            return True
+        # Update notification animation
+        self._update_notification(dt)
 
-        # Handle paired game names from parser
-        paired_games = {
-            "Ruby/Sapphire": ["Ruby", "Sapphire"],
-            "FireRed/LeafGreen": ["FireRed", "LeafGreen"],
-        }
+        # Update achievement notification
+        if self._achievement_notification:
+            self._achievement_notification.update()
 
-        for paired_name, games in paired_games.items():
-            if loaded_game == paired_name and self.game_name in games:
+        # Handle emulator if active
+        if self.emulator_active and self.emulator:
+            return self._update_emulator(events, dt)
+
+        # External emulator closed — reload on the main thread.
+        if self._ext_emu_closed_needs_reload:
+            self._ext_emu_closed_needs_reload = False
+            if self.scaler:
+                self.scaler.restore_virtual_resolution()
+            self._reload_settings_from_disk()
+            self.load_game_and_background()
+            self._force_reload_current_save()
+            self._check_achievements_for_current_game()
+            self._start_menu_music()
+            print("[Sinew] Returned from external emulator")
+
+        # Check for resume combo when emulator is paused but we're in Sinew menu
+        self._pause_combo_active = False
+        if self.emulator and self.emulator.loaded and not self.emulator_active:
+            combo_held = self._check_pause_combo_direct()
+
+            keys = pygame.key.get_pressed()
+            if keys[pygame.K_RETURN] and keys[pygame.K_BACKSPACE]:
+                self._pause_combo_active = True
+
+            if self.controller and hasattr(self.controller, 'kb_nav_map'):
+                try:
+                    menu_keys = self.controller.kb_nav_map.get("MENU", [pygame.K_m])
+                    for menu_key in menu_keys:
+                        if keys[menu_key]:
+                            self._pause_combo_active = True
+                            break
+                except Exception:
+                    pass
+
+            if combo_held and self._emulator_pause_combo_released:
+                self._emulator_pause_combo_released = False
+                print("[Sinew] Resume triggered - calling emulator.resume()")
+                print(
+                    f"[Sinew] Before resume:"
+                    f" paused={self.emulator.paused},"
+                    f" loaded={self.emulator.loaded}"
+                )
+                self._stop_menu_music()
+                self.emulator.resume()
+                print(f"[Sinew] After resume: paused={self.emulator.paused}")
+                self.emulator_active = True
+                if self.scaler:
+                    self.scaler.set_virtual_resolution(240, 160)
+                print("[Sinew] Resuming game - emulator_active set to True")
                 return True
 
-        # Emerald is its own thing
-        if loaded_game == "Emerald" and self.game_name == "Emerald":
-            return True
+            menu_held = False
+            keys = pygame.key.get_pressed()
+            if self.controller and hasattr(self.controller, 'kb_nav_map'):
+                try:
+                    menu_keys = self.controller.kb_nav_map.get("MENU", [pygame.K_m])
+                    for menu_key in menu_keys:
+                        if keys[menu_key]:
+                            menu_held = True
+                            break
+                except Exception:
+                    pass
 
-        return False
+            if (
+                not self._pause_combo_active
+                and not self._is_controller_combo_held()
+                and not menu_held
+            ):
+                self._emulator_pause_combo_released = True
 
-    def _get_available_events(self):
-        """Get list of events available for current game"""
-        if not self.game_name:
-            print("[Events] No game name detected, no events available")
-            return []
+        # Update GIF animation for current game (if we have games)
+        if self.game_names and 0 <= self.current_game < len(self.game_names):
+            gname = self.game_names[self.current_game]
+            self._ensure_gif_loaded(gname)
+            game_data = self.games[gname]
 
-        available = []
-        for event_key in EVENT_ORDER:
-            event_info = EVENT_ITEMS[event_key]
-            if self.game_name in event_info["compatible"]:
-                available.append(event_key)
-
-        if available:
-            print(f"[Events] Available events for {self.game_name}: {available}")
-
-        return available
-
-    def _refresh_status_cache(self):
-        """Refresh the cached ownership status for all events."""
-        self._ownership_cache = {}
-
-        for event_key in self.available_events:
-            self._ownership_cache[event_key] = self._check_has_item(event_key)
-
-        # Log status once
-        for event_key in self.available_events:
-            owned = self._ownership_cache.get(event_key, False)
-            status = "OWNED" if owned else "Available"
-            print(f"[Events] {event_key}: {status}")
-
-    def _check_has_item(self, event_key):
-        """Actually check if save has the item (called once for caching)."""
-        if not self.manager or not self.manager.is_loaded():
-            return False
-
-        try:
-            # Verify the loaded save matches the expected game
-            # Parser returns "Ruby/Sapphire" or "FireRed/LeafGreen" for paired games
-            loaded_game = getattr(self.manager.parser, "game_name", None)
-            if not self._is_compatible_save(loaded_game):
-                print(
-                    f"[Events] WARNING: Expected {self.game_name} but"
-                    f" manager has {loaded_game} loaded - cannot check item ownership"
+            if game_data["frames"]:
+                game_data["time_accum"] += dt
+                dur = (
+                    game_data["durations"][game_data["frame_index"]]
+                    if game_data["durations"]
+                    else 100
                 )
-                return False
+                if game_data["time_accum"] >= dur:
+                    game_data["time_accum"] = 0
+                    game_data["frame_index"] = (game_data["frame_index"] + 1) % len(
+                        game_data["frames"]
+                    )
 
-            from save_writer import has_event_item
-
-            return has_event_item(self.manager.parser.data, self.game_type, event_key)
-        except Exception as e:
-            print(f"[Events] Error checking item: {e}")
-            return False
-
-    def _load_claimed_events(self):
-        """
-        Load which events have been claimed for the current game from sinew_settings.json.
-
-        Storage format (per-game):
-            { "events_claimed": { "LeafGreen": { "aurora_ticket": true },
-                                   "Ruby": { "eon_ticket": true } } }
-
-        Legacy flat format (pre-fix) is detected and ignored for safety — it will be
-        replaced with the per-game format the next time a claim is saved.
-            { "events_claimed": { "eon_ticket": true } }
-        """
-        try:
-            from settings import load_sinew_settings
-
-            data = load_sinew_settings()
-
-            all_claimed = data.get("events_claimed", {})
-
-            # Detect legacy flat format: values are bools rather than dicts
-            is_legacy = bool(all_claimed) and all(
-                isinstance(v, bool) for v in all_claimed.values()
-            )
-
-            if is_legacy:
-                # Cannot safely attribute legacy data to any specific game.
-                # Return empty — will be overwritten with per-game format on next claim.
-                print(
-                    "[Events] Legacy flat events_claimed detected — will migrate on next save"
-                )
-                return {}
-
-            # Per-game format: return only this game's claimed dict
-            if self.game_name:
-                return dict(all_claimed.get(self.game_name, {}))
-
-        except Exception as e:
-            print(f"[Events] Error loading claimed events: {e}")
-
-        return {}
-
-    def _save_claimed_events(self):
-        """
-        Save claimed events for the current game to sinew_settings.json.
-
-        Writes in per-game format:
-            { "events_claimed": { "LeafGreen": { "aurora_ticket": true }, ... } }
-        """
-        if not self.game_name:
-            print("[Events] Cannot save claimed events — no game_name set")
-            return
-
-        try:
-            from settings import load_sinew_settings, save_sinew_settings
-
-            data = load_sinew_settings()
-
-            existing = data.get("events_claimed", {})
-
-            # If the existing structure is the old flat format, wipe it cleanly
-            is_legacy = bool(existing) and all(
-                isinstance(v, bool) for v in existing.values()
-            )
-            if is_legacy:
-                print(
-                    "[Events] Replacing legacy flat events_claimed with per-game format"
-                )
-                existing = {}
-
-            # Write only this game's slice — preserve all other games
-            existing[self.game_name] = self.claimed_events
-            data["events_claimed"] = existing
-
-            save_sinew_settings(data)
-
-            print(
-                f"[Events] Saved claimed events for {self.game_name}: {self.claimed_events}"
-            )
-        except Exception as e:
-            print(f"[Events] Error saving claimed events: {e}")
-
-    def _has_item_in_save(self, event_key):
-        """Check if the current save already has this event item (uses cache)."""
-        return self._ownership_cache.get(event_key, False)
-
-    def _claim_event(self, event_key):
-        """Claim an event item and add it to the current save"""
-        # Block if a game is currently running - save could be in use
-        if self.is_game_running_callback and self.is_game_running_callback():
-            running = self.is_game_running_callback()
-            self._show_message(f"Stop {running} first!", (255, 100, 100))
-            return False
-
-        if not self.manager or not self.manager.is_loaded():
-            self._show_message("No save file loaded!", (255, 100, 100))
-            return False
-
-        try:
-            from save_writer import add_event_item, write_save_file
-
-            # Verify the loaded save matches the expected game
-            # Parser returns "Ruby/Sapphire" or "FireRed/LeafGreen" for paired games
-            loaded_game = getattr(self.manager.parser, "game_name", None)
-            if not self._is_compatible_save(loaded_game):
-                self._show_message(
-                    f"Wrong save loaded! ({loaded_game})", (255, 100, 100)
-                )
-                return False
-
-            event_info = EVENT_ITEMS[event_key]
-
-            # Primary guard: item physically present in the save's key items pocket
-            if self._has_item_in_save(event_key):
-                self._show_message(
-                    f"Already have {event_info['name']}!", (255, 200, 100)
-                )
-                return False
-
-            # Secondary guard: Sinew's per-game claim record (catches cases where
-            # the save was reset/corrupted but a ticket was already distributed)
-            if self.claimed_events.get(event_key, False):
-                self._show_message(
-                    f"{event_info['name']} already distributed!", (255, 200, 100)
-                )
-                return False
-
-            # Add the item to save data
-            success, msg = add_event_item(
-                self.manager.parser.data, self.game_type, self.game_name, event_key
-            )
-
-            if success:
-                # Write the modified save
-                write_save_file(
-                    self.manager.save_path,
-                    self.manager.parser.data,
-                    create_backup_first=True,
-                )
-
-                # Record this claim for this game in sinew_settings.json
-                self.claimed_events[event_key] = True
-                self._save_claimed_events()
-
-                # Trigger callback for achievement tracking
-                if self.on_event_claimed:
-                    self.on_event_claimed(event_key)
-
-                self._show_message(f"Received {event_info['name']}!", (100, 255, 100))
-
-                # Refresh cache since we now own the item
-                self._ownership_cache[event_key] = True
-
-                return True
-            self._show_message(msg, (255, 100, 100))
-            return False
-
-        except Exception as e:
-            print(f"[Events] Error claiming event: {e}")
-            import traceback
-
-            traceback.print_exc()
-            self._show_message(f"Error: {str(e)[:30]}", (255, 100, 100))
-            return False
-
-    def _show_message(self, text, color=(255, 255, 255)):
-        """Show a temporary message"""
-        self.message = (text, color)
-        self.message_time = pygame.time.get_ticks()
-
-    def handle_controller(self, ctrl):
-        """Handle controller input"""
-        consumed = False
-
-        # Handle confirmation dialog
-        if self.confirming:
-            if ctrl.is_button_just_pressed("A"):
-                ctrl.consume_button("A")
-                self._claim_event(self.confirm_event_key)
-                self.confirming = False
-                self.confirm_event_key = None
-                consumed = True
-            elif ctrl.is_button_just_pressed("B"):
-                ctrl.consume_button("B")
-                self.confirming = False
-                self.confirm_event_key = None
-                consumed = True
-            return consumed
-
-        # Normal navigation
-        if ctrl.is_dpad_just_pressed("up"):
-            ctrl.consume_dpad("up")
-            if len(self.available_events) > 0:
-                self.selected_index = (self.selected_index - 1) % len(
-                    self.available_events
-                )
-            consumed = True
-
-        if ctrl.is_dpad_just_pressed("down"):
-            ctrl.consume_dpad("down")
-            if len(self.available_events) > 0:
-                self.selected_index = (self.selected_index + 1) % len(
-                    self.available_events
-                )
-            consumed = True
-
-        if ctrl.is_button_just_pressed("A"):
-            ctrl.consume_button("A")
-            if len(self.available_events) > 0:
-                event_key = self.available_events[self.selected_index]
-
-                # Only block if already have the ticket item
-                if self._has_item_in_save(event_key):
-                    self._show_message("Already in your Key Items!", (255, 200, 100))
-                else:
-                    # Show confirmation - allow claiming even if Pokemon already caught
-                    self.confirming = True
-                    self.confirm_event_key = event_key
-            consumed = True
-
-        if ctrl.is_button_just_pressed("B"):
-            ctrl.consume_button("B")
-            self.should_close = True
-            consumed = True
-
-        return consumed
-
-    def update(self, events):
-        """Handle pygame events"""
+        # Handle events
         for event in events:
-            if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_ESCAPE:
-                    if self.confirming:
-                        self.confirming = False
-                        self.confirm_event_key = None
-                    else:
-                        self.should_close = True
+            if self.modal_instance:
+                if hasattr(self.modal_instance, "handle_mouse"):
+                    self.modal_instance.handle_mouse(event)
+                if hasattr(self.modal_instance, "handle_event"):
+                    self.modal_instance.handle_event(event)
+            elif not self._modal_just_closed and (
+                time.time() - self._last_input_time >= self.INPUT_COOLDOWN
+            ):
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        if self.back_callback:
+                            self.back_callback()
+                            return False
+                    elif event.key == pygame.K_DOWN:
+                        menu_items = self.get_menu_items()
+                        self.menu_index = (self.menu_index + 1) % len(menu_items)
+                    elif event.key == pygame.K_UP:
+                        menu_items = self.get_menu_items()
+                        self.menu_index = (self.menu_index - 1) % len(menu_items)
+                    elif event.key == pygame.K_RIGHT:
+                        self._change_game_and_reload(1)
+                    elif event.key == pygame.K_LEFT:
+                        self._change_game_and_reload(-1)
+                    elif event.key == pygame.K_RETURN:
+                        if not getattr(self, "_pause_combo_active", False):
+                            menu_items = self.get_menu_items()
+                            if self.menu_index >= len(menu_items):
+                                self.menu_index = 0
+                            self._open_menu(menu_items[self.menu_index])
+
+                elif event.type == pygame.MOUSEBUTTONDOWN:
+                    menu_items = self.get_menu_items()
+                    if event.button == 4:
+                        self.menu_index = (self.menu_index - 1) % len(menu_items)
+                    elif event.button == 5:
+                        self.menu_index = (self.menu_index + 1) % len(menu_items)
+                    elif event.button == 1:
+                        menu_button = Button(
+                            menu_items[self.menu_index],
+                            rel_rect=(0.25, 0.69, 0.5, 0.12),
+                            callback=lambda item=menu_items[
+                                self.menu_index
+                            ]: self._open_menu(item),
+                        )
+                        menu_button.handle_event(event)
+
+        # Handle controller
+        if self.controller:
+            if self.modal_instance:
+                if hasattr(self.modal_instance, "handle_controller"):
+                    self.modal_instance.handle_controller(self.controller)
+            elif not self._modal_just_closed and (
+                time.time() - self._last_input_time >= self.INPUT_COOLDOWN
+            ):
+                menu_items = self.get_menu_items()
+
+                if self.controller.is_dpad_just_pressed("up"):
+                    self.controller.consume_dpad("up")
+                    self.menu_index = (self.menu_index - 1) % len(menu_items)
+
+                if self.controller.is_dpad_just_pressed("down"):
+                    self.controller.consume_dpad("down")
+                    self.menu_index = (self.menu_index + 1) % len(menu_items)
+
+                if self.controller.is_dpad_just_pressed("left"):
+                    self.controller.consume_dpad("left")
+                    self._change_game_and_reload(-1)
+
+                if self.controller.is_dpad_just_pressed("right"):
+                    self.controller.consume_dpad("right")
+                    self._change_game_and_reload(1)
+
+                if self.controller.is_button_just_pressed("L"):
+                    self.controller.consume_button("L")
+                    self._change_game_and_reload(-1)
+
+                if self.controller.is_button_just_pressed("R"):
+                    self.controller.consume_button("R")
+                    self._change_game_and_reload(1)
+
+                if self.controller.is_button_just_pressed("A"):
+                    self.controller.consume_button("A")
+                    if self.menu_index >= len(menu_items):
+                        self.menu_index = 0
+                    self._open_menu(menu_items[self.menu_index])
+
+                if self.controller.is_button_just_pressed("B"):
+                    self.controller.consume_button("B")
+                    if self.back_callback:
+                        self.back_callback()
+                        return False
+
+        # Update modal
+        if self.modal_instance:
+            if hasattr(self.modal_instance, "update"):
+                result = self.modal_instance.update(events)
+                if not result:
+                    self._close_modal()
+
+        return not self.should_close
 
     def draw(self, surf):
-        """Draw the events screen"""
-        # Background
-        surf.fill((30, 30, 45))
-
-        # Title
-        title = "Mystery Events"
-        title_surf = self.font_header.render(title, True, (255, 215, 0))
-        surf.blit(title_surf, (self.w // 2 - title_surf.get_width() // 2, 8))
-
-        # Subtitle with game name
-        if self.game_name:
-            subtitle = f"Playing: {self.game_name}"
-            sub_surf = self.font_small.render(subtitle, True, (150, 150, 150))
-            surf.blit(sub_surf, (self.w // 2 - sub_surf.get_width() // 2, 26))
-
-        # No events available message
-        if len(self.available_events) == 0:
-            no_events_text = "No events available for this game"
-            no_events_surf = self.font_text.render(
-                no_events_text, True, (200, 200, 200)
-            )
-            surf.blit(
-                no_events_surf,
-                (self.w // 2 - no_events_surf.get_width() // 2, self.h // 2),
-            )
-        else:
-            # Draw event list
-            self._draw_event_list(surf)
-
-        # Draw confirmation dialog if active
-        if self.confirming and self.confirm_event_key:
-            self._draw_confirmation(surf)
-
-        # Draw message if active
-        current_time = pygame.time.get_ticks()
-        if self.message and current_time - self.message_time < self.message_duration:
-            self._draw_message(surf)
-
-        # Controller hints - very bottom, small and dimmed
-        if self.confirming:
-            hints = "A:Confirm  B:Cancel"
-        else:
-            hints = "D-Pad:Select  A:Claim  B:Back"
-        hint_surf = self.font_small.render(hints, True, (80, 80, 80))
-        surf.blit(hint_surf, (self.w // 2 - hint_surf.get_width() // 2, self.h - 14))
-
-    def _draw_event_list(self, surf):
-        """Draw the list of available events"""
-        list_y = 42
-        item_height = 52
-        max_visible = 4  # Max items that fit
-
-        for i, event_key in enumerate(self.available_events):
-            if i >= max_visible:
-                break
-
-            event_info = EVENT_ITEMS[event_key]
-            y = list_y + (i * item_height)
-
-            # Item box
-            item_rect = pygame.Rect(12, y, self.w - 24, item_height - 3)
-
-            # Selection highlight
-            is_selected = i == self.selected_index
-            if is_selected:
-                pygame.draw.rect(surf, (60, 70, 100), item_rect, border_radius=5)
-                pygame.draw.rect(
-                    surf, ui_colors.COLOR_HIGHLIGHT, item_rect, 2, border_radius=5
-                )
-            else:
-                pygame.draw.rect(surf, (40, 45, 60), item_rect, border_radius=5)
-                pygame.draw.rect(surf, (60, 60, 80), item_rect, 1, border_radius=5)
-
-            # Icon/color indicator
-            icon_rect = pygame.Rect(item_rect.x + 5, item_rect.y + 5, 36, 36)
-            pygame.draw.rect(surf, event_info["icon_color"], icon_rect, border_radius=5)
-
-            # Check status
-            has_item = self._has_item_in_save(event_key)
-
-            # Name color based on ownership
-            if has_item:
-                name_color = (100, 200, 100)  # Green for owned
-            else:
-                name_color = (255, 255, 255)  # White for available
-            name_surf = self.font_text.render(event_info["name"], True, name_color)
-            surf.blit(name_surf, (item_rect.x + 48, item_rect.y + 4))
-
-            # Status badge - right side
-            if has_item:
-                status = "OWNED"
-                status_color = (100, 255, 100)  # Bright green
-            else:
-                status = "Available"
-                status_color = (200, 200, 100)  # Yellow
-            status_surf = self.font_small.render(status, True, status_color)
-            surf.blit(
-                status_surf,
-                (item_rect.right - status_surf.get_width() - 6, item_rect.y + 6),
-            )
-
-            # Pokemon unlocked
-            pokemon_text = f"Unlocks: {event_info['pokemon']}"
-            pokemon_surf = self.font_small.render(pokemon_text, True, (180, 180, 180))
-            surf.blit(pokemon_surf, (item_rect.x + 48, item_rect.y + 20))
-
-            # Description (truncate if too long)
-            desc = event_info["desc"]
-            if len(desc) > 45:
-                desc = desc[:42] + "..."
-            desc_surf = self.font_small.render(desc, True, (120, 120, 120))
-            surf.blit(desc_surf, (item_rect.x + 48, item_rect.y + 34))
-
-    def _draw_confirmation(self, surf):
-        """Draw confirmation dialog"""
-        event_info = EVENT_ITEMS.get(self.confirm_event_key, {})
-
-        # Overlay
-        overlay = pygame.Surface((self.w, self.h), pygame.SRCALPHA)
-        overlay.fill((0, 0, 0, 180))
-        surf.blit(overlay, (0, 0))
-
-        # Dialog box
-        dialog_w = 260
-        dialog_h = 90
-        dialog_x = (self.w - dialog_w) // 2
-        dialog_y = (self.h - dialog_h) // 2
-        dialog_rect = pygame.Rect(dialog_x, dialog_y, dialog_w, dialog_h)
-
-        pygame.draw.rect(surf, (40, 45, 60), dialog_rect, border_radius=8)
-        pygame.draw.rect(surf, (255, 215, 0), dialog_rect, 3, border_radius=8)
-
-        # Title
-        title = f"Receive {event_info.get('name', 'Item')}?"
-        title_surf = self.font_text.render(title, True, (255, 255, 255))
-        surf.blit(
-            title_surf,
-            (dialog_x + dialog_w // 2 - title_surf.get_width() // 2, dialog_y + 12),
-        )
-
-        # Warning text
-        warn_text = "Item will be added to Key Items"
-        warn_surf = self.font_small.render(warn_text, True, (180, 180, 180))
-        surf.blit(
-            warn_surf,
-            (dialog_x + dialog_w // 2 - warn_surf.get_width() // 2, dialog_y + 38),
-        )
-
-        # Buttons hint
-        btn_text = "A = Yes   B = No"
-        btn_surf = self.font_small.render(btn_text, True, (150, 200, 150))
-        surf.blit(
-            btn_surf,
-            (dialog_x + dialog_w // 2 - btn_surf.get_width() // 2, dialog_y + 62),
-        )
-
-    def _draw_message(self, surf):
-        """Draw temporary message"""
-        if not self.message:
+        """Draw the game screen"""
+        if self.emulator_active and self.emulator:
+            self._draw_emulator(surf)
             return
 
-        text, color = self.message
+        if not self.game_names or self.current_game >= len(self.game_names):
+            surf.fill(ui_colors.COLOR_BG)
+            return
 
-        # Message box positioned above footer
-        msg_surf = self.font_text.render(text, True, color)
-        msg_rect = msg_surf.get_rect(centerx=self.w // 2, bottom=self.h - 22)
+        gname = self.game_names[self.current_game]
+        game_data = self.games[gname]
 
-        # Background
-        bg_rect = msg_rect.inflate(16, 8)
-        pygame.draw.rect(surf, (40, 40, 50), bg_rect, border_radius=4)
-        pygame.draw.rect(surf, color, bg_rect, 2, border_radius=4)
-
-        surf.blit(msg_surf, msg_rect)
-
-
-# =============================================================================
-# INTEGRATION HELPER
-# =============================================================================
-
-
-def is_events_unlocked(manager=None):
-    """
-    Check if the Events menu should be unlocked for current game.
-    Requires: Player is Champion (8 badges) in the current save.
-
-    For FRLG games, also requires:
-    - National Dex unlocked
-    - Rainbow Pass obtained
-
-    Note: The full unlock also requires the Endgame Access achievement
-    to be claimed, which is checked in main.py
-
-    Args:
-        manager: SaveDataManager instance (uses get_manager() if None)
-
-    Returns:
-        bool: True if current save meets requirements
-    """
-    if manager is None:
-        manager = get_manager()
-
-    if not manager or not manager.is_loaded():
-        return False
-
-    try:
-        badges = manager.get_badges()
-        badge_count = sum(1 for b in badges if b)
-
-        if badge_count < 8:
-            return False
-
-        # For FRLG, check additional prerequisites
-        game_name = getattr(manager.parser, "game_name", None)
-        if game_name in ("FireRed", "LeafGreen"):
-            try:
-                from save_writer import check_frlg_event_prerequisites
-
-                prereqs_met, details = check_frlg_event_prerequisites(
-                    manager.parser.data, "FRLG", game_name
-                )
-                if not prereqs_met:
-                    print(f"[Events] FRLG prerequisites not met: {details}")
-                    return False
-            except Exception as e:
-                print(f"[Events] Error checking FRLG prerequisites: {e}")
-                # Default to NOT allowing access if we can't verify prerequisites
-                return False
-
-        return True
-
-    except Exception as e:
-        print(f"[Events] Error checking badge count: {e}")
-        return False
-
-
-def get_events_unlock_status(manager=None):
-    """
-    Get detailed unlock status for Events menu.
-
-    Args:
-        manager: SaveDataManager instance (uses get_manager() if None)
-
-    Returns:
-        dict: {
-            'unlocked': bool,
-            'badge_count': int,
-            'is_champion': bool,
-            'game_name': str or None,
-            'frlg_prereqs': dict or None (for FRLG games)
-        }
-    """
-    if manager is None:
-        manager = get_manager()
-
-    status = {
-        "unlocked": False,
-        "badge_count": 0,
-        "is_champion": False,
-        "game_name": None,
-        "frlg_prereqs": None,
-    }
-
-    if not manager or not manager.is_loaded():
-        return status
-
-    try:
-        badges = manager.get_badges()
-        status["badge_count"] = sum(1 for b in badges if b)
-        status["is_champion"] = status["badge_count"] >= 8
-        status["game_name"] = getattr(manager.parser, "game_name", None)
-
-        if not status["is_champion"]:
-            return status
-
-        # For FRLG, check additional prerequisites
-        if status["game_name"] in ("FireRed", "LeafGreen"):
-            try:
-                from save_writer import check_frlg_event_prerequisites
-
-                prereqs_met, details = check_frlg_event_prerequisites(
-                    manager.parser.data, "FRLG", status["game_name"]
-                )
-                status["frlg_prereqs"] = details
-                status["unlocked"] = prereqs_met
-            except Exception as e:
-                print(f"[Events] Error checking FRLG prerequisites: {e}")
-                status["unlocked"] = True  # Default to allowing
+        if self.is_on_sinew():
+            if self.sinew_logo:
+                surf.blit(self.sinew_logo, (0, 0))
+            else:
+                surf.fill(self.sinew_bg_color)
+        elif game_data["frames"]:
+            bg_surf = game_data["frames"][game_data["frame_index"]]
+            surf.blit(bg_surf, (0, 0))
         else:
-            status["unlocked"] = True
+            surf.fill(ui_colors.COLOR_BG)
 
-    except Exception as e:
-        print(f"[Events] Error getting unlock status: {e}")
+        if self.modal_instance:
+            if hasattr(self.modal_instance, "width") and hasattr(
+                self.modal_instance, "height"
+            ):
+                modal_w = self.modal_instance.width
+                modal_h = self.modal_instance.height
+            else:
+                modal_w = self.width - ui.s(30)
+                modal_h = self.height - ui.s(30)
 
-    return status
+            modal_surf = pygame.Surface((modal_w, modal_h), pygame.SRCALPHA)
 
+            if hasattr(self.modal_instance, "draw"):
+                self.modal_instance.draw(modal_surf)
 
-def check_frlg_prerequisites(manager=None):
-    """
-    Check if FRLG-specific event prerequisites are met.
-    This is a helper function for main.py to call.
+            pygame.draw.rect(
+                modal_surf, ui_colors.COLOR_BORDER, (0, 0, modal_w, modal_h), 2
+            )
 
-    For FireRed/LeafGreen, events require:
-    - National Dex unlocked
-    - Rainbow Pass obtained
+            modal_x = (self.width - modal_w) // 2
+            modal_y = (self.height - modal_h) // 2
+            surf.blit(modal_surf, (modal_x, modal_y))
 
-    For RSE games, always returns True.
+            if self.emulator and self.emulator.loaded and not self.emulator_active:
+                self._draw_resume_banner(surf)
+        else:
+            menu_items = self.get_menu_items()
+            if self.menu_index >= len(menu_items):
+                self.menu_index = 0
 
-    Args:
-        manager: SaveDataManager instance (uses get_manager() if None)
+            current_menu_item = menu_items[self.menu_index]
+            is_disabled = current_menu_item == "Save File Only"
 
-    Returns:
-        tuple: (met: bool, details: dict or None)
-    """
-    if manager is None:
-        manager = get_manager()
+            menu_button = Button(
+                current_menu_item,
+                rel_rect=(0.25, 0.69, 0.5, 0.12),
+                callback=lambda: None,
+            )
 
-    if not manager or not manager.is_loaded():
-        return (False, {"error": "No save loaded"})
+            if is_disabled:
+                bx = int(0.25 * self.width)
+                by = int(0.69 * self.height)
+                bw = int(0.5 * self.width)
+                bh = int(0.12 * self.height)
+                btn_rect = pygame.Rect(bx, by, bw, bh)
 
-    try:
-        game_name = getattr(manager.parser, "game_name", None)
+                pygame.draw.rect(surf, (50, 50, 55), btn_rect, border_radius=ui.s(4))
+                pygame.draw.rect(surf, (80, 80, 85), btn_rect, 2, border_radius=ui.s(4))
 
-        # RSE games don't have additional prerequisites
-        if game_name not in ("FireRed", "LeafGreen"):
-            return (True, {"game": game_name, "required": False})
+                btn_font = scaled_font(14)
+                txt_surf = btn_font.render(current_menu_item, True, (100, 100, 105))
+                txt_rect = txt_surf.get_rect(center=btn_rect.center)
+                surf.blit(txt_surf, txt_rect)
 
-        # Check FRLG prerequisites
-        from save_writer import check_frlg_event_prerequisites
+                hint2_font = scaled_font(7)
+                hint2_surf = hint2_font.render(
+                    "No ROM \u2014 place a .gba file in roms/", True, (90, 90, 90)
+                )
+                hint2_rect = hint2_surf.get_rect(
+                    centerx=self.width // 2, top=btn_rect.bottom + ui.s(3)
+                )
+                surf.blit(hint2_surf, hint2_rect)
+            else:
+                menu_button.draw(surf, self.font)
 
-        return check_frlg_event_prerequisites(manager.parser.data, "FRLG", game_name)
-    except Exception as e:
-        print(f"[Events] Error checking FRLG prerequisites: {e}")
-        return (False, {"error": str(e)})
+            hint_text = "< > Change Game    ^ v Scroll Menu"
+            hint_font = scaled_font(8)
+            hint_surf = hint_font.render(hint_text, True, (150, 150, 150))
+            hint_rect = hint_surf.get_rect(
+                centerx=self.width // 2, bottom=self.height - ui.s(5)
+            )
+            surf.blit(hint_surf, hint_rect)
+
+            if self.emulator and self.emulator.loaded and not self.emulator_active:
+                self._draw_resume_banner(surf)
+
+        self._draw_notification(surf)
+
+        if self._achievement_notification:
+            self._achievement_notification.draw(surf)
+
+    def dim_screen(self, alpha=128):
+        """
+        Dim the game screen by drawing a semi-transparent black overlay.
+        If alpha is 0 or less, remove the overlay (destroy surface).
+        """
+        if not hasattr(self, '_dim_overlay'):
+            self._dim_overlay = None
+        if alpha > 0:
+            self._dim_overlay = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+            self._dim_overlay.fill((0, 0, 0, alpha))
+            target_surface = self.scaler.get_surface() if self.scaler else self._loading_screen
+            if target_surface:
+                target_surface.blit(self._dim_overlay, (0, 0))
+                if self.scaler:
+                    self.scaler.blit_scaled()
+                else:
+                    pygame.display.flip()
+        else:
+            self._dim_overlay = None
+
+    def cleanup(self):
+        """Cleanup resources when closing the game screen"""
+        if self.emulator:
+            try:
+                self.emulator.shutdown()
+            except Exception as e:
+                print(f"[Sinew] Cleanup error: {e}")
+            self.emulator = None
+
+        if hasattr(self, 'emulator_manager') and self.emulator_manager and self.emulator_manager.is_running:
+            self.emulator_manager.terminate()
