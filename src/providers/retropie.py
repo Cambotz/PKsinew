@@ -284,30 +284,30 @@ class RetroPieProvider(EmulatorProvider):
         if sav_path:
             print(f"[RetroPieProvider] Save file: {sav_path}")
             
-            # Check if save filename matches ROM filename
+            # RetroArch libretro cores use .srm extension, not .sav
+            # Create a symlink with .srm extension pointing to the .sav file
             rom_base = os.path.splitext(os.path.basename(rom_path))[0]
-            sav_base = os.path.splitext(os.path.basename(sav_path))[0]
+            expected_save = os.path.join(os.path.dirname(rom_path), f"{rom_base}.srm")
             
-            if rom_base != sav_base:
-                # Filename mismatch - create symlink so RetroArch can find it
-                expected_save = os.path.join(os.path.dirname(sav_path), f"{rom_base}.sav")
-                print(f"[RetroPieProvider] Filename mismatch detected:")
-                print(f"  ROM base: {rom_base}")
-                print(f"  Save base: {sav_base}")
-                print(f"  Creating symlink: {expected_save} -> {sav_path}")
+            print(f"[RetroPieProvider] Creating .srm symlink for libretro:")
+            print(f"  RetroArch expects: {expected_save}")
+            print(f"  Actual save file: {sav_path}")
+            
+            try:
+                # Remove existing symlink/file if it's a symlink
+                if os.path.islink(expected_save):
+                    os.remove(expected_save)
+                    print(f"[RetroPieProvider] Removed old symlink")
+                elif os.path.exists(expected_save):
+                    print(f"[RetroPieProvider] Warning: {expected_save} exists and is not a symlink")
+                    print(f"[RetroPieProvider] This might be a real save file - not overwriting")
                 
-                try:
-                    # Remove existing symlink/file if it exists
-                    if os.path.islink(expected_save):
-                        os.remove(expected_save)
-                    elif os.path.exists(expected_save):
-                        print(f"[RetroPieProvider] Warning: {expected_save} exists and is not a symlink - not overwriting")
-                    else:
-                        # Create symlink
-                        os.symlink(os.path.basename(sav_path), expected_save)
-                        print(f"[RetroPieProvider] ✓ Symlink created successfully")
-                except Exception as e:
-                    print(f"[RetroPieProvider] Failed to create symlink: {e}")
+                if not os.path.exists(expected_save):
+                    # Create symlink (relative path works better)
+                    os.symlink(os.path.basename(sav_path), expected_save)
+                    print(f"[RetroPieProvider] ✓ Created {os.path.basename(expected_save)} -> {os.path.basename(sav_path)}")
+            except Exception as e:
+                print(f"[RetroPieProvider] Failed to create .srm symlink: {e}")
         else:
             print(f"[RetroPieProvider] No save path provided - RetroArch will use default location")
         
