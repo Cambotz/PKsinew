@@ -336,8 +336,6 @@ class RetroPieProvider(EmulatorProvider):
                             print(f"  {line.strip()}")
             except Exception:
                 pass
-            print(f"[RetroPieProvider] Warning: Could not write override config: {e}")
-            override_config = None
         
         # Build command
         cmd = [
