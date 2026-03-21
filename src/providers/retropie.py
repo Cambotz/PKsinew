@@ -317,8 +317,13 @@ class RetroPieProvider(EmulatorProvider):
                 # Only override save path if a specific save file was provided
                 # Otherwise, let RetroArch use its configured default behavior
                 if sav_path:
+                    # Use both savefile_path (specific file) and savefile_directory (fallback)
+                    save_dir = os.path.dirname(sav_path)
                     f.write(f'savefile_path = "{sav_path}"\n')
+                    f.write(f'savefile_directory = "{save_dir}"\n')
+                    f.write(f'savestate_directory = "{save_dir}"\n')
                     print(f"[RetroPieProvider] ✓ Wrote savefile_path override: {sav_path}")
+                    print(f"[RetroPieProvider] ✓ Wrote savefile_directory: {save_dir}")
                 else:
                     print(f"[RetroPieProvider] ✗ No sav_path provided - using RetroArch defaults")
                 
@@ -343,11 +348,6 @@ class RetroPieProvider(EmulatorProvider):
             "-L", core_path,
             "--config", retroarch_config,
         ]
-        
-        # Add save path as command-line override (higher priority than appendconfig)
-        if sav_path:
-            cmd.extend(["--savefile", sav_path])
-            print(f"[RetroPieProvider] Added --savefile command-line override")
         
         if override_config:
             cmd.extend(["--appendconfig", override_config])
