@@ -322,8 +322,8 @@ class RetroPieProvider(EmulatorProvider):
                 else:
                     print(f"[RetroPieProvider] ✗ No sav_path provided - using RetroArch defaults")
                 
-        except Exception as e:
-            print(f"[RetroPieProvider] Warning: Could not write override config: {e}")
+        except Exception as exc:
+            print(f"[RetroPieProvider] Warning: Could not write override config: {exc}")
             override_config = None
         
         # Debug: read back what we wrote
