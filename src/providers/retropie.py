@@ -208,7 +208,7 @@ class RetroPieProvider(EmulatorProvider):
         
         return base_save_dir
 
-    def get_command(self, rom_path, core="auto"):
+    def get_command(self, rom_path, save_path=None, core="auto"):
         """
         Return the command to launch RetroArch directly.
         
@@ -217,8 +217,11 @@ class RetroPieProvider(EmulatorProvider):
         - VSync enabled as primary frame limiter
         - Threaded video disabled so vsync actually blocks
         
+        If save_path is provided, forces RetroArch to use that specific save file.
+        
         Args:
             rom_path: Absolute path to the ROM file
+            save_path: Optional absolute path to a specific save file to use
             core: Core selection (not used - uses configured default)
         
         Returns:
@@ -271,6 +274,11 @@ class RetroPieProvider(EmulatorProvider):
                 
                 # Fullscreen
                 f.write('video_fullscreen = "true"\n')
+                
+                # If a specific save_path was provided, force RetroArch to use it
+                if save_path and os.path.exists(save_path):
+                    f.write(f'savefile_path = "{save_path}"\n')
+                    print(f"[RetroPieProvider] Forcing save file: {save_path}")
                 
                 # Save paths - point to PKsinew's save directory
                 f.write(f'savefile_directory = "{self.saves_dir}"\n')
