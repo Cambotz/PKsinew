@@ -208,6 +208,15 @@ class RetroPieProvider(EmulatorProvider):
         
         return base_save_dir
 
+    def _get_system_from_rom_path(self, rom_path):
+        """
+        Extract the system identifier from a ROM path.
+        
+        Returns:
+            str: System identifier (e.g., "gba", "nds", "gb")
+        """
+        return os.path.basename(os.path.dirname(rom_path))
+
     def get_command(self, rom_path, save_path=None, core="auto"):
         """
         Return the command to launch RetroArch directly.
@@ -219,28 +228,50 @@ class RetroPieProvider(EmulatorProvider):
         
         If save_path is provided, forces RetroArch to use that specific save file.
         
+        Automatically detects the system from ROM path and selects the appropriate core.
+        
         Args:
             rom_path: Absolute path to the ROM file
             save_path: Optional absolute path to a specific save file to use
-            core: Core selection (not used - uses configured default)
+            core: Core selection (not used - auto-detected from system)
         
         Returns:
             list: Command to launch the emulator
         """
+        # Detect system from ROM path
+        system = self._get_system_from_rom_path(rom_path)
+        
+        # Map system to RetroArch core
+        # RetroPie stores cores in /opt/retropie/libretrocores/lr-{core}/
+        core_map = {
+            "gba": "mgba",           # Game Boy Advance
+            "gb": "gambatte",        # Game Boy / Game Boy Color
+            "gbc": "gambatte",       # Game Boy Color
+            "nds": "desmume",        # Nintendo DS
+            "nes": "fceumm",         # NES
+            "snes": "snes9x",        # SNES
+            "n64": "mupen64plus",    # N64
+            "psx": "pcsx_rearmed",   # PlayStation 1
+        }
+        
+        selected_core = core_map.get(system, "mgba")  # Default to mGBA
+        core_path = f"/opt/retropie/libretrocores/lr-{selected_core}/{selected_core}_libretro.so"
+        
+        print(f"[RetroPieProvider] System: {system}, Core: {selected_core}")
+        
         # Find RetroArch binary
         retroarch_bin = "/opt/retropie/emulators/retroarch/bin/retroarch"
         if not os.path.exists(retroarch_bin):
             print(f"[RetroPieProvider] ERROR: RetroArch not found at {retroarch_bin}")
             return None
         
-        # Find mGBA core
-        mgba_core = "/opt/retropie/libretrocores/lr-mgba/mgba_libretro.so"
-        if not os.path.exists(mgba_core):
-            print(f"[RetroPieProvider] ERROR: mGBA core not found at {mgba_core}")
+        # Check core exists
+        if not os.path.exists(core_path):
+            print(f"[RetroPieProvider] ERROR: Core not found at {core_path}")
             return None
         
-        # Get RetroArch config
-        retroarch_config = self.retroarch_cfg
+        # Get RetroArch config (try system-specific first, then global)
+        retroarch_config = os.path.join(self.configs_base, system, "retroarch.cfg")
         if not os.path.exists(retroarch_config):
             retroarch_config = self.retroarch_global_cfg
         
@@ -295,7 +326,7 @@ class RetroPieProvider(EmulatorProvider):
         # Build command
         cmd = [
             retroarch_bin,
-            "-L", mgba_core,
+            "-L", core_path,
             "--config", retroarch_config,
         ]
         

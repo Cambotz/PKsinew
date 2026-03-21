@@ -40,7 +40,8 @@ class RocknixProvider(EmulatorProvider):
         self.system_db = os.path.expanduser("~/.config/system/configs/system.cfg")
         self.es_systems_db = os.path.expanduser("~/.emulationstation/es_systems.cfg")
         self.retroarch_cfg = os.path.expanduser("~/.config/retroarch/retroarch.cfg")
-        self.roms_dir = os.path.expanduser("~/roms/gba")
+        self.roms_base = os.path.expanduser("~/roms")  # Base ROMs directory
+        self.roms_dir = os.path.expanduser("~/roms/gba")  # Default to GBA for now
 
         # Determine saves directory from RetroArch settings
         # Check if saves live with the ROMs
@@ -85,11 +86,101 @@ class RocknixProvider(EmulatorProvider):
         )
         return is_rocknix and script_exists
 
+    def _get_system_from_rom_path(self, rom_path):
+        """
+        Extract the system identifier from a ROM path.
+        
+        Returns:
+            str: System identifier (e.g., "gba", "nds", "gb")
+        """
+        return os.path.basename(os.path.dirname(rom_path))
+
+    def _resolve_system_config(self, system):
+        """
+        Resolve the core/emulator for a given system.
+        
+        Args:
+            system: System identifier (e.g., "gba", "nds", "gb")
+        
+        Returns:
+            tuple: (core, emulator) or (None, None) if not found
+        """
+        core = None
+        emu = None
+        
+        # Try system.cfg first
+        if os.path.exists(self.system_db):
+            try:
+                with open(self.system_db, "r") as f:
+                    for line in f:
+                        line = line.strip()
+                        if not line or line.startswith("#") or "=" not in line:
+                            continue
+                        k, v = line.split("=", 1)
+                        k = k.strip()
+                        v = v.strip()
+                        if k == f"{system}.core":
+                            core = v
+                            print(f"[RocknixProvider] Found {system} core: {core}")
+                        elif k == f"{system}.emulator":
+                            emu = v
+                            print(f"[RocknixProvider] Found {system} emulator: {emu}")
+            except Exception as e:
+                print(f"[RocknixProvider] EXCEPTION reading system.cfg: {e}")
+
+        if core and emu:
+            return core, emu
+        elif core:
+            return core, "retroarch"
+
+        # Fallback to ES defaults
+        return self._resolve_es_default_for_system(system)
+
+    def _resolve_es_default_for_system(self, system):
+        """
+        Get the default core/emulator for a system from EmulationStation config.
+        
+        Args:
+            system: System identifier (e.g., "gba", "nds", "gb")
+        
+        Returns:
+            tuple: (core, emulator) or (None, None) if not found
+        """
+        if not os.path.exists(self.es_systems_db):
+            return None, None
+        
+        try:
+            tree = ET.parse(self.es_systems_db)
+            for sys_elem in tree.getroot().findall("system"):
+                name_node = sys_elem.find("name")
+                if name_node is None or name_node.text.lower() != system.lower():
+                    continue
+                    
+                for emu in sys_elem.findall(".//emulator"):
+                    emu_name = emu.get("name")
+                    for core in emu.findall(".//core"):
+                        if core.get("default") == "true":
+                            print(
+                                f"[RocknixProvider] Found default {system} core: "
+                                f"{core.text}, emulator: {emu_name}"
+                            )
+                            return core.text, emu_name
+        except Exception as e:
+            print(f"[RocknixProvider] EXCEPTION parsing ES config: {e}")
+        
+        return None, None
+
     def get_command(self, rom_path, core="auto"):
         """
         Return the list of strings representing the shell command
         to launch the emulator.
+        
+        Automatically detects the system from the ROM path and resolves
+        the appropriate core/emulator configuration.
         """
+        # Detect system from ROM path
+        system = self._get_system_from_rom_path(rom_path)
+        print(f"[RocknixProvider] Detected system: {system}")
 
         # Controller GUID — read directly from the joystick pygame already has open.
         guid = self.cache.get("p1_guid")
@@ -99,26 +190,33 @@ class RocknixProvider(EmulatorProvider):
                 self._update_sinew_cache("p1_guid", guid)
 
         if not guid:
-            print("[ExternalEmu] ABORT: No Controller GUID found.")
+            print("[RocknixProvider] ABORT: No Controller GUID found.")
             return None
 
-        # Resolve Core/Emu
-        parsed_core, parsed_emu = self._resolve_gba_config()
+        # Resolve Core/Emu for this system
+        cache_key_core = f"{system}_core"
+        cache_key_emu = f"{system}_emulator"
+        
+        parsed_core, parsed_emu = self._resolve_system_config(system)
         if parsed_core:
             selected_core = parsed_core
-            self._update_sinew_cache("gba_core", parsed_core)
+            self._update_sinew_cache(cache_key_core, parsed_core)
         else:
-            selected_core = self.cache.get("gba_core")
+            selected_core = self.cache.get(cache_key_core)
 
         if parsed_emu:
             selected_emu = parsed_emu
-            self._update_sinew_cache("gba_emulator", parsed_emu)
+            self._update_sinew_cache(cache_key_emu, parsed_emu)
         else:
-            selected_emu = self.cache.get("gba_emulator")
+            selected_emu = self.cache.get(cache_key_emu)
+
+        if not selected_core or not selected_emu:
+            print(f"[RocknixProvider] ERROR: No core/emulator found for {system}")
+            return None
 
         controller_str = f" -p1index 0 -p1guid {guid} "
 
-        emu_cmd = f"/usr/bin/runemu.sh {shlex.quote(rom_path)} -Pgba --core={selected_core} --emulator={selected_emu} --controllers={shlex.quote(controller_str)}"  # pylint: disable=line-too-long  # noqa: E501
+        emu_cmd = f"/usr/bin/runemu.sh {shlex.quote(rom_path)} -P{system} --core={selected_core} --emulator={selected_emu} --controllers={shlex.quote(controller_str)}"  # pylint: disable=line-too-long  # noqa: E501
         return ["sh", "-c", emu_cmd]
 
     def _get_joystick_guid(self):
@@ -145,79 +243,6 @@ class RocknixProvider(EmulatorProvider):
                             return value
         except Exception as e:
             print(f"[RocknixProvider] EXCEPTION reading RA config: {e}")
-        return None
-
-    def _resolve_gba_config(self):
-        """Resolve the GBA core/emulator"""
-        core = None
-        emu = None
-        print(f"[RocknixProvider] Resolving GBA config from {self.system_db}")
-        if os.path.exists(self.system_db):
-            try:
-                with open(self.system_db, "r") as f:
-                    for line in f:
-                        line = line.strip()
-                        if not line or line.startswith("#") or "=" not in line:
-                            continue
-                        k, v = line.split("=", 1)
-                        k = k.strip()
-                        v = v.strip()
-                        if k == "gba.core":
-                            core = v
-                            print(f"[RocknixProvider] Found system.cfg core: {core}")
-                        elif k == "gba.emulator":
-                            emu = v
-                            print(f"[RocknixProvider] Found system.cfg emulator: {emu}")
-            except Exception as e:
-                print(f"[RocknixProvider] EXCEPTION reading system.cfg: {e}")
-
-        if core and emu:
-            print(f"[RocknixProvider] Using system.cfg config: {core}/{emu}")
-            return core, emu
-        elif core:
-            print(f"[RocknixProvider] Using system.cfg core with fallback emulator: {core}/retroarch")  # pylint: disable=line-too-long  # noqa: E501
-            return core, "retroarch"
-
-        # Fallback to ES defaults
-        print("[RocknixProvider] Falling back to ES defaults")
-        result = self._resolve_es_default()
-        if result is None:
-            print("[RocknixProvider] ERROR: No GBA core/emulator defined, cannot launch.")
-            return None, None
-        print(f"[RocknixProvider] Using ES default config: {result[0]}/{result[1]}")
-        return result
-
-
-    def _resolve_es_default(self):
-        """Fallback for GBA if system.cfg has no core/emulator defined."""
-
-        if not os.path.exists(self.es_systems_db):
-            print(f"[RocknixProvider] ES config not found: {self.es_systems_db}")
-            return None
-        try:
-            print(f"[RocknixProvider] Parsing ES config: {self.es_systems_db}")
-            tree = ET.parse(self.es_systems_db)
-            for system in tree.getroot().findall("system"):
-                name_node = system.find("name")
-                if name_node is None:
-                    continue
-                if name_node.text.lower() != "gba":
-                    continue
-                print(f"[RocknixProvider] Found GBA system in {self.es_systems_db}")
-                for emu in system.findall(".//emulator"):
-                    emu_name = emu.get("name")
-                    for core in emu.findall(".//core"):
-                        if core.get("default") == "true":
-                            print(
-                                f"[RocknixProvider] Found default core:"
-                                f" {core.text}, emulator: {emu_name}"
-                            )
-                            return core.text, emu_name
-        except Exception as e:
-            print(f"[RocknixProvider] EXCEPTION parsing ES config {self.es_systems_db}: {e}")
-
-        # No valid core/emulator found
-        print("[RocknixProvider] No default GBA core/emulator found in ES configs")
         return None
 
     def _update_sinew_cache(self, key, value):
