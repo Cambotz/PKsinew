@@ -104,7 +104,7 @@ class HandheldProvider(EmulatorProvider):
 
     # ------------------------------------------------
 
-    def get_command(self, rom_path, core="auto"):
+    def get_command(self, rom_path, core="auto", sav_path=None):
         """
         Build the emulator launch command for the given ROM.
         

@@ -2647,8 +2647,8 @@ class IntegratedMgbaProvider(EmulatorProvider):
     # Unused subprocess interface (required by ABC)
     # ------------------------------------------------------------------
 
-    def get_command(self, rom_path, core="auto"):
-        """Not used  in-process provider does not spawn a subprocess."""
+    def get_command(self, rom_path, core="auto", sav_path=None):
+        """Not used — in-process provider does not spawn a subprocess."""
         return None
 
     def terminate(self, process):

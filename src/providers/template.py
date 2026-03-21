@@ -78,7 +78,7 @@ class TemplateProvider(EmulatorProvider):
         #     return os.path.exists("/path/to/launcher")
         return False
 
-    def get_command(self, rom_path, core="auto"):
+    def get_command(self, rom_path, core="auto", sav_path=None):
         """
         Return the list of strings representing the shell command
         to launch the emulator.

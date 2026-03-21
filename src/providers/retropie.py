@@ -218,7 +218,7 @@ class RetroPieProvider(EmulatorProvider):
         """
         return os.path.basename(os.path.dirname(rom_path))
 
-    def get_command(self, rom_path, save_path=None, core="auto"):
+    def get_command(self, rom_path, core="auto", sav_path=None):
         """
         Return the command to launch RetroArch directly.
         
@@ -227,14 +227,14 @@ class RetroPieProvider(EmulatorProvider):
         - VSync enabled as primary frame limiter
         - Threaded video disabled so vsync actually blocks
         
-        If save_path is provided, forces RetroArch to use that specific save file.
+        If sav_path is provided, forces RetroArch to use that specific save file.
         
         Automatically detects the system from ROM path and selects the appropriate core.
         
         Args:
             rom_path: Absolute path to the ROM file
-            save_path: Optional absolute path to a specific save file to use
             core: Core selection (not used - auto-detected from system)
+            sav_path: Optional absolute path to a specific save file to use
         
         Returns:
             list: Command to launch the emulator
@@ -276,13 +276,13 @@ class RetroPieProvider(EmulatorProvider):
         if not os.path.exists(retroarch_config):
             retroarch_config = self.retroarch_global_cfg
         
-        # If save_path wasn't provided, derive it from ROM basename
-        if not save_path:
+        # If sav_path wasn't provided, derive it from ROM basename
+        if not sav_path:
             rom_basename = os.path.splitext(os.path.basename(rom_path))[0]
-            save_path = os.path.join(self.saves_dir, f"{rom_basename}.sav")
-            print(f"[RetroPieProvider] Derived save path: {save_path}")
+            sav_path = os.path.join(self.saves_dir, f"{rom_basename}.sav")
+            print(f"[RetroPieProvider] Derived save path: {sav_path}")
         else:
-            print(f"[RetroPieProvider] Using provided save path: {save_path}")
+            print(f"[RetroPieProvider] Using provided save path: {sav_path}")
         
         # Create temporary override config for proper frame timing + save paths
         override_config = "/dev/shm/retroarch_sinew_override.cfg"
@@ -311,10 +311,10 @@ class RetroPieProvider(EmulatorProvider):
                 # Fullscreen
                 f.write('video_fullscreen = "true"\n')
                 
-                # If a specific save_path was provided, force RetroArch to use it
-                if save_path:
-                    f.write(f'savefile_path = "{save_path}"\n')
-                    print(f"[RetroPieProvider] Setting save file path: {save_path}")
+                # If a specific sav_path was provided, force RetroArch to use it
+                if sav_path:
+                    f.write(f'savefile_path = "{sav_path}"\n')
+                    print(f"[RetroPieProvider] Setting save file path: {sav_path}")
                 
                 # Save paths - point to PKsinew's save directory
                 f.write(f'savefile_directory = "{self.saves_dir}"\n')
@@ -340,7 +340,7 @@ class RetroPieProvider(EmulatorProvider):
         
         cmd.append(rom_path)
         
-        print(f"[RetroPieProvider] Save file expected at: {save_path}")
+        print(f"[RetroPieProvider] Save file expected at: {sav_path}")
         print(f"[RetroPieProvider] Saves directory: {self.saves_dir}")
         
         return cmd

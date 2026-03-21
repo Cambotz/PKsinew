@@ -31,7 +31,7 @@ class EmulatorProvider(ABC):
         pass
 
     @abstractmethod
-    def get_command(self, rom_path, core="auto"):
+    def get_command(self, rom_path, core="auto", sav_path=None):
         """Return the shell command list used to launch the emulator for the given ROM path."""
         pass
 
@@ -176,7 +176,7 @@ class EmulatorManager:
                 print(f"[EmulatorManager] Integrated launch error: {e}")
                 return False
 
-        cmd = self.active_provider.get_command(rom_path, core)
+        cmd = self.active_provider.get_command(rom_path, core, sav_path=sav_path)
         if not cmd:
             return False
 

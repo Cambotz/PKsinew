@@ -133,7 +133,7 @@ class DesktopRetroarch(EmulatorProvider):
 
         return True
 
-    def get_command(self, rom_path, core="auto"):
+    def get_command(self, rom_path, core="auto", sav_path=None):
         """Return the shell command list to launch RetroArch with the given ROM."""
         if not self.retroarch_command:
             print("[DesktopRetroarch] No RetroArch command available (probe not run or failed).")
@@ -144,6 +144,8 @@ class DesktopRetroarch(EmulatorProvider):
             return None
 
         # retroarch -L /path/to/core.<ext> /path/to/rom.gba
+        # Note: sav_path is handled by emulator_session's save injection wrapper
+        # for non-script-launcher providers, so we don't need to handle it here
         return self.retroarch_command + ["-L", core_file, rom_path]
 
     def on_exit(self):
