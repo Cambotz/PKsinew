@@ -239,6 +239,10 @@ class RetroPieProvider(EmulatorProvider):
         Returns:
             list: Command to launch the emulator
         """
+        print(f"[RetroPieProvider] get_command called:")
+        print(f"  - rom_path: {rom_path}")
+        print(f"  - sav_path: {sav_path}")
+        
         # Detect system from ROM path
         system = self._get_system_from_rom_path(rom_path)
         
@@ -284,6 +288,7 @@ class RetroPieProvider(EmulatorProvider):
         
         # Create temporary override config for proper frame timing + save paths
         override_config = "/dev/shm/retroarch_sinew_override.cfg"
+        print(f"[RetroPieProvider] Creating override config at: {override_config}")
         try:
             with open(override_config, "w") as f:
                 # Audio - use SDL2 which handles device sharing better
@@ -313,9 +318,24 @@ class RetroPieProvider(EmulatorProvider):
                 # Otherwise, let RetroArch use its configured default behavior
                 if sav_path:
                     f.write(f'savefile_path = "{sav_path}"\n')
-                    print(f"[RetroPieProvider] Forcing specific save file: {sav_path}")
+                    print(f"[RetroPieProvider] ✓ Wrote savefile_path override: {sav_path}")
+                else:
+                    print(f"[RetroPieProvider] ✗ No sav_path provided - using RetroArch defaults")
                 
         except Exception as e:
+            print(f"[RetroPieProvider] Warning: Could not write override config: {e}")
+            override_config = None
+        
+        # Debug: read back what we wrote
+        if override_config and os.path.exists(override_config):
+            print(f"[RetroPieProvider] Override config contents:")
+            try:
+                with open(override_config, 'r') as f:
+                    for line in f:
+                        if 'savefile' in line.lower():
+                            print(f"  {line.strip()}")
+            except Exception:
+                pass
             print(f"[RetroPieProvider] Warning: Could not write override config: {e}")
             override_config = None
         
@@ -330,6 +350,8 @@ class RetroPieProvider(EmulatorProvider):
             cmd.extend(["--appendconfig", override_config])
         
         cmd.append(rom_path)
+        
+        print(f"[RetroPieProvider] Final command: {' '.join(cmd)}")
         
         return cmd
 
