@@ -276,13 +276,11 @@ class RetroPieProvider(EmulatorProvider):
         if not os.path.exists(retroarch_config):
             retroarch_config = self.retroarch_global_cfg
         
-        # If sav_path wasn't provided, derive it from ROM basename
-        if not sav_path:
-            rom_basename = os.path.splitext(os.path.basename(rom_path))[0]
-            sav_path = os.path.join(self.saves_dir, f"{rom_basename}.sav")
-            print(f"[RetroPieProvider] Derived save path: {sav_path}")
+        # Log the save path if one was provided
+        if sav_path:
+            print(f"[RetroPieProvider] Using save path: {sav_path}")
         else:
-            print(f"[RetroPieProvider] Using provided save path: {sav_path}")
+            print(f"[RetroPieProvider] No save path provided - RetroArch will use default location")
         
         # Create temporary override config for proper frame timing + save paths
         override_config = "/dev/shm/retroarch_sinew_override.cfg"
@@ -311,18 +309,11 @@ class RetroPieProvider(EmulatorProvider):
                 # Fullscreen
                 f.write('video_fullscreen = "true"\n')
                 
-                # If a specific sav_path was provided, force RetroArch to use it
+                # Only override save path if a specific save file was provided
+                # Otherwise, let RetroArch use its configured default behavior
                 if sav_path:
                     f.write(f'savefile_path = "{sav_path}"\n')
-                    print(f"[RetroPieProvider] Setting save file path: {sav_path}")
-                
-                # Save paths - point to PKsinew's save directory
-                f.write(f'savefile_directory = "{self.saves_dir}"\n')
-                f.write(f'savestate_directory = "{self.saves_dir}"\n')
-                f.write('savefiles_in_content_dir = "false"\n')
-                f.write('savestates_in_content_dir = "false"\n')
-                f.write('sort_savefiles_by_content_enable = "false"\n')
-                f.write('sort_savestates_by_content_enable = "false"\n')
+                    print(f"[RetroPieProvider] Forcing specific save file: {sav_path}")
                 
         except Exception as e:
             print(f"[RetroPieProvider] Warning: Could not write override config: {e}")
@@ -339,9 +330,6 @@ class RetroPieProvider(EmulatorProvider):
             cmd.extend(["--appendconfig", override_config])
         
         cmd.append(rom_path)
-        
-        print(f"[RetroPieProvider] Save file expected at: {sav_path}")
-        print(f"[RetroPieProvider] Saves directory: {self.saves_dir}")
         
         return cmd
 
