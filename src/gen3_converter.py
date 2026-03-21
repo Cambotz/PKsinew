@@ -695,9 +695,11 @@ def universal_to_gen3(pokemon: UniversalPokemon, format: str = "pc") -> bytes:
     blocks = [growth, attacks, evs_block, misc]
     
     # Create ordered decrypted data
+    # block_order format: block_order[TYPE] = POSITION
+    # So block_order[0] tells us which position Growth goes to
     decrypted = bytearray(48)
-    for i, block_type in enumerate(block_order):
-        decrypted[i*12:(i+1)*12] = blocks[block_type]
+    for block_type, position in enumerate(block_order):
+        decrypted[position*12:(position+1)*12] = blocks[block_type]
     
     # Calculate checksum BEFORE encryption
     checksum = calculate_pokemon_checksum(bytes(decrypted))

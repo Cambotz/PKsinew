@@ -9,12 +9,62 @@ or when transferring between different game saves.
 
 import struct
 
-# Trade evolution data
+# =============================================================================
+# SPECIES ID CONVERSION
+# =============================================================================
+# Gen 3 saves use Internal species IDs which differ from National Dex for Gen 3 Pokemon.
+# Gen 1-2 Pokemon (1-251) have identical Internal and National IDs.
+# Gen 3 Pokemon (252-386) have scrambled Internal IDs (277-411).
+
+NATIONAL_TO_INTERNAL = {
+    252: 277, 253: 278, 254: 279, 255: 280, 256: 281, 257: 282, 258: 283, 259: 284,
+    260: 285, 261: 286, 262: 287, 263: 288, 264: 289, 265: 290, 266: 291, 267: 292,
+    268: 293, 269: 294, 270: 295, 271: 296, 272: 297, 273: 298, 274: 299, 275: 300,
+    276: 304, 277: 305, 278: 309, 279: 310, 280: 392, 281: 393, 282: 394, 283: 311,
+    284: 312, 285: 306, 286: 307, 287: 364, 288: 365, 289: 366, 290: 301, 291: 302,
+    292: 303, 293: 370, 294: 371, 295: 372, 296: 335, 297: 336, 298: 350, 299: 320,
+    300: 315, 301: 316, 302: 322, 303: 355, 304: 382, 305: 383, 306: 384, 307: 356,
+    308: 357, 309: 337, 310: 338, 311: 353, 312: 354, 313: 386, 314: 387, 315: 363,
+    316: 367, 317: 368, 318: 330, 319: 331, 320: 313, 321: 314, 322: 339, 323: 340,
+    324: 321, 325: 351, 326: 352, 327: 308, 328: 332, 329: 333, 330: 334, 331: 344,
+    332: 345, 333: 358, 334: 359, 335: 380, 336: 379, 337: 348, 338: 349, 339: 323,
+    340: 324, 341: 326, 342: 327, 343: 318, 344: 319, 345: 388, 346: 389, 347: 390,
+    348: 391, 349: 328, 350: 329, 351: 385, 352: 317, 353: 377, 354: 378, 355: 361,
+    356: 362, 357: 369, 358: 411, 359: 376, 360: 360, 361: 346, 362: 347, 363: 341,
+    364: 342, 365: 343, 366: 373, 367: 374, 368: 375, 369: 381, 370: 325, 371: 395,
+    372: 396, 373: 397, 374: 398, 375: 399, 376: 400, 377: 401, 378: 402, 379: 403,
+    380: 407, 381: 408, 382: 404, 383: 405, 384: 406, 385: 409, 386: 410,
+}
+
+
+def _convert_national_to_internal(national_id):
+    """
+    Convert National Dex ID to Internal species ID for Gen 3 saves.
+    
+    Args:
+        national_id: National Pokedex number (1-386)
+        
+    Returns:
+        Internal species ID used in Gen 3 save files
+    """
+    if national_id in NATIONAL_TO_INTERNAL:
+        return NATIONAL_TO_INTERNAL[national_id]
+    # Gen 1-2 Pokemon (1-251) use the same ID
+    if 1 <= national_id <= 251:
+        return national_id
+    return national_id  # Unknown, return as-is
+
+
+# =============================================================================
+# TRADE EVOLUTION DATA
+# =============================================================================
 # Format: species_id: {
 #     "evolves_to": target_species_id,
 #     "item_required": item_id or None,
 #     "item_name": display name or None
 # }
+# NOTE: All species IDs here are NATIONAL DEX numbers for clarity.
+# They are converted to Internal IDs when writing to save files.
 
 TRADE_EVOLUTIONS = {
     # Trade only (no item required)
@@ -487,8 +537,13 @@ def evolve_raw_pokemon_bytes(
     growth_position = order[0]
     growth_offset = growth_position * 12
 
+    # Convert National Dex ID to Internal species ID for Gen 3 save format
+    internal_species_id = _convert_national_to_internal(new_species_id)
+    
     # Modify species (first 2 bytes of Growth)
-    struct.pack_into("<H", decrypted, growth_offset, new_species_id)
+    struct.pack_into("<H", decrypted, growth_offset, internal_species_id)
+    
+    print(f"[TradeEvolution] Species: National {new_species_id} -> Internal {internal_species_id}")
 
     # Optionally clear held item (bytes 2-3 of Growth)
     if consume_item:
