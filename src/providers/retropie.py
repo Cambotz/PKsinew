@@ -286,10 +286,13 @@ class RetroPieProvider(EmulatorProvider):
             
             # RetroArch libretro cores use .srm extension, not .sav
             # Create a symlink with .srm extension pointing to the .sav file
+            # in the SAME directory as the save file
             rom_base = os.path.splitext(os.path.basename(rom_path))[0]
-            expected_save = os.path.join(os.path.dirname(rom_path), f"{rom_base}.srm")
+            save_dir = os.path.dirname(sav_path)  # Directory where the save file is
+            expected_save = os.path.join(save_dir, f"{rom_base}.srm")
             
             print(f"[RetroPieProvider] Creating .srm symlink for libretro:")
+            print(f"  Save directory: {save_dir}")
             print(f"  RetroArch expects: {expected_save}")
             print(f"  Actual save file: {sav_path}")
             
