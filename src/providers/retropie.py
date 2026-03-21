@@ -241,7 +241,11 @@ class RetroPieProvider(EmulatorProvider):
         if not os.path.exists(retroarch_config):
             retroarch_config = self.retroarch_global_cfg
         
-        # Create temporary override config for proper frame timing
+        # Determine save file path (same basename as ROM, but in saves directory)
+        rom_basename = os.path.splitext(os.path.basename(rom_path))[0]
+        save_path = os.path.join(self.saves_dir, f"{rom_basename}.sav")
+        
+        # Create temporary override config for proper frame timing + save paths
         override_config = "/dev/shm/retroarch_sinew_override.cfg"
         try:
             with open(override_config, "w") as f:
@@ -267,6 +271,15 @@ class RetroPieProvider(EmulatorProvider):
                 
                 # Fullscreen
                 f.write('video_fullscreen = "true"\n')
+                
+                # Save paths - point to PKsinew's save directory
+                f.write(f'savefile_directory = "{self.saves_dir}"\n')
+                f.write(f'savestate_directory = "{self.saves_dir}"\n')
+                f.write('savefiles_in_content_dir = "false"\n')
+                f.write('savestates_in_content_dir = "false"\n')
+                f.write('sort_savefiles_by_content_enable = "false"\n')
+                f.write('sort_savestates_by_content_enable = "false"\n')
+                
         except Exception as e:
             print(f"[RetroPieProvider] Warning: Could not write override config: {e}")
             override_config = None
@@ -282,6 +295,9 @@ class RetroPieProvider(EmulatorProvider):
             cmd.extend(["--appendconfig", override_config])
         
         cmd.append(rom_path)
+        
+        print(f"[RetroPieProvider] Save file expected at: {save_path}")
+        print(f"[RetroPieProvider] Saves directory: {self.saves_dir}")
         
         return cmd
 
