@@ -282,11 +282,37 @@ class RetroPieProvider(EmulatorProvider):
         
         # Log the save path if one was provided
         if sav_path:
-            print(f"[RetroPieProvider] Using save path: {sav_path}")
+            print(f"[RetroPieProvider] Save file: {sav_path}")
+            
+            # Check if save filename matches ROM filename
+            rom_base = os.path.splitext(os.path.basename(rom_path))[0]
+            sav_base = os.path.splitext(os.path.basename(sav_path))[0]
+            
+            if rom_base != sav_base:
+                # Filename mismatch - create symlink so RetroArch can find it
+                expected_save = os.path.join(os.path.dirname(sav_path), f"{rom_base}.sav")
+                print(f"[RetroPieProvider] Filename mismatch detected:")
+                print(f"  ROM base: {rom_base}")
+                print(f"  Save base: {sav_base}")
+                print(f"  Creating symlink: {expected_save} -> {sav_path}")
+                
+                try:
+                    # Remove existing symlink/file if it exists
+                    if os.path.islink(expected_save):
+                        os.remove(expected_save)
+                    elif os.path.exists(expected_save):
+                        print(f"[RetroPieProvider] Warning: {expected_save} exists and is not a symlink - not overwriting")
+                    else:
+                        # Create symlink
+                        os.symlink(os.path.basename(sav_path), expected_save)
+                        print(f"[RetroPieProvider] ✓ Symlink created successfully")
+                except Exception as e:
+                    print(f"[RetroPieProvider] Failed to create symlink: {e}")
         else:
             print(f"[RetroPieProvider] No save path provided - RetroArch will use default location")
         
-        # Create temporary override config for proper frame timing + save paths
+        # Create temporary override config ONLY for audio/video fixes
+        # DO NOT override save paths - let RetroArch use its configured defaults
         override_config = "/dev/shm/retroarch_sinew_override.cfg"
         print(f"[RetroPieProvider] Creating override config at: {override_config}")
         try:
@@ -314,33 +340,11 @@ class RetroPieProvider(EmulatorProvider):
                 # Fullscreen
                 f.write('video_fullscreen = "true"\n')
                 
-                # Only override save path if a specific save file was provided
-                # Otherwise, let RetroArch use its configured default behavior
-                if sav_path:
-                    # Use both savefile_path (specific file) and savefile_directory (fallback)
-                    save_dir = os.path.dirname(sav_path)
-                    f.write(f'savefile_path = "{sav_path}"\n')
-                    f.write(f'savefile_directory = "{save_dir}"\n')
-                    f.write(f'savestate_directory = "{save_dir}"\n')
-                    print(f"[RetroPieProvider] ✓ Wrote savefile_path override: {sav_path}")
-                    print(f"[RetroPieProvider] ✓ Wrote savefile_directory: {save_dir}")
-                else:
-                    print(f"[RetroPieProvider] ✗ No sav_path provided - using RetroArch defaults")
+                print(f"[RetroPieProvider] Override config written (audio/video only, no save overrides)")
                 
         except Exception as exc:
             print(f"[RetroPieProvider] Warning: Could not write override config: {exc}")
             override_config = None
-        
-        # Debug: read back what we wrote
-        if override_config and os.path.exists(override_config):
-            print(f"[RetroPieProvider] Override config contents:")
-            try:
-                with open(override_config, 'r') as f:
-                    for line in f:
-                        if 'savefile' in line.lower():
-                            print(f"  {line.strip()}")
-            except Exception:
-                pass
         
         # Build command
         cmd = [
