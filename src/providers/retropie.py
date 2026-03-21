@@ -25,6 +25,7 @@ class RetroPieProvider(EmulatorProvider):
 
     active = True
     is_desktop_retropie = True  # Tells EmulatorManager to quit display for RetroArch
+    is_script_launcher = True  # Skip emulator_session save path injection (we handle it internally)
     claimed_distros: set = set()  # Probe-based detection — RetroPie runs on 'debian' (Pi OS) or 'raspbian' (older)
 
     @property
@@ -275,9 +276,13 @@ class RetroPieProvider(EmulatorProvider):
         if not os.path.exists(retroarch_config):
             retroarch_config = self.retroarch_global_cfg
         
-        # Determine save file path (same basename as ROM, but in saves directory)
-        rom_basename = os.path.splitext(os.path.basename(rom_path))[0]
-        save_path = os.path.join(self.saves_dir, f"{rom_basename}.sav")
+        # If save_path wasn't provided, derive it from ROM basename
+        if not save_path:
+            rom_basename = os.path.splitext(os.path.basename(rom_path))[0]
+            save_path = os.path.join(self.saves_dir, f"{rom_basename}.sav")
+            print(f"[RetroPieProvider] Derived save path: {save_path}")
+        else:
+            print(f"[RetroPieProvider] Using provided save path: {save_path}")
         
         # Create temporary override config for proper frame timing + save paths
         override_config = "/dev/shm/retroarch_sinew_override.cfg"
@@ -307,9 +312,9 @@ class RetroPieProvider(EmulatorProvider):
                 f.write('video_fullscreen = "true"\n')
                 
                 # If a specific save_path was provided, force RetroArch to use it
-                if save_path and os.path.exists(save_path):
+                if save_path:
                     f.write(f'savefile_path = "{save_path}"\n')
-                    print(f"[RetroPieProvider] Forcing save file: {save_path}")
+                    print(f"[RetroPieProvider] Setting save file path: {save_path}")
                 
                 # Save paths - point to PKsinew's save directory
                 f.write(f'savefile_directory = "{self.saves_dir}"\n')
