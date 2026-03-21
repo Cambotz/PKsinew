@@ -181,6 +181,7 @@ class RetroPieProvider(EmulatorProvider):
         
         RetroPie can store saves in several locations:
         - Same directory as ROMs (savefiles_in_content_dir = true)
+        - Per-core subdirectory (e.g., roms/gba/mGBA/)
         - Custom directory (savefile_directory setting)
         - Default RetroArch saves directory (~/.config/retroarch/saves/)
         
@@ -193,7 +194,14 @@ class RetroPieProvider(EmulatorProvider):
             print(f"[RetroPieProvider] Saves in ROM directory (savefiles_in_content_dir=true)")
             return self.roms_dir
         
-        # Get the base save directory
+        # Check for per-core subdirectory (common RetroPie setup)
+        # mGBA saves often go to roms/gba/mGBA/
+        mgba_subdir = os.path.join(self.roms_dir, "mGBA")
+        if os.path.exists(mgba_subdir):
+            print(f"[RetroPieProvider] Found mGBA save subdirectory: {mgba_subdir}")
+            return mgba_subdir
+        
+        # Get the base save directory from config
         base_save_dir = self._get_retroarch_setting("savefile_directory")
         
         # Handle default or empty values - RetroArch's actual default is ~/.config/retroarch/saves
