@@ -344,6 +344,11 @@ class RetroPieProvider(EmulatorProvider):
             "--config", retroarch_config,
         ]
         
+        # Add save path as command-line override (higher priority than appendconfig)
+        if sav_path:
+            cmd.extend(["--savefile", sav_path])
+            print(f"[RetroPieProvider] Added --savefile command-line override")
+        
         if override_config:
             cmd.extend(["--appendconfig", override_config])
         
