@@ -181,8 +181,9 @@ class RetroPieProvider(EmulatorProvider):
         
         RetroPie can store saves in several locations:
         - Same directory as ROMs (savefiles_in_content_dir = true)
+        - Per-core subdirectory (e.g., roms/gba/mGBA/)
         - Custom directory (savefile_directory setting)
-        - Per-system subdirectories (sort_savefiles_by_content_enable = true)
+        - Default RetroArch saves directory (~/.config/retroarch/saves/)
         
         Returns:
             str: Absolute path to saves directory
@@ -190,14 +191,24 @@ class RetroPieProvider(EmulatorProvider):
         # Check if saves are in the same directory as ROMs
         in_content_dir = self._get_retroarch_setting("savefiles_in_content_dir")
         if in_content_dir == "true":
+            print(f"[RetroPieProvider] Saves in ROM directory (savefiles_in_content_dir=true)")
             return self.roms_dir
         
-        # Get the base save directory
+        # Check for per-core subdirectory (common RetroPie setup)
+        # mGBA saves often go to roms/gba/mGBA/
+        mgba_subdir = os.path.join(self.roms_dir, "mGBA")
+        if os.path.exists(mgba_subdir):
+            print(f"[RetroPieProvider] Found mGBA save subdirectory: {mgba_subdir}")
+            return mgba_subdir
+        
+        # Get the base save directory from config
         base_save_dir = self._get_retroarch_setting("savefile_directory")
         
-        # Handle default or empty values
+        # Handle default or empty values - RetroArch's actual default is ~/.config/retroarch/saves
         if not base_save_dir or base_save_dir.lower() == "default":
-            return self.roms_dir
+            retroarch_default = os.path.expanduser("~/.config/retroarch/saves")
+            print(f"[RetroPieProvider] Using RetroArch default save directory: {retroarch_default}")
+            return retroarch_default
         
         # Expand home tilde if present
         base_save_dir = os.path.expanduser(base_save_dir)
@@ -205,8 +216,10 @@ class RetroPieProvider(EmulatorProvider):
         # Check for per-system subdirectories
         sort_by_content = self._get_retroarch_setting("sort_savefiles_by_content_enable")
         if sort_by_content == "true":
+            print(f"[RetroPieProvider] Saves in system subdir: {base_save_dir}/gba")
             return os.path.join(base_save_dir, "gba")
         
+        print(f"[RetroPieProvider] Saves in custom directory: {base_save_dir}")
         return base_save_dir
 
     def _get_system_from_rom_path(self, rom_path):
@@ -282,37 +295,33 @@ class RetroPieProvider(EmulatorProvider):
         
         # Log the save path if one was provided
         if sav_path:
-            print(f"[RetroPieProvider] Save file: {sav_path}")
+            print(f"[RetroPieProvider] Save file detected: {sav_path}")
             
-            # RetroArch libretro cores use .srm extension, not .sav
-            # Create a symlink with .srm extension pointing to the .sav file
-            # in the SAME directory as the save file
-            rom_base = os.path.splitext(os.path.basename(rom_path))[0]
-            save_dir = os.path.dirname(sav_path)  # Directory where the save file is
-            expected_save = os.path.join(save_dir, f"{rom_base}.srm")
-            
-            print(f"[RetroPieProvider] Creating .srm symlink for libretro:")
-            print(f"  Save directory: {save_dir}")
-            print(f"  RetroArch expects: {expected_save}")
-            print(f"  Actual save file: {sav_path}")
-            
-            try:
-                # Remove existing symlink/file if it's a symlink
-                if os.path.islink(expected_save):
-                    os.remove(expected_save)
-                    print(f"[RetroPieProvider] Removed old symlink")
-                elif os.path.exists(expected_save):
-                    print(f"[RetroPieProvider] Warning: {expected_save} exists and is not a symlink")
-                    print(f"[RetroPieProvider] This might be a real save file - not overwriting")
+            # RetroArch mGBA core uses .srm extension
+            # Create a .srm symlink in the mGBA save directory if the save is .sav
+            if sav_path.endswith('.sav'):
+                rom_base = os.path.splitext(os.path.basename(rom_path))[0]
+                srm_path = os.path.join(self.saves_dir, f"{rom_base}.srm")
                 
-                if not os.path.exists(expected_save):
-                    # Create symlink (relative path works better)
-                    os.symlink(os.path.basename(sav_path), expected_save)
-                    print(f"[RetroPieProvider] ✓ Created {os.path.basename(expected_save)} -> {os.path.basename(sav_path)}")
-            except Exception as e:
-                print(f"[RetroPieProvider] Failed to create .srm symlink: {e}")
+                print(f"[RetroPieProvider] Creating .srm symlink:")
+                print(f"  Location: {srm_path}")
+                print(f"  Target: {sav_path}")
+                
+                try:
+                    # Remove old symlink if it exists
+                    if os.path.islink(srm_path):
+                        os.remove(srm_path)
+                    elif os.path.exists(srm_path):
+                        print(f"[RetroPieProvider] Warning: {srm_path} exists and is not a symlink")
+                    
+                    if not os.path.exists(srm_path):
+                        # Create symlink (absolute path since might be in different dirs)
+                        os.symlink(sav_path, srm_path)
+                        print(f"[RetroPieProvider] ✓ Symlink created")
+                except Exception as e:
+                    print(f"[RetroPieProvider] Failed to create symlink: {e}")
         else:
-            print(f"[RetroPieProvider] No save path provided - RetroArch will use default location")
+            print(f"[RetroPieProvider] No save file - will start new game")
         
         # Create temporary override config ONLY for audio/video fixes
         # DO NOT override save paths - let RetroArch use its configured defaults
@@ -343,7 +352,7 @@ class RetroPieProvider(EmulatorProvider):
                 # Fullscreen
                 f.write('video_fullscreen = "true"\n')
                 
-                print(f"[RetroPieProvider] Override config written (audio/video only, no save overrides)")
+                print(f"[RetroPieProvider] Override config written (audio/video only)")
                 
         except Exception as exc:
             print(f"[RetroPieProvider] Warning: Could not write override config: {exc}")
