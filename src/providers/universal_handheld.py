@@ -211,13 +211,12 @@ class HandheldProvider(EmulatorProvider):
                 config_append = f"--appendconfig {shlex.quote(core_override)} "
                 print(f"[HandheldProvider] Using core override: {core_override}")
             
-            # Use absolute path, set HOME, and configure video driver for handheld
+            # Full command with environment setup for KMS/DRM
+            # Set SDL to use kmsdrm video driver (critical for handheld without X11)
             cmd = (
                 f"HOME=/home/ark "
+                f"SDL_VIDEODRIVER=kmsdrm "
                 f"/usr/bin/retroarch "
-                f"--verbose "
-                f"--video=kmsdrm "
-                f"--audio=sdl2 "
                 f"{config_append}"
                 f"-L /home/ark/.config/retroarch/cores/{core_name}_libretro.so "
                 f"{shlex.quote(rom_path)}"
