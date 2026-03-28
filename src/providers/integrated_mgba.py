@@ -2410,36 +2410,20 @@ class _MgbaEmulator:
         except Exception as e:
             print(f"[MgbaEmulator] Frame processing error: {e}")
 
-    def get_surface(self, scale=None):
+    def get_surface(self, scale=1):
         """
         Get the current frame as a pygame Surface.
 
         Args:
-            scale: Scale factor (1 = native 240x160, None = auto-detect)
-                   On handhelds, auto-scales to 480x320 for direct rendering
+            scale: Scale factor (1 = native 240x160)
 
         Returns:
             pygame.Surface
         """
-        # Auto-detect scale for handhelds
-        if scale is None:
-            # Check if we're on a handheld - if so, scale to 2x (480x320)
-            # This perfectly fills the 640x480 screen height and is faster than 3x
-            try:
-                from scaler import _is_embedded_handheld
-                if _is_embedded_handheld():
-                    scale = 2  # 240x2=480, 160x2=320
-            except:
-                scale = 1
-        
-        if scale is None:
-            scale = 1
-        
         surf = pygame.surfarray.make_surface(self.framebuffer.swapaxes(0, 1))
 
         if scale != 1:
             new_size = (self.WIDTH * scale, self.HEIGHT * scale)
-            # Use fast nearest-neighbor scaling
             surf = pygame.transform.scale(surf, new_size)
 
         return surf
@@ -2879,17 +2863,8 @@ class IntegratedMgbaProvider(EmulatorProvider):
         game_screen._emulator_pause_combo_released = True
         game_screen._stop_menu_music()
 
-        # On handhelds: keep virtual resolution at 640x480 and let the emulator
-        # scale its output directly (bypass scaler overhead)
-        # On desktop: set virtual resolution to 240x160 for hardware scaling
         if game_screen.scaler:
-            if hasattr(game_screen.scaler, 'is_handheld') and game_screen.scaler.is_handheld:
-                # Handheld: emulator will render at 640x480 (pre-scaled)
-                # Don't change virtual resolution - keep it at 640x480
-                pass
-            else:
-                # Desktop: use native emulator resolution with hardware scaling
-                game_screen.scaler.set_virtual_resolution(240, 160)
+            game_screen.scaler.set_virtual_resolution(240, 160)
 
         import os as _os
         print(f"[IntegratedMgba] Launched: {_os.path.basename(rom_path)}")

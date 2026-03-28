@@ -838,19 +838,8 @@ class EmulatorSessionMixin:
 
     def _draw_emulator(self, surf):
         """Blit the emulator frame; draw a pause overlay when mGBA is paused."""
-        # On handhelds: get_surface() auto-scales to 480x320 (2x from 240x160)
-        # On desktop: get_surface() returns native 240x160 (scaler handles it)
-        emu_surf = self.emulator.get_surface()
-        
-        # On handhelds with 640x480 screen, center the 480x320 surface
-        if self.scaler and hasattr(self.scaler, 'is_handheld') and self.scaler.is_handheld:
-            # Center both horizontally and vertically
-            offset_x = (640 - 480) // 2  # 80px padding on each side
-            offset_y = (480 - 320) // 2  # 80px padding on top/bottom
-            surf.blit(emu_surf, (offset_x, offset_y))
-        else:
-            # Desktop: blit at origin
-            surf.blit(emu_surf, (0, 0))
+        emu_surf = self.emulator.get_surface(scale=1)
+        surf.blit(emu_surf, (0, 0))
 
         if self.emulator.paused:
             sw, sh = surf.get_size()
