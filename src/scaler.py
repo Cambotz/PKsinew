@@ -534,7 +534,9 @@ class Scaler:
         if display_surface is None:
             display_surface = self.window
 
-        if self.integer_scaling:
+        # On handhelds, ALWAYS use fast nearest-neighbor scaling (transform.scale)
+        # instead of smoothscale - it's much faster on ARM and pixel art looks better
+        if self.integer_scaling or self.is_handheld:
             scaled_surface = pygame.transform.scale(
                 self.virtual_surface, (self.scaled_width, self.scaled_height)
             )
