@@ -189,24 +189,27 @@ class HandheldProvider(EmulatorProvider):
 
         # ArkOS / dARKos - similar approach to Rocknix
         if self.strategy == "arkos":
-            # Get controller GUID
-            guid = self.cache.get("p1_guid")
-            if not guid:
-                guid = self._get_joystick_guid()
-                if guid:
-                    self._update_sinew_cache("p1_guid", guid)
-
-            if not guid:
-                print("[HandheldProvider] ABORT: No Controller GUID found.")
-                return None
-
-            controller_str = f" -p1index 0 -p1guid {guid} "
-
-            # ArkOS uses /usr/bin/Start\ <system>.sh launcher scripts
+        # ArkOS / dARKos - call retroarch directly
+        if self.strategy == "arkos":
+            # Map system to RetroArch core
+            core_map = {
+                "gba": "mgba",
+                "gbc": "gambatte",
+                "gb": "gambatte",
+                "nds": "desmume",
+                "nes": "fceumm",
+                "snes": "snes9x",
+                "n64": "mupen64plus_next",
+                "psx": "pcsx_rearmed"
+            }
+            core_name = core_map.get(system, "mgba")
+            
+            # Use absolute path and set HOME for config access
             cmd = (
-                f"/usr/bin/Start\\ {system}.sh "
-                f"{shlex.quote(rom_path)} "
-                f"--controllers={shlex.quote(controller_str)}"
+                f"HOME=/home/ark "
+                f"/usr/bin/retroarch "
+                f"-L /home/ark/.config/retroarch/cores/{core_name}_libretro.so "
+                f"{shlex.quote(rom_path)}"
             )
             print(f"[HandheldProvider] ArkOS command: {cmd}")
             return ["sh", "-c", cmd]
