@@ -269,22 +269,30 @@ class HandheldProvider(EmulatorProvider):
                         os.rename(srm_path, backup_path)
                         print(f"[HandheldProvider] Backed up existing .srm to {backup_path}")
                     
-                    # Create symlink
-                    os.symlink(sav_path, srm_path)
-                    print(f"[HandheldProvider] ✓ Symlink created")
+                    # Try symlink first
+                    try:
+                        os.symlink(sav_path, srm_path)
+                        print(f"[HandheldProvider] ✓ Symlink created")
+                    except (OSError, PermissionError) as e:
+                        # If symlink fails, copy the file instead
+                        print(f"[HandheldProvider] Symlink failed ({e}), copying file instead")
+                        import shutil
+                        shutil.copy2(sav_path, srm_path)
+                        print(f"[HandheldProvider] ✓ Save file copied to .srm")
                 except Exception as e:
-                    print(f"[HandheldProvider] Failed to create symlink: {e}")
+                    print(f"[HandheldProvider] Failed to create .srm: {e}")
             
             # Check for core override config
             config_dir = "/home/ark/.config/retroarch/config"
             core_override = os.path.join(config_dir, f"{core_name}", f"{core_name}.cfg")
             
-            # Create a minimal override config for KMS/DRM operation
+            # Create a minimal override config for this device
             override_config = f"/tmp/retroarch_sinew_{core_name}.cfg"
             try:
                 with open(override_config, "w") as f:
-                    # Video driver must be set
-                    f.write('video_driver = "kmsdrm"\n')
+                    # Use 'oga' video driver (specific to OGA/RG351 devices)
+                    # Fallback chain: oga -> gl -> sdl2
+                    f.write('video_driver = "oga"\n')
                     # Audio driver
                     f.write('audio_driver = "sdl2"\n')
                     # VSync for frame pacing
