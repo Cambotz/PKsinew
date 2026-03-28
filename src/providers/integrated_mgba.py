@@ -2416,20 +2416,19 @@ class _MgbaEmulator:
 
         Args:
             scale: Scale factor (1 = native 240x160, None = auto-detect)
-                   On handhelds, auto-scales to 640x480 for direct rendering
+                   On handhelds, auto-scales to 480x320 for direct rendering
 
         Returns:
             pygame.Surface
         """
         # Auto-detect scale for handhelds
         if scale is None:
-            # Check if we're on a handheld - if so, scale to match typical screen (640x480)
-            # This bypasses the scaler's software scaling overhead
+            # Check if we're on a handheld - if so, scale to 2x (480x320)
+            # This perfectly fills the 640x480 screen height and is faster than 3x
             try:
                 from scaler import _is_embedded_handheld
                 if _is_embedded_handheld():
-                    # Scale to 640x480 (2.67x from 240x160, rounded to integer 3x for speed)
-                    scale = 3  # 240x3=720, 160x3=480 - will be clipped to 640x480
+                    scale = 2  # 240x2=480, 160x2=320
             except:
                 scale = 1
         
