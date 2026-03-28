@@ -489,6 +489,15 @@ class _MgbaEmulator:
         self._frame_meta = {"width": 0, "height": 0, "pitch": 0}
         self._frame_ready = False
 
+        # Frameskip for low-powered devices (e.g., ArkOS handhelds)
+        # 33% threshold means: skip 1 out of every 3 frames (render 2, skip 1)
+        self._frameskip_enabled = self._detect_low_power_device()
+        self._frameskip_counter = 0
+        self._frameskip_threshold = 0.33  # Skip 33% of frames
+        if self._frameskip_enabled:
+            print(f"[MgbaEmulator] Frameskip enabled: {self._frameskip_threshold*100:.0f}% threshold")
+
+
         # Audio buffer and queue depth tuned per platform
         _audio_buf, _audio_queue_depth = get_audio_settings()
         self.audio_queue = deque(maxlen=_audio_queue_depth)
@@ -860,6 +869,45 @@ class _MgbaEmulator:
         self.core_name = sys_info.library_name.decode()
         self.core_version = sys_info.library_version.decode()
         print(f"[MgbaEmulator] Loaded {self.core_name} v{self.core_version}")
+
+    def _detect_low_power_device(self):
+        """
+        Detect if running on a low-power handheld device that needs frameskip.
+        
+        Returns:
+            bool: True if frameskip should be enabled
+        """
+        # Check for ArkOS/dARKos markers
+        if os.path.exists("/usr/bin/emulationstation"):
+            return True
+        
+        # Check for other embedded CFW markers
+        if os.path.exists("/opt/system/Advanced"):  # ArkOS
+            return True
+        
+        # Check for ARM SBCs with low CPU performance
+        try:
+            machine = platform.machine().lower()
+            if "arm" in machine or "aarch64" in machine:
+                # Check if it's a low-power ARM device (not M1/M2 Mac)
+                if platform.system().lower() == "linux":
+                    # Read CPU info to detect low-end ARM chips
+                    try:
+                        with open("/proc/cpuinfo", "r") as f:
+                            cpuinfo = f.read().lower()
+                            # Rockchip RK3326, RK3566 common in handhelds
+                            if any(chip in cpuinfo for chip in ["rk3326", "rk3566", "rk3399"]):
+                                return True
+                            # Allwinner H3/H5 in some handhelds
+                            if any(chip in cpuinfo for chip in ["allwinner", "sun50i"]):
+                                return True
+                    except:
+                        pass
+        except:
+            pass
+        
+        return False
+
 
     def _create_callbacks(self):
         """Create and store libretro callbacks."""
@@ -1833,11 +1881,22 @@ class _MgbaEmulator:
         # Poll fast-forward toggle/hold inputs (keyboard + controller)
         self._poll_ff_inputs()
 
+        # Frameskip logic for low-powered devices
+        # Skip rendering based on threshold (e.g., 33% = skip 1 out of 3 frames)
+        should_render = True
+        if self._frameskip_enabled and self._fast_forward_multiplier == 1:
+            # Only apply frameskip at normal speed, not during fast-forward
+            self._frameskip_counter += 1
+            if (self._frameskip_counter % 3) == 0:
+                should_render = False  # Skip this frame
+
         multiplier = self._fast_forward_multiplier
         for i in range(multiplier):
             self.lib.retro_run()
-        # Process video once per display frame regardless of multiplier
-        self._process_video()
+        # Process video once per display frame (unless frameskipped)
+        if should_render:
+            self._process_video()
+
 
     def _poll_ff_inputs(self):
         """Poll keyboard and controller for fast-forward toggle and hold inputs.
