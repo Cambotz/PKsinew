@@ -121,6 +121,75 @@ def find_save_file(rom_base, save_dir):
     return default_path
 
 
+def _find_newest_non_srm_save(rom_base, save_dir):
+    """
+    Find the newest save file for this ROM, EXCLUDING .srm files.
+    
+    Used to migrate data TO .srm for RetroArch compatibility.
+    Returns None if no non-.srm saves exist.
+    """
+    if not save_dir or not os.path.exists(save_dir):
+        return None
+    
+    candidates = []
+    
+    # Check all formats EXCEPT .srm
+    for ext in ('.sav', '.sram', '.sa1', '.sa2', '.sa3', '.dsv'):
+        path = os.path.join(save_dir, f"{rom_base}{ext}")
+        if os.path.exists(path):
+            mtime = os.path.getmtime(path)
+            candidates.append((mtime, path))
+    
+    if not candidates:
+        return None
+    
+    # Return newest
+    candidates.sort(reverse=True)
+    return candidates[0][1]
+
+
+def ensure_external_save_format(rom_path, save_dir):
+    """
+    Ensure RetroArch has the .srm file it expects.
+    
+    RetroArch cores always use: save_dir/rom_basename.srm
+    If a newer non-.srm save exists, copy it to .srm once.
+    This is ONE-WAY ONLY - never reverse.
+    
+    Args:
+        rom_path: Path to ROM file
+        save_dir: Directory containing saves
+    """
+    if not save_dir or not os.path.exists(save_dir):
+        return
+    
+    rom_base = os.path.splitext(os.path.basename(rom_path))[0]
+    target = os.path.join(save_dir, f"{rom_base}.srm")
+    
+    # Find newest non-.srm save
+    source = _find_newest_non_srm_save(rom_base, save_dir)
+    
+    # No source → nothing to migrate
+    if not source:
+        return
+    
+    # Target doesn't exist → copy
+    if not os.path.exists(target):
+        import shutil
+        shutil.copy2(source, target)
+        print(f"[Sinew] Migrated {os.path.basename(source)} → .srm")
+        return
+    
+    # Both exist → copy only if source is newer
+    source_mtime = os.path.getmtime(source)
+    target_mtime = os.path.getmtime(target)
+    
+    if source_mtime > target_mtime:
+        import shutil
+        shutil.copy2(source, target)
+        print(f"[Sinew] Updated .srm from newer {os.path.basename(source)}")
+
+
 class EmulatorSessionMixin:
     """
     Mixin providing game session lifecycle management for GameScreen.
@@ -265,6 +334,13 @@ class EmulatorSessionMixin:
         print(f"[Sinew] Launching {type(provider).__name__} — ROM: {os.path.basename(rom_path)}")
         if sav_path:
             print(f"[Sinew] Save: {sav_path}")
+        
+        # Ensure external providers have .srm format
+        # RetroArch cores always use rom_basename.srm and cannot be overridden
+        if not getattr(provider, 'is_integrated', False):
+            save_dir = getattr(provider, 'saves_dir', None)
+            if save_dir:
+                ensure_external_save_format(rom_path, save_dir)
 
         # Inject save path for direct RetroArch providers (not script launchers)
         _sinew_save_cfg = None
