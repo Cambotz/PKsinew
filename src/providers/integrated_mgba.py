@@ -513,8 +513,9 @@ class _MgbaEmulator:
             if 'audio_latency' in self._retroarch_settings:
                 latency_ms = self._retroarch_settings['audio_latency']
                 # Buffer size in samples = (sample_rate * latency_ms) / 1000
+                # GBA sample rate is always 32768 Hz
                 # Round to nearest power of 2 for efficiency
-                calculated_buffer = int((self.sample_rate * latency_ms) / 1000)
+                calculated_buffer = int((32768 * latency_ms) / 1000)
                 # Round to nearest power of 2
                 import math
                 power = round(math.log2(calculated_buffer))

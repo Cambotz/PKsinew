@@ -297,6 +297,8 @@ class HandheldProvider(EmulatorProvider):
                     f.write('audio_driver = "sdl2"\n')
                     # VSync for frame pacing
                     f.write('video_vsync = "true"\n')
+                    # Rotation: 0 = normal (landscape)
+                    f.write('video_rotation = "0"\n')
                     # Don't show menu on start
                     f.write('menu_driver = "null"\n')
                 print(f"[HandheldProvider] Created override config: {override_config}")
