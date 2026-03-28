@@ -42,14 +42,25 @@ from save_data_manager import get_manager
 
 
 # Supported save file extensions
-SAVE_EXTENSIONS = ['.sav', '.srm', '.sram', '.sa1', '.sa2', '.sa3', '.dsv']
+SAVE_EXTENSIONS = (
+    '.sav', '.srm', '.sram', '.sa1', '.sa2', '.sa3', '.dsv'
+)
 
 
 def find_save_file(rom_base, save_dir):
     """
-    Find the most recent save file for this ROM across all supported formats.
-    If multiple saves exist, the newest (by modification time) is returned.
-    If no save exists, returns default .sav path.
+    Select the correct save file for a ROM using a deterministic strategy.
+    
+    Rules:
+    1. Scan all supported extensions
+    2. Select file with newest modification time (mtime)
+    3. If mtimes are equal, apply tie-breaker priority (.srm > .sav > others)
+    4. If no files exist, return default .sav path
+    
+    This function is:
+    - Read-only (never modifies files)
+    - Deterministic (same inputs = same output)
+    - Format-agnostic (works with any save format)
     
     Args:
         rom_base: ROM filename without extension (e.g., "Pokemon_Emerald")
@@ -68,7 +79,7 @@ def find_save_file(rom_base, save_dir):
     
     candidates = []
     
-    # Find all existing save files
+    # Collect all existing save files
     for ext in SAVE_EXTENSIONS:
         path = os.path.join(save_dir, f"{rom_base}{ext}")
         if os.path.exists(path):
@@ -76,18 +87,33 @@ def find_save_file(rom_base, save_dir):
             candidates.append((mtime, path))
     
     if candidates:
-        # Sort by modification time (newest first)
-        candidates.sort(reverse=True)
+        # Deterministic sort:
+        # 1. Newest mtime first
+        # 2. Tie-breaker: prefer .srm (RetroArch standard), then .sav, then others
+        def sort_key(item):
+            mtime, path = item
+            ext = os.path.splitext(path)[1].lower()
+            
+            # Priority for tie-breaking when mtimes are equal
+            priority = {
+                '.srm': 3,  # RetroArch standard
+                '.sav': 2   # PKsinew default
+            }.get(ext, 1)  # All others: 1
+            
+            # Sort by (mtime DESC, priority DESC)
+            return (mtime, priority)
         
-        # Log all candidates
+        candidates.sort(key=sort_key, reverse=True)
+        
+        # Log all candidates when multiple exist
         if len(candidates) > 1:
-            print(f"[Sinew] Found {len(candidates)} save files for {rom_base}:")
+            print(f"[Sinew] Found {len(candidates)} save file(s) for {rom_base}:")
             for mtime, path in candidates:
-                print(f"  - {os.path.basename(path)} (modified: {mtime})")
+                print(f"  - {os.path.basename(path)} (mtime={mtime})")
         
-        newest = candidates[0][1]
-        print(f"[Sinew] Using newest save: {newest}")
-        return newest
+        selected = candidates[0][1]
+        print(f"[Sinew] Using save: {selected}")
+        return selected
     
     # No save found - return default .sav path (will be created on first save)
     default_path = os.path.join(save_dir, f"{rom_base}.sav")
