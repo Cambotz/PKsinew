@@ -187,8 +187,6 @@ class HandheldProvider(EmulatorProvider):
         print(f"[HandheldProvider] System detected: {system}")
         print(f"[HandheldProvider] ROM path: {rom_path}")
 
-        # ArkOS / dARKos - similar approach to Rocknix
-        if self.strategy == "arkos":
         # ArkOS / dARKos - call retroarch directly
         if self.strategy == "arkos":
             # Map system to RetroArch core
