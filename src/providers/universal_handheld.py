@@ -162,14 +162,15 @@ class HandheldProvider(EmulatorProvider):
         from the ROM's parent directory path.
         """
         system = self._get_system_from_rom_path(rom_path)
+        print(f"[HandheldProvider] System detected: {system}")
+        print(f"[HandheldProvider] ROM path: {rom_path}")
 
-        # ArkOS
+        # ArkOS / dARKos
         if self.strategy == "arkos":
-            cmd = (
-                f"/usr/bin/emulatorlauncher "
-                f"{system} "
-                f"{shlex.quote(rom_path)}"
-            )
+            # ArkOS uses /opt/system/Advanced/Switch to <game> script
+            # Format: /opt/system/Advanced/Switch\ to\ <system>.sh "<rom_path>"
+            cmd = f"/opt/system/Advanced/Switch\\ to\\ {system}.sh {shlex.quote(rom_path)}"
+            print(f"[HandheldProvider] ArkOS command: {cmd}")
             return ["sh", "-c", cmd]
 
         # AmberELEC
@@ -179,6 +180,7 @@ class HandheldProvider(EmulatorProvider):
                 f"{system} "
                 f"{shlex.quote(rom_path)}"
             )
+            print(f"[HandheldProvider] AmberELEC command: {cmd}")
             return ["sh", "-c", cmd]
 
         # muOS
@@ -188,6 +190,7 @@ class HandheldProvider(EmulatorProvider):
                 f"{system} "
                 f"{shlex.quote(rom_path)}"
             )
+            print(f"[HandheldProvider] muOS command: {cmd}")
             return ["sh", "-c", cmd]
 
         return None
