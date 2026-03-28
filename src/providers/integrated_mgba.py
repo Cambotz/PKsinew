@@ -2827,6 +2827,23 @@ class IntegratedMgbaProvider(EmulatorProvider):
                     ctypes.CDLL(MGBA_CORE_PATH)
                 except OSError:
                     available = False
+                    
+            # Disable integrated emulator on slow handheld CPUs (RK3326, Allwinner H700)
+            # These devices should use external RetroArch with GPU acceleration
+            if available:
+                try:
+                    with open("/proc/device-tree/compatible", "rb") as f:
+                        compat = f.read().lower()
+                        slow_chips = [
+                            b"rk3326",      # RG351MP, RG351V (too slow for software scaling)
+                            b"allwinner,h700",  # Some budget handhelds
+                        ]
+                        if any(chip in compat for chip in slow_chips):
+                            print(f"[IntegratedMgba] Slow CPU detected - integrated emulator disabled, use external RetroArch")
+                            available = False
+                except (FileNotFoundError, PermissionError):
+                    pass
+                    
         except Exception:
             available = False
         print(f"[IntegratedMgba] mGBA core {'available' if available else 'unavailable'}.")
