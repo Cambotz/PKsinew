@@ -253,7 +253,7 @@ class HandheldProvider(EmulatorProvider):
             core_name = core_map.get(system, "mgba")
             
             # RetroArch mGBA core uses .srm extension
-            # Create a .srm symlink in the save directory if the save is .sav
+            # Sync .sav and .srm bidirectionally - newer file wins
             if sav_path and sav_path.endswith('.sav'):
                 rom_base = os.path.splitext(os.path.basename(rom_path))[0]
                 srm_path = os.path.join(os.path.dirname(sav_path), f"{rom_base}.srm")
@@ -262,33 +262,55 @@ class HandheldProvider(EmulatorProvider):
                 self._last_sav_path = sav_path
                 self._last_srm_path = srm_path
                 
-                print(f"[HandheldProvider] Creating .srm symlink:")
-                print(f"  Location: {srm_path}")
-                print(f"  Target: {sav_path}")
+                print(f"[HandheldProvider] Syncing save files:")
+                print(f"  .sav: {sav_path}")
+                print(f"  .srm: {srm_path}")
                 
                 try:
-                    # Remove old file/symlink if it exists
-                    if os.path.islink(srm_path):
-                        os.remove(srm_path)
-                        print(f"[HandheldProvider] Removed old symlink")
-                    elif os.path.exists(srm_path):
-                        # If it's a real file, back it up before replacing
-                        backup_path = f"{srm_path}.backup"
-                        os.rename(srm_path, backup_path)
-                        print(f"[HandheldProvider] Backed up existing .srm to {backup_path}")
+                    import shutil
                     
-                    # Try symlink first
-                    try:
-                        os.symlink(sav_path, srm_path)
-                        print(f"[HandheldProvider] ✓ Symlink created")
-                    except (OSError, PermissionError) as e:
-                        # If symlink fails, copy the file instead
-                        print(f"[HandheldProvider] Symlink failed ({e}), copying file instead")
-                        import shutil
+                    sav_exists = os.path.exists(sav_path)
+                    srm_exists = os.path.exists(srm_path) and not os.path.islink(srm_path)
+                    
+                    if sav_exists and srm_exists:
+                        # Both exist - compare timestamps, newer wins
+                        sav_mtime = os.path.getmtime(sav_path)
+                        srm_mtime = os.path.getmtime(srm_path)
+                        
+                        if srm_mtime > sav_mtime:
+                            # .srm is newer - copy to .sav
+                            shutil.copy2(srm_path, sav_path)
+                            print(f"[HandheldProvider] ✓ .srm is newer, synced to .sav")
+                        elif sav_mtime > srm_mtime:
+                            # .sav is newer - copy to .srm
+                            shutil.copy2(sav_path, srm_path)
+                            print(f"[HandheldProvider] ✓ .sav is newer, synced to .srm")
+                        else:
+                            print(f"[HandheldProvider] Files already in sync")
+                    
+                    elif sav_exists and not srm_exists:
+                        # Only .sav exists - copy to .srm
                         shutil.copy2(sav_path, srm_path)
-                        print(f"[HandheldProvider] ✓ Save file copied to .srm")
+                        print(f"[HandheldProvider] ✓ Created .srm from .sav")
+                    
+                    elif srm_exists and not sav_exists:
+                        # Only .srm exists - copy to .sav
+                        shutil.copy2(srm_path, sav_path)
+                        print(f"[HandheldProvider] ✓ Created .sav from .srm")
+                    
+                    else:
+                        print(f"[HandheldProvider] No save files exist yet")
+                    
+                    # Now create symlink for seamless syncing during gameplay
+                    if os.path.exists(srm_path) and not os.path.islink(srm_path):
+                        os.remove(srm_path)
+                    
+                    if not os.path.exists(srm_path):
+                        os.symlink(sav_path, srm_path)
+                        print(f"[HandheldProvider] ✓ Created symlink .srm → .sav")
+                        
                 except Exception as e:
-                    print(f"[HandheldProvider] Failed to create .srm: {e}")
+                    print(f"[HandheldProvider] Failed to sync saves: {e}")
             
             # Check for core override config
             config_dir = "/home/ark/.config/retroarch/config"
@@ -351,7 +373,7 @@ class HandheldProvider(EmulatorProvider):
             core_name = core_map.get(system, "mgba")
             
             # RetroArch mGBA core uses .srm extension
-            # Create a .srm symlink/copy if the save is .sav
+            # Sync .sav and .srm bidirectionally - newer file wins
             if sav_path and sav_path.endswith('.sav'):
                 rom_base = os.path.splitext(os.path.basename(rom_path))[0]
                 srm_path = os.path.join(os.path.dirname(sav_path), f"{rom_base}.srm")
@@ -360,33 +382,55 @@ class HandheldProvider(EmulatorProvider):
                 self._last_sav_path = sav_path
                 self._last_srm_path = srm_path
                 
-                print(f"[HandheldProvider] Creating .srm symlink:")
-                print(f"  Location: {srm_path}")
-                print(f"  Target: {sav_path}")
+                print(f"[HandheldProvider] Syncing save files:")
+                print(f"  .sav: {sav_path}")
+                print(f"  .srm: {srm_path}")
                 
                 try:
-                    # Remove old file/symlink if it exists
-                    if os.path.islink(srm_path):
-                        os.remove(srm_path)
-                        print(f"[HandheldProvider] Removed old symlink")
-                    elif os.path.exists(srm_path):
-                        # If it's a real file, back it up before replacing
-                        backup_path = f"{srm_path}.backup"
-                        os.rename(srm_path, backup_path)
-                        print(f"[HandheldProvider] Backed up existing .srm to {backup_path}")
+                    import shutil
                     
-                    # Try symlink first
-                    try:
-                        os.symlink(sav_path, srm_path)
-                        print(f"[HandheldProvider] ✓ Symlink created")
-                    except (OSError, PermissionError) as e:
-                        # If symlink fails, copy the file instead
-                        print(f"[HandheldProvider] Symlink failed ({e}), copying file instead")
-                        import shutil
+                    sav_exists = os.path.exists(sav_path)
+                    srm_exists = os.path.exists(srm_path) and not os.path.islink(srm_path)
+                    
+                    if sav_exists and srm_exists:
+                        # Both exist - compare timestamps, newer wins
+                        sav_mtime = os.path.getmtime(sav_path)
+                        srm_mtime = os.path.getmtime(srm_path)
+                        
+                        if srm_mtime > sav_mtime:
+                            # .srm is newer - copy to .sav
+                            shutil.copy2(srm_path, sav_path)
+                            print(f"[HandheldProvider] ✓ .srm is newer, synced to .sav")
+                        elif sav_mtime > srm_mtime:
+                            # .sav is newer - copy to .srm
+                            shutil.copy2(sav_path, srm_path)
+                            print(f"[HandheldProvider] ✓ .sav is newer, synced to .srm")
+                        else:
+                            print(f"[HandheldProvider] Files already in sync")
+                    
+                    elif sav_exists and not srm_exists:
+                        # Only .sav exists - copy to .srm
                         shutil.copy2(sav_path, srm_path)
-                        print(f"[HandheldProvider] ✓ Save file copied to .srm")
+                        print(f"[HandheldProvider] ✓ Created .srm from .sav")
+                    
+                    elif srm_exists and not sav_exists:
+                        # Only .srm exists - copy to .sav
+                        shutil.copy2(srm_path, sav_path)
+                        print(f"[HandheldProvider] ✓ Created .sav from .srm")
+                    
+                    else:
+                        print(f"[HandheldProvider] No save files exist yet")
+                    
+                    # Now create symlink for seamless syncing during gameplay
+                    if os.path.exists(srm_path) and not os.path.islink(srm_path):
+                        os.remove(srm_path)
+                    
+                    if not os.path.exists(srm_path):
+                        os.symlink(sav_path, srm_path)
+                        print(f"[HandheldProvider] ✓ Created symlink .srm → .sav")
+                        
                 except Exception as e:
-                    print(f"[HandheldProvider] Failed to create .srm: {e}")
+                    print(f"[HandheldProvider] Failed to sync saves: {e}")
             
             # AmberELEC uses emulatorlauncher which handles RetroArch internally
             cmd = (
@@ -413,7 +457,7 @@ class HandheldProvider(EmulatorProvider):
             core_name = core_map.get(system, "mgba")
             
             # RetroArch mGBA core uses .srm extension
-            # Create a .srm symlink/copy if the save is .sav
+            # Sync .sav and .srm bidirectionally - newer file wins
             if sav_path and sav_path.endswith('.sav'):
                 rom_base = os.path.splitext(os.path.basename(rom_path))[0]
                 srm_path = os.path.join(os.path.dirname(sav_path), f"{rom_base}.srm")
@@ -422,33 +466,55 @@ class HandheldProvider(EmulatorProvider):
                 self._last_sav_path = sav_path
                 self._last_srm_path = srm_path
                 
-                print(f"[HandheldProvider] Creating .srm symlink:")
-                print(f"  Location: {srm_path}")
-                print(f"  Target: {sav_path}")
+                print(f"[HandheldProvider] Syncing save files:")
+                print(f"  .sav: {sav_path}")
+                print(f"  .srm: {srm_path}")
                 
                 try:
-                    # Remove old file/symlink if it exists
-                    if os.path.islink(srm_path):
-                        os.remove(srm_path)
-                        print(f"[HandheldProvider] Removed old symlink")
-                    elif os.path.exists(srm_path):
-                        # If it's a real file, back it up before replacing
-                        backup_path = f"{srm_path}.backup"
-                        os.rename(srm_path, backup_path)
-                        print(f"[HandheldProvider] Backed up existing .srm to {backup_path}")
+                    import shutil
                     
-                    # Try symlink first
-                    try:
-                        os.symlink(sav_path, srm_path)
-                        print(f"[HandheldProvider] ✓ Symlink created")
-                    except (OSError, PermissionError) as e:
-                        # If symlink fails, copy the file instead
-                        print(f"[HandheldProvider] Symlink failed ({e}), copying file instead")
-                        import shutil
+                    sav_exists = os.path.exists(sav_path)
+                    srm_exists = os.path.exists(srm_path) and not os.path.islink(srm_path)
+                    
+                    if sav_exists and srm_exists:
+                        # Both exist - compare timestamps, newer wins
+                        sav_mtime = os.path.getmtime(sav_path)
+                        srm_mtime = os.path.getmtime(srm_path)
+                        
+                        if srm_mtime > sav_mtime:
+                            # .srm is newer - copy to .sav
+                            shutil.copy2(srm_path, sav_path)
+                            print(f"[HandheldProvider] ✓ .srm is newer, synced to .sav")
+                        elif sav_mtime > srm_mtime:
+                            # .sav is newer - copy to .srm
+                            shutil.copy2(sav_path, srm_path)
+                            print(f"[HandheldProvider] ✓ .sav is newer, synced to .srm")
+                        else:
+                            print(f"[HandheldProvider] Files already in sync")
+                    
+                    elif sav_exists and not srm_exists:
+                        # Only .sav exists - copy to .srm
                         shutil.copy2(sav_path, srm_path)
-                        print(f"[HandheldProvider] ✓ Save file copied to .srm")
+                        print(f"[HandheldProvider] ✓ Created .srm from .sav")
+                    
+                    elif srm_exists and not sav_exists:
+                        # Only .srm exists - copy to .sav
+                        shutil.copy2(srm_path, sav_path)
+                        print(f"[HandheldProvider] ✓ Created .sav from .srm")
+                    
+                    else:
+                        print(f"[HandheldProvider] No save files exist yet")
+                    
+                    # Now create symlink for seamless syncing during gameplay
+                    if os.path.exists(srm_path) and not os.path.islink(srm_path):
+                        os.remove(srm_path)
+                    
+                    if not os.path.exists(srm_path):
+                        os.symlink(sav_path, srm_path)
+                        print(f"[HandheldProvider] ✓ Created symlink .srm → .sav")
+                        
                 except Exception as e:
-                    print(f"[HandheldProvider] Failed to create .srm: {e}")
+                    print(f"[HandheldProvider] Failed to sync saves: {e}")
             
             # muOS uses muos-launch which handles RetroArch internally
             cmd = (

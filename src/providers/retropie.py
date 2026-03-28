@@ -302,7 +302,7 @@ class RetroPieProvider(EmulatorProvider):
             print(f"[RetroPieProvider] Save file detected: {sav_path}")
             
             # RetroArch mGBA core uses .srm extension
-            # Create a .srm symlink in the mGBA save directory if the save is .sav
+            # Sync .sav and .srm bidirectionally - newer file wins
             if sav_path.endswith('.sav'):
                 rom_base = os.path.splitext(os.path.basename(rom_path))[0]
                 srm_path = os.path.join(self.saves_dir, f"{rom_base}.srm")
@@ -311,33 +311,55 @@ class RetroPieProvider(EmulatorProvider):
                 self._last_sav_path = sav_path
                 self._last_srm_path = srm_path
                 
-                print(f"[RetroPieProvider] Creating .srm symlink:")
-                print(f"  Location: {srm_path}")
-                print(f"  Target: {sav_path}")
+                print(f"[RetroPieProvider] Syncing save files:")
+                print(f"  .sav: {sav_path}")
+                print(f"  .srm: {srm_path}")
                 
                 try:
-                    # Remove old file/symlink if it exists
-                    if os.path.islink(srm_path):
-                        os.remove(srm_path)
-                        print(f"[RetroPieProvider] Removed old symlink")
-                    elif os.path.exists(srm_path):
-                        # If it's a real file, back it up before replacing
-                        backup_path = f"{srm_path}.backup"
-                        os.rename(srm_path, backup_path)
-                        print(f"[RetroPieProvider] Backed up existing .srm to {backup_path}")
+                    import shutil
                     
-                    # Try symlink first
-                    try:
-                        os.symlink(sav_path, srm_path)
-                        print(f"[RetroPieProvider] ✓ Symlink created")
-                    except (OSError, PermissionError) as e:
-                        # If symlink fails, copy the file instead
-                        print(f"[RetroPieProvider] Symlink failed ({e}), copying file instead")
-                        import shutil
+                    sav_exists = os.path.exists(sav_path)
+                    srm_exists = os.path.exists(srm_path) and not os.path.islink(srm_path)
+                    
+                    if sav_exists and srm_exists:
+                        # Both exist - compare timestamps, newer wins
+                        sav_mtime = os.path.getmtime(sav_path)
+                        srm_mtime = os.path.getmtime(srm_path)
+                        
+                        if srm_mtime > sav_mtime:
+                            # .srm is newer - copy to .sav
+                            shutil.copy2(srm_path, sav_path)
+                            print(f"[RetroPieProvider] ✓ .srm is newer, synced to .sav")
+                        elif sav_mtime > srm_mtime:
+                            # .sav is newer - copy to .srm
+                            shutil.copy2(sav_path, srm_path)
+                            print(f"[RetroPieProvider] ✓ .sav is newer, synced to .srm")
+                        else:
+                            print(f"[RetroPieProvider] Files already in sync")
+                    
+                    elif sav_exists and not srm_exists:
+                        # Only .sav exists - copy to .srm
                         shutil.copy2(sav_path, srm_path)
-                        print(f"[RetroPieProvider] ✓ Save file copied to .srm")
+                        print(f"[RetroPieProvider] ✓ Created .srm from .sav")
+                    
+                    elif srm_exists and not sav_exists:
+                        # Only .srm exists - copy to .sav
+                        shutil.copy2(srm_path, sav_path)
+                        print(f"[RetroPieProvider] ✓ Created .sav from .srm")
+                    
+                    else:
+                        print(f"[RetroPieProvider] No save files exist yet")
+                    
+                    # Now create symlink for seamless syncing during gameplay
+                    if os.path.exists(srm_path) and not os.path.islink(srm_path):
+                        os.remove(srm_path)
+                    
+                    if not os.path.exists(srm_path):
+                        os.symlink(sav_path, srm_path)
+                        print(f"[RetroPieProvider] ✓ Created symlink .srm → .sav")
+                        
                 except Exception as e:
-                    print(f"[RetroPieProvider] Failed to create .srm: {e}")
+                    print(f"[RetroPieProvider] Failed to sync saves: {e}")
         else:
             print(f"[RetroPieProvider] No save file - will start new game")
         

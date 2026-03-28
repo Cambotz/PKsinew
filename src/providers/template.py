@@ -21,6 +21,18 @@ class TemplateProvider(EmulatorProvider):
 
     Your only responsibility is to set `self.roms_dir` and `self.saves_dir`
     to the correct directories during __init__ or probe().
+    
+    Save file format sync (CRITICAL for RetroArch-based emulators)
+    ---------------------------------------------------------------
+    PKsinew uses .sav files, but RetroArch cores use .srm files.
+    
+    YOU MUST implement this two-way sync in your provider:
+    
+    1. In get_command(): Create .sav → .srm (symlink or copy)
+    2. In on_exit(): Copy .srm → .sav (if not a symlink)
+    
+    See the example code in get_command() and on_exit() below.
+    Failure to implement this will cause saves to NOT persist!
     """
 
     active = False
@@ -62,6 +74,11 @@ class TemplateProvider(EmulatorProvider):
         if "emulator_cache" not in self.settings:
             self.settings["emulator_cache"] = {}
         self.cache = self.settings["emulator_cache"]
+        
+        # Track save paths for sync-back after emulator exits
+        # (Required for RetroArch-based emulators that use .srm instead of .sav)
+        self._last_sav_path = None
+        self._last_srm_path = None
 
     def probe(self, distro_id) -> bool:
         """
@@ -82,8 +99,45 @@ class TemplateProvider(EmulatorProvider):
         """
         Return the list of strings representing the shell command
         to launch the emulator.
+        
+        Args:
+            rom_path: Absolute path to the ROM file
+            core: Core selection (often auto-detected or ignored)
+            sav_path: Optional absolute path to PKsinew's .sav file
+        
+        Returns:
+            list: Command to launch the emulator, or None if unable
         """
-
+        
+        # IMPORTANT: RetroArch-based emulators use .srm instead of .sav
+        # If your emulator uses RetroArch, you MUST create a .srm symlink/copy:
+        #
+        # if sav_path and sav_path.endswith('.sav'):
+        #     rom_base = os.path.splitext(os.path.basename(rom_path))[0]
+        #     srm_path = os.path.join(os.path.dirname(sav_path), f"{rom_base}.srm")
+        #     
+        #     # Track paths for sync-back on exit
+        #     self._last_sav_path = sav_path
+        #     self._last_srm_path = srm_path
+        #     
+        #     try:
+        #         # Remove old file/symlink if it exists
+        #         if os.path.islink(srm_path):
+        #             os.remove(srm_path)
+        #         elif os.path.exists(srm_path):
+        #             backup_path = f"{srm_path}.backup"
+        #             os.rename(srm_path, backup_path)
+        #         
+        #         # Try symlink first (preferred - auto-syncs)
+        #         try:
+        #             os.symlink(sav_path, srm_path)
+        #         except (OSError, PermissionError):
+        #             # If symlink fails, copy the file instead
+        #             import shutil
+        #             shutil.copy2(sav_path, srm_path)
+        #     except Exception as e:
+        #         print(f"[TemplateProvider] Failed to create .srm: {e}")
+        
         return None
 
     def _update_sinew_cache(self, key, value):
@@ -95,8 +149,31 @@ class TemplateProvider(EmulatorProvider):
     def on_exit(self):
         """
         Called after the emulator exits, either naturally or via terminate().
-        Use this to restart any input handlers (e.g. gptokeyb).
+        
+        IMPORTANT: If using RetroArch, sync .srm back to .sav here!
+        This ensures saves made in the emulator persist in PKsinew.
         """
+        # Sync save file back (for RetroArch-based emulators)
+        if self._last_sav_path and self._last_srm_path:
+            try:
+                if os.path.exists(self._last_srm_path):
+                    # If it's a symlink, the .sav is already updated
+                    if os.path.islink(self._last_srm_path):
+                        print(f"[TemplateProvider] Save synced via symlink")
+                    else:
+                        # Copy .srm back to .sav
+                        import shutil
+                        shutil.copy2(self._last_srm_path, self._last_sav_path)
+                        print(f"[TemplateProvider] ✓ Synced .srm → .sav")
+            except Exception as e:
+                print(f"[TemplateProvider] Failed to sync save: {e}")
+            finally:
+                # Clear tracked paths
+                self._last_sav_path = None
+                self._last_srm_path = None
+        
+        # Additional cleanup (e.g., restart input handlers like gptokeyb)
+        pass
 
     def terminate(self, process):
         """
