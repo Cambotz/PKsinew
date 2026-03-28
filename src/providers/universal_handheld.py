@@ -329,6 +329,54 @@ class HandheldProvider(EmulatorProvider):
 
         # AmberELEC
         if self.strategy == "amberelec":
+            # Map system to RetroArch core
+            core_map = {
+                "gba": "mgba",
+                "gbc": "gambatte",
+                "gb": "gambatte",
+                "nds": "desmume",
+                "nes": "fceumm",
+                "snes": "snes9x",
+                "n64": "mupen64plus_next",
+                "psx": "pcsx_rearmed"
+            }
+            core_name = core_map.get(system, "mgba")
+            
+            # RetroArch mGBA core uses .srm extension
+            # Create a .srm symlink/copy if the save is .sav
+            if sav_path and sav_path.endswith('.sav'):
+                rom_base = os.path.splitext(os.path.basename(rom_path))[0]
+                srm_path = os.path.join(os.path.dirname(sav_path), f"{rom_base}.srm")
+                
+                print(f"[HandheldProvider] Creating .srm symlink:")
+                print(f"  Location: {srm_path}")
+                print(f"  Target: {sav_path}")
+                
+                try:
+                    # Remove old file/symlink if it exists
+                    if os.path.islink(srm_path):
+                        os.remove(srm_path)
+                        print(f"[HandheldProvider] Removed old symlink")
+                    elif os.path.exists(srm_path):
+                        # If it's a real file, back it up before replacing
+                        backup_path = f"{srm_path}.backup"
+                        os.rename(srm_path, backup_path)
+                        print(f"[HandheldProvider] Backed up existing .srm to {backup_path}")
+                    
+                    # Try symlink first
+                    try:
+                        os.symlink(sav_path, srm_path)
+                        print(f"[HandheldProvider] ✓ Symlink created")
+                    except (OSError, PermissionError) as e:
+                        # If symlink fails, copy the file instead
+                        print(f"[HandheldProvider] Symlink failed ({e}), copying file instead")
+                        import shutil
+                        shutil.copy2(sav_path, srm_path)
+                        print(f"[HandheldProvider] ✓ Save file copied to .srm")
+                except Exception as e:
+                    print(f"[HandheldProvider] Failed to create .srm: {e}")
+            
+            # AmberELEC uses emulatorlauncher which handles RetroArch internally
             cmd = (
                 f"/usr/bin/emulatorlauncher "
                 f"{system} "
@@ -339,6 +387,54 @@ class HandheldProvider(EmulatorProvider):
 
         # muOS
         if self.strategy == "muos":
+            # Map system to RetroArch core
+            core_map = {
+                "gba": "mgba",
+                "gbc": "gambatte",
+                "gb": "gambatte",
+                "nds": "desmume",
+                "nes": "fceumm",
+                "snes": "snes9x",
+                "n64": "mupen64plus_next",
+                "psx": "pcsx_rearmed"
+            }
+            core_name = core_map.get(system, "mgba")
+            
+            # RetroArch mGBA core uses .srm extension
+            # Create a .srm symlink/copy if the save is .sav
+            if sav_path and sav_path.endswith('.sav'):
+                rom_base = os.path.splitext(os.path.basename(rom_path))[0]
+                srm_path = os.path.join(os.path.dirname(sav_path), f"{rom_base}.srm")
+                
+                print(f"[HandheldProvider] Creating .srm symlink:")
+                print(f"  Location: {srm_path}")
+                print(f"  Target: {sav_path}")
+                
+                try:
+                    # Remove old file/symlink if it exists
+                    if os.path.islink(srm_path):
+                        os.remove(srm_path)
+                        print(f"[HandheldProvider] Removed old symlink")
+                    elif os.path.exists(srm_path):
+                        # If it's a real file, back it up before replacing
+                        backup_path = f"{srm_path}.backup"
+                        os.rename(srm_path, backup_path)
+                        print(f"[HandheldProvider] Backed up existing .srm to {backup_path}")
+                    
+                    # Try symlink first
+                    try:
+                        os.symlink(sav_path, srm_path)
+                        print(f"[HandheldProvider] ✓ Symlink created")
+                    except (OSError, PermissionError) as e:
+                        # If symlink fails, copy the file instead
+                        print(f"[HandheldProvider] Symlink failed ({e}), copying file instead")
+                        import shutil
+                        shutil.copy2(sav_path, srm_path)
+                        print(f"[HandheldProvider] ✓ Save file copied to .srm")
+                except Exception as e:
+                    print(f"[HandheldProvider] Failed to create .srm: {e}")
+            
+            # muOS uses muos-launch which handles RetroArch internally
             cmd = (
                 f"/usr/bin/muos-launch "
                 f"{system} "

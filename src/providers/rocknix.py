@@ -182,6 +182,40 @@ class RocknixProvider(EmulatorProvider):
         system = self._get_system_from_rom_path(rom_path)
         print(f"[RocknixProvider] Detected system: {system}")
 
+        # RetroArch mGBA core uses .srm extension
+        # Create a .srm symlink/copy if the save is .sav
+        if sav_path and sav_path.endswith('.sav'):
+            rom_base = os.path.splitext(os.path.basename(rom_path))[0]
+            srm_path = os.path.join(os.path.dirname(sav_path), f"{rom_base}.srm")
+            
+            print(f"[RocknixProvider] Creating .srm symlink:")
+            print(f"  Location: {srm_path}")
+            print(f"  Target: {sav_path}")
+            
+            try:
+                # Remove old file/symlink if it exists
+                if os.path.islink(srm_path):
+                    os.remove(srm_path)
+                    print(f"[RocknixProvider] Removed old symlink")
+                elif os.path.exists(srm_path):
+                    # If it's a real file, back it up before replacing
+                    backup_path = f"{srm_path}.backup"
+                    os.rename(srm_path, backup_path)
+                    print(f"[RocknixProvider] Backed up existing .srm to {backup_path}")
+                
+                # Try symlink first
+                try:
+                    os.symlink(sav_path, srm_path)
+                    print(f"[RocknixProvider] ✓ Symlink created")
+                except (OSError, PermissionError) as e:
+                    # If symlink fails, copy the file instead
+                    print(f"[RocknixProvider] Symlink failed ({e}), copying file instead")
+                    import shutil
+                    shutil.copy2(sav_path, srm_path)
+                    print(f"[RocknixProvider] ✓ Save file copied to .srm")
+            except Exception as e:
+                print(f"[RocknixProvider] Failed to create .srm: {e}")
+
         # Controller GUID — read directly from the joystick pygame already has open.
         guid = self.cache.get("p1_guid")
         if not guid:
