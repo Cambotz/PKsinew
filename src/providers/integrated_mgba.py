@@ -509,20 +509,16 @@ class _MgbaEmulator:
                     print(f"[MgbaEmulator] Applied RetroArch frameskip: {retroarch_frameskip}%")
             
             # Apply audio latency from RetroArch if configured
-            # RetroArch audio_latency is in milliseconds, convert to buffer size in samples
+            # RetroArch audio_latency is the TOTAL pipeline latency target in ms
+            # The actual buffer size should be much smaller - use 256 samples for low latency
             if 'audio_latency' in self._retroarch_settings:
                 latency_ms = self._retroarch_settings['audio_latency']
-                # Buffer size in samples = (sample_rate * latency_ms) / 1000
-                # GBA sample rate is always 32768 Hz
-                # Round to nearest power of 2 for efficiency
-                calculated_buffer = int((32768 * latency_ms) / 1000)
-                # Round to nearest power of 2
-                import math
-                power = round(math.log2(calculated_buffer))
-                retroarch_buffer = 2 ** power
+                # For low-power ARM devices, use a small buffer for responsiveness
+                # 256 samples @ 32768 Hz = ~7.8ms per buffer (very responsive)
+                retroarch_buffer = 256
                 # Override the pending audio buffer
                 self._pending_audio_buffer = retroarch_buffer
-                print(f"[MgbaEmulator] Applied RetroArch audio latency: {latency_ms}ms (buffer={retroarch_buffer})")
+                print(f"[MgbaEmulator] Applied RetroArch-tuned audio: latency_target={latency_ms}ms, buffer={retroarch_buffer}")
         
         # If no RetroArch frameskip found, check if we're on a low-power device
         # and suggest enabling it (but don't force it)

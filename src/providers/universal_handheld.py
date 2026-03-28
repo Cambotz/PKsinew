@@ -290,15 +290,15 @@ class HandheldProvider(EmulatorProvider):
             override_config = f"/tmp/retroarch_sinew_{core_name}.cfg"
             try:
                 with open(override_config, "w") as f:
-                    # Use 'oga' video driver (specific to OGA/RG351 devices)
-                    # Fallback chain: oga -> gl -> sdl2
-                    f.write('video_driver = "oga"\n')
+                    # Use 'gl' video driver (oga might have rotation issues)
+                    f.write('video_driver = "gl"\n')
                     # Audio driver
                     f.write('audio_driver = "sdl2"\n')
                     # VSync for frame pacing
                     f.write('video_vsync = "true"\n')
-                    # Rotation: 0 = normal (landscape)
-                    f.write('video_rotation = "0"\n')
+                    # Force 3:2 aspect ratio for GBA (240x160)
+                    f.write('video_aspect_ratio_auto = "false"\n')
+                    f.write('video_aspect_ratio = "1.5"\n')
                     # Don't show menu on start
                     f.write('menu_driver = "null"\n')
                 print(f"[HandheldProvider] Created override config: {override_config}")
