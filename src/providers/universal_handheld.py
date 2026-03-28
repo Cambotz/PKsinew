@@ -51,6 +51,10 @@ class HandheldProvider(EmulatorProvider):
         if "emulator_cache" not in self.settings:
             self.settings["emulator_cache"] = {}
         self.cache = self.settings["emulator_cache"]
+        
+        # Track save paths for sync-back after emulator exits
+        self._last_sav_path = None
+        self._last_srm_path = None
 
     # ------------------------------------------------
 
@@ -254,6 +258,10 @@ class HandheldProvider(EmulatorProvider):
                 rom_base = os.path.splitext(os.path.basename(rom_path))[0]
                 srm_path = os.path.join(os.path.dirname(sav_path), f"{rom_base}.srm")
                 
+                # Track paths for sync-back on exit
+                self._last_sav_path = sav_path
+                self._last_srm_path = srm_path
+                
                 print(f"[HandheldProvider] Creating .srm symlink:")
                 print(f"  Location: {srm_path}")
                 print(f"  Target: {sav_path}")
@@ -348,6 +356,10 @@ class HandheldProvider(EmulatorProvider):
                 rom_base = os.path.splitext(os.path.basename(rom_path))[0]
                 srm_path = os.path.join(os.path.dirname(sav_path), f"{rom_base}.srm")
                 
+                # Track paths for sync-back on exit
+                self._last_sav_path = sav_path
+                self._last_srm_path = srm_path
+                
                 print(f"[HandheldProvider] Creating .srm symlink:")
                 print(f"  Location: {srm_path}")
                 print(f"  Target: {sav_path}")
@@ -406,6 +418,10 @@ class HandheldProvider(EmulatorProvider):
                 rom_base = os.path.splitext(os.path.basename(rom_path))[0]
                 srm_path = os.path.join(os.path.dirname(sav_path), f"{rom_base}.srm")
                 
+                # Track paths for sync-back on exit
+                self._last_sav_path = sav_path
+                self._last_srm_path = srm_path
+                
                 print(f"[HandheldProvider] Creating .srm symlink:")
                 print(f"  Location: {srm_path}")
                 print(f"  Target: {sav_path}")
@@ -448,8 +464,30 @@ class HandheldProvider(EmulatorProvider):
     # ------------------------------------------------
 
     def on_exit(self):
-        """Called after emulator exits. Override for cleanup tasks."""
-        pass
+        """
+        Called after emulator exits.
+        Sync .srm file back to .sav if it was modified.
+        """
+        if self._last_sav_path and self._last_srm_path:
+            try:
+                # Check if .srm exists and was modified
+                if os.path.exists(self._last_srm_path):
+                    # If it's a symlink, the .sav is already updated
+                    if os.path.islink(self._last_srm_path):
+                        print(f"[HandheldProvider] Save synced via symlink (no copy needed)")
+                    else:
+                        # Copy .srm back to .sav
+                        import shutil
+                        shutil.copy2(self._last_srm_path, self._last_sav_path)
+                        print(f"[HandheldProvider] ✓ Synced .srm → .sav: {self._last_sav_path}")
+                else:
+                    print(f"[HandheldProvider] No .srm file found to sync back")
+            except Exception as e:
+                print(f"[HandheldProvider] Failed to sync save back: {e}")
+            finally:
+                # Clear tracked paths
+                self._last_sav_path = None
+                self._last_srm_path = None
 
     def terminate(self, process):
         """

@@ -36,6 +36,24 @@ except Exception:
 from controller import NavigableList, get_controller
 
 
+def _is_slow_cpu_device():
+    """
+    Detect if running on a slow CPU where integrated emulator should be disabled.
+    Returns True for devices like RG351MP (RK3326) that can't handle software scaling.
+    """
+    try:
+        with open("/proc/device-tree/compatible", "rb") as f:
+            compat = f.read().lower()
+            slow_chips = [
+                b"rk3326",         # RG351MP, RG351V - too slow for software scaling
+                b"allwinner,h700", # Some budget handhelds
+            ]
+            return any(chip in compat for chip in slow_chips)
+    except (FileNotFoundError, PermissionError):
+        pass
+    return False
+
+
 def load_sinew_settings():
     """Load settings from sinew_settings.json"""
     if os.path.exists(SETTINGS_FILE):
@@ -1181,6 +1199,11 @@ class MainSetup:
         self.use_external_emulator_callback = use_external_emulator_callback
         self.controller = get_controller()
 
+        # Check if integrated emulator is available (disabled on slow CPUs)
+        self.integrated_available = not _is_slow_cpu_device()
+        if not self.integrated_available:
+            print("[Settings] Integrated emulator unavailable on this device (slow CPU)")
+
         # Sub-screen state
         self.sub_screen = None  # Can hold ButtonMapper, etc.
         self._sub_screen_open_tick = 0  # Frame when sub_screen was opened
@@ -1215,7 +1238,11 @@ class MainSetup:
                 # Fullscreen has no meaning on a handheld — hide it entirely
                 *([] if IS_HANDHELD else [{"name": "Fullscreen", "type": "toggle",
                     "value": False}]),
-                {"name": "Use External Providers", "type": "toggle", "value": False},
+                # Hide "Use External Providers" toggle when integrated emulator is unavailable
+                # (slow CPU devices are forced to use external emulator only)
+                *([] if not self.integrated_available else [
+                    {"name": "Use External Providers", "type": "toggle", "value": False}
+                ]),
                 {
                     "name": "Volume",
                     "type": "slider",
@@ -1280,7 +1307,15 @@ class MainSetup:
                 opt["value"] = settings.get("fullscreen", False)
             elif opt["name"] == "Use External Providers":
                 from config import DEFAULT_USE_EXTERNAL_PROVIDERS
-                opt["value"] = settings.get("use_emulator_provider", DEFAULT_USE_EXTERNAL_PROVIDERS)
+                # Force external provider on slow CPU devices
+                if not self.integrated_available:
+                    opt["value"] = True
+                    # Ensure it's saved to settings
+                    if not settings.get("use_emulator_provider", False):
+                        settings["use_emulator_provider"] = True
+                        save_sinew_settings(settings)
+                else:
+                    opt["value"] = settings.get("use_emulator_provider", DEFAULT_USE_EXTERNAL_PROVIDERS)
             elif opt["name"] == "Volume":
                 saved_vol = settings.get("master_volume", VOLUME_DEFAULT)
                 vol_values = opt.get("volume_values", list(range(VOLUME_MIN, VOLUME_MAX + 1,
@@ -1351,7 +1386,10 @@ class MainSetup:
         """
         Build the Emu tab option list.
 
-        Three states:
+        Four states:
+          - Integrated unavailable (slow CPU) → forced external emulator
+            Shows explanation label only.
+
           - Providers OFF → internal files + integrated mGBA
             Shows mGBA audio/speed options only.
 
@@ -1368,6 +1406,21 @@ class MainSetup:
         _s = load_sinew_settings()
         use_ext_files = _s.get("use_emulator_provider", DEFAULT_USE_EXTERNAL_PROVIDERS)
         use_ext_emu = _s.get("use_external_emulator", DEFAULT_USE_EXTERNAL_EMULATOR)
+
+        # If integrated emulator is unavailable (slow CPU), force external and show explanation
+        if not self.integrated_available:
+            return [
+                {
+                    "name": "Emulator",
+                    "type": "label",
+                    "value": "External RetroArch (Required)",
+                },
+                {
+                    "name": "Info",
+                    "type": "label",
+                    "value": "Integrated emulator disabled on this device due to slow CPU.",
+                },
+            ]
 
         integrated_opts = [
             {"name": "Controller FF Buttons", "type": "toggle", "value": True},

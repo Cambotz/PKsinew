@@ -114,6 +114,10 @@ class RetroPieProvider(EmulatorProvider):
         if "emulator_cache" not in self.settings:
             self.settings["emulator_cache"] = {}
         self.cache = self.settings["emulator_cache"]
+        
+        # Track save paths for sync-back after emulator exits
+        self._last_sav_path = None
+        self._last_srm_path = None
 
     def probe(self, distro_id):
         """
@@ -303,23 +307,37 @@ class RetroPieProvider(EmulatorProvider):
                 rom_base = os.path.splitext(os.path.basename(rom_path))[0]
                 srm_path = os.path.join(self.saves_dir, f"{rom_base}.srm")
                 
+                # Track paths for sync-back on exit
+                self._last_sav_path = sav_path
+                self._last_srm_path = srm_path
+                
                 print(f"[RetroPieProvider] Creating .srm symlink:")
                 print(f"  Location: {srm_path}")
                 print(f"  Target: {sav_path}")
                 
                 try:
-                    # Remove old symlink if it exists
+                    # Remove old file/symlink if it exists
                     if os.path.islink(srm_path):
                         os.remove(srm_path)
+                        print(f"[RetroPieProvider] Removed old symlink")
                     elif os.path.exists(srm_path):
-                        print(f"[RetroPieProvider] Warning: {srm_path} exists and is not a symlink")
+                        # If it's a real file, back it up before replacing
+                        backup_path = f"{srm_path}.backup"
+                        os.rename(srm_path, backup_path)
+                        print(f"[RetroPieProvider] Backed up existing .srm to {backup_path}")
                     
-                    if not os.path.exists(srm_path):
-                        # Create symlink (absolute path since might be in different dirs)
+                    # Try symlink first
+                    try:
                         os.symlink(sav_path, srm_path)
                         print(f"[RetroPieProvider] ✓ Symlink created")
+                    except (OSError, PermissionError) as e:
+                        # If symlink fails, copy the file instead
+                        print(f"[RetroPieProvider] Symlink failed ({e}), copying file instead")
+                        import shutil
+                        shutil.copy2(sav_path, srm_path)
+                        print(f"[RetroPieProvider] ✓ Save file copied to .srm")
                 except Exception as e:
-                    print(f"[RetroPieProvider] Failed to create symlink: {e}")
+                    print(f"[RetroPieProvider] Failed to create .srm: {e}")
         else:
             print(f"[RetroPieProvider] No save file - will start new game")
         
@@ -381,13 +399,40 @@ class RetroPieProvider(EmulatorProvider):
             save_sinew_settings(self.settings)
 
     def on_exit(self):
-        """Called after the emulator exits. Clean up temporary config file."""
+        """
+        Called after the emulator exits.
+        - Clean up temporary config file
+        - Sync .srm file back to .sav if it was modified
+        """
+        # Clean up override config
         override_config = "/dev/shm/retroarch_sinew_override.cfg"
         try:
             if os.path.exists(override_config):
                 os.remove(override_config)
         except Exception:
             pass
+        
+        # Sync save file back
+        if self._last_sav_path and self._last_srm_path:
+            try:
+                # Check if .srm exists and was modified
+                if os.path.exists(self._last_srm_path):
+                    # If it's a symlink, the .sav is already updated
+                    if os.path.islink(self._last_srm_path):
+                        print(f"[RetroPieProvider] Save synced via symlink (no copy needed)")
+                    else:
+                        # Copy .srm back to .sav
+                        import shutil
+                        shutil.copy2(self._last_srm_path, self._last_sav_path)
+                        print(f"[RetroPieProvider] ✓ Synced .srm → .sav: {self._last_sav_path}")
+                else:
+                    print(f"[RetroPieProvider] No .srm file found to sync back")
+            except Exception as e:
+                print(f"[RetroPieProvider] Failed to sync save back: {e}")
+            finally:
+                # Clear tracked paths
+                self._last_sav_path = None
+                self._last_srm_path = None
 
     def terminate(self, process):
         """Terminate the emulator process."""
