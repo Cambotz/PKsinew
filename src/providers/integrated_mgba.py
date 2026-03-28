@@ -495,10 +495,20 @@ class _MgbaEmulator:
         self._frameskip_counter = 0
         self._frameskip_threshold = 0.0  # Default: no frameskip
         
+        # Frame timing for smooth video playback
+        self._target_fps = 59.73  # GBA target framerate
+        self._frame_time = 1.0 / self._target_fps  # ~16.74ms per frame
+        self._last_frame_time = 0
+        self._vsync_enabled = True  # Use vsync by default
+        
+        # Audio sync control
+        self._audio_sync_enabled = True  # Sync video to audio for smooth playback
+        
         # Try to load RetroArch settings if available
         self._retroarch_settings = self._load_retroarch_settings()
         if self._retroarch_settings:
             print(f"[MgbaEmulator] Loaded RetroArch settings from device")
+            
             # Apply frameskip from RetroArch if configured
             if 'frameskip' in self._retroarch_settings:
                 retroarch_frameskip = self._retroarch_settings['frameskip']
@@ -506,6 +516,16 @@ class _MgbaEmulator:
                     self._frameskip_enabled = True
                     self._frameskip_threshold = retroarch_frameskip / 100.0
                     print(f"[MgbaEmulator] Applied RetroArch frameskip: {retroarch_frameskip}%")
+            
+            # Apply vsync setting
+            if 'vsync' in self._retroarch_settings:
+                self._vsync_enabled = self._retroarch_settings['vsync']
+                print(f"[MgbaEmulator] Applied RetroArch vsync: {self._vsync_enabled}")
+            
+            # Apply audio sync setting
+            if 'audio_sync' in self._retroarch_settings:
+                self._audio_sync_enabled = self._retroarch_settings['audio_sync']
+                print(f"[MgbaEmulator] Applied RetroArch audio sync: {self._audio_sync_enabled}")
         
         # If no RetroArch frameskip found, check if we're on a low-power device
         # and suggest enabling it (but don't force it)
@@ -2019,8 +2039,18 @@ class _MgbaEmulator:
         if not self.loaded or self.paused:
             return
 
-        # DIAGNOSTIC: Periodic audio status check
+        # Frame timing - throttle to target FPS if vsync is enabled and not in fast-forward
         import time
+        if self._vsync_enabled and self._fast_forward_multiplier == 1:
+            current_time = time.time()
+            if self._last_frame_time > 0:
+                elapsed = current_time - self._last_frame_time
+                # If we're running too fast, sleep to maintain target framerate
+                if elapsed < self._frame_time:
+                    time.sleep(self._frame_time - elapsed)
+            self._last_frame_time = time.time()
+
+        # DIAGNOSTIC: Periodic audio status check
         current_time = time.time()
         if current_time - self._last_audio_diagnostic_time >= self._diagnostic_interval:
             self._last_audio_diagnostic_time = current_time
