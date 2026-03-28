@@ -202,10 +202,23 @@ class HandheldProvider(EmulatorProvider):
             }
             core_name = core_map.get(system, "mgba")
             
-            # Use absolute path and set HOME for config access
+            # Check for core override config
+            config_dir = "/home/ark/.config/retroarch/config"
+            core_override = os.path.join(config_dir, f"{core_name}", f"{core_name}.cfg")
+            
+            config_append = ""
+            if os.path.exists(core_override):
+                config_append = f"--appendconfig {shlex.quote(core_override)} "
+                print(f"[HandheldProvider] Using core override: {core_override}")
+            
+            # Use absolute path, set HOME, and configure video driver for handheld
             cmd = (
                 f"HOME=/home/ark "
                 f"/usr/bin/retroarch "
+                f"--verbose "
+                f"--video=kmsdrm "
+                f"--audio=sdl2 "
+                f"{config_append}"
                 f"-L /home/ark/.config/retroarch/cores/{core_name}_libretro.so "
                 f"{shlex.quote(rom_path)}"
             )
