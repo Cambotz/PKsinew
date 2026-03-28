@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 """
-Universal Handheld Emulator Provider for PKSinew
+Universal Handheld Emulator Provider for PKsinew
 Supports most Linux handheld firmware automatically
 """
 
@@ -10,7 +10,9 @@ import platform
 import shlex
 import signal
 import subprocess
+import pygame
 from emulator_manager import EmulatorProvider
+from settings import save_sinew_settings
 
 
 class HandheldProvider(EmulatorProvider):
@@ -99,6 +101,26 @@ class HandheldProvider(EmulatorProvider):
 
     # ------------------------------------------------
 
+    def _get_joystick_guid(self):
+        """Return the SDL GUID of the first joystick pygame currently has open."""
+        try:
+            if pygame.joystick.get_count() > 0:
+                joy = pygame.joystick.Joystick(0)
+                return joy.get_guid()
+        except Exception as e:
+            print(f"[HandheldProvider] Could not read joystick GUID: {e}")
+        return None
+
+    # ------------------------------------------------
+
+    def _update_sinew_cache(self, key, value):
+        """Helper to update persistent settings only when changed."""
+        if self.cache.get(key) != value:
+            self.cache[key] = value
+            save_sinew_settings(self.settings)
+
+    # ------------------------------------------------
+
     def probe(self, distro_id):
         if platform.system().lower() != "linux":
             return False
@@ -165,11 +187,27 @@ class HandheldProvider(EmulatorProvider):
         print(f"[HandheldProvider] System detected: {system}")
         print(f"[HandheldProvider] ROM path: {rom_path}")
 
-        # ArkOS / dARKos
+        # ArkOS / dARKos - similar approach to Rocknix
         if self.strategy == "arkos":
-            # ArkOS uses /opt/system/Advanced/Switch to <game> script
-            # Format: /opt/system/Advanced/Switch\ to\ <system>.sh "<rom_path>"
-            cmd = f"/opt/system/Advanced/Switch\\ to\\ {system}.sh {shlex.quote(rom_path)}"
+            # Get controller GUID
+            guid = self.cache.get("p1_guid")
+            if not guid:
+                guid = self._get_joystick_guid()
+                if guid:
+                    self._update_sinew_cache("p1_guid", guid)
+
+            if not guid:
+                print("[HandheldProvider] ABORT: No Controller GUID found.")
+                return None
+
+            controller_str = f" -p1index 0 -p1guid {guid} "
+
+            # ArkOS uses /usr/bin/Start\ <system>.sh launcher scripts
+            cmd = (
+                f"/usr/bin/Start\\ {system}.sh "
+                f"{shlex.quote(rom_path)} "
+                f"--controllers={shlex.quote(controller_str)}"
+            )
             print(f"[HandheldProvider] ArkOS command: {cmd}")
             return ["sh", "-c", cmd]
 
