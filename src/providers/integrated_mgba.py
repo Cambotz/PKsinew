@@ -494,6 +494,19 @@ class _MgbaEmulator:
         self._frameskip_enabled = self._detect_low_power_device()
         self._frameskip_counter = 0
         self._frameskip_threshold = 0.33  # Skip 33% of frames
+        
+        # Try to load RetroArch settings if available
+        self._retroarch_settings = self._load_retroarch_settings()
+        if self._retroarch_settings:
+            print(f"[MgbaEmulator] Loaded RetroArch settings from device")
+            # Apply frameskip from RetroArch if configured
+            if 'frameskip' in self._retroarch_settings:
+                retroarch_frameskip = self._retroarch_settings['frameskip']
+                if retroarch_frameskip > 0:
+                    self._frameskip_enabled = True
+                    self._frameskip_threshold = retroarch_frameskip / 100.0
+                    print(f"[MgbaEmulator] Applied RetroArch frameskip: {retroarch_frameskip}%")
+        
         if self._frameskip_enabled:
             print(f"[MgbaEmulator] Frameskip enabled: {self._frameskip_threshold*100:.0f}% threshold")
 
@@ -907,6 +920,141 @@ class _MgbaEmulator:
             pass
         
         return False
+
+    def _load_retroarch_settings(self):
+        """
+        Load RetroArch configuration if available on the device.
+        Searches for both global RetroArch config and mGBA core overrides.
+        
+        Returns:
+            dict: Dictionary of relevant RetroArch settings, or None if not found
+        """
+        settings = {}
+        
+        # Common RetroArch config locations
+        retroarch_configs = [
+            "/home/ark/.config/retroarch/retroarch.cfg",  # ArkOS/dARKos
+            os.path.expanduser("~/.config/retroarch/retroarch.cfg"),  # Standard Linux
+            "/opt/retropie/configs/all/retroarch.cfg",  # RetroPie
+            "/storage/.config/retroarch/retroarch.cfg",  # AmberELEC
+        ]
+        
+        # mGBA core override locations
+        mgba_overrides = [
+            "/home/ark/.config/retroarch/config/mgba/mgba.cfg",  # ArkOS/dARKos
+            os.path.expanduser("~/.config/retroarch/config/mgba/mgba.cfg"),  # Standard
+            "/opt/retropie/configs/gba/retroarch.cfg",  # RetroPie GBA config
+        ]
+        
+        # Parse global RetroArch config first
+        for config_path in retroarch_configs:
+            if os.path.exists(config_path):
+                try:
+                    settings.update(self._parse_retroarch_config(config_path))
+                    print(f"[MgbaEmulator] Found RetroArch config: {config_path}")
+                    break
+                except Exception as e:
+                    print(f"[MgbaEmulator] Error reading {config_path}: {e}")
+        
+        # Parse mGBA core overrides (these take priority)
+        for override_path in mgba_overrides:
+            if os.path.exists(override_path):
+                try:
+                    overrides = self._parse_retroarch_config(override_path)
+                    settings.update(overrides)
+                    print(f"[MgbaEmulator] Found mGBA override: {override_path}")
+                    break
+                except Exception as e:
+                    print(f"[MgbaEmulator] Error reading {override_path}: {e}")
+        
+        return settings if settings else None
+
+    def _parse_retroarch_config(self, config_path):
+        """
+        Parse RetroArch configuration file.
+        
+        Args:
+            config_path: Path to retroarch.cfg or core override
+            
+        Returns:
+            dict: Parsed settings
+        """
+        settings = {}
+        
+        try:
+            with open(config_path, 'r') as f:
+                for line in f:
+                    line = line.strip()
+                    
+                    # Skip comments and empty lines
+                    if not line or line.startswith('#'):
+                        continue
+                    
+                    # Parse key = "value" format
+                    if '=' in line:
+                        key, value = line.split('=', 1)
+                        key = key.strip()
+                        value = value.strip().strip('"').strip("'")
+                        
+                        # Extract relevant settings
+                        if key == 'video_frame_delay':
+                            # Frame delay can help with performance
+                            try:
+                                settings['frame_delay'] = int(value)
+                            except:
+                                pass
+                        
+                        elif key == 'video_max_swapchain_images':
+                            # Swap chain affects latency
+                            try:
+                                settings['swap_chain'] = int(value)
+                            except:
+                                pass
+                        
+                        elif key == 'video_vsync':
+                            # VSync setting
+                            settings['vsync'] = value.lower() == 'true'
+                        
+                        elif key == 'audio_latency':
+                            # Audio latency in ms
+                            try:
+                                settings['audio_latency'] = int(value)
+                            except:
+                                pass
+                        
+                        elif key == 'audio_sync':
+                            # Audio sync setting
+                            settings['audio_sync'] = value.lower() == 'true'
+                        
+                        elif key == 'mgba_frameskip' or key == 'frameskip':
+                            # mGBA frameskip setting (0-10, where 0 = disabled)
+                            try:
+                                skip_val = int(value)
+                                if skip_val > 0:
+                                    # Convert RetroArch frameskip to percentage
+                                    # RA frameskip: 1 = skip 1/2 (50%), 2 = skip 2/3 (66%), etc.
+                                    settings['frameskip'] = int((skip_val / (skip_val + 1)) * 100)
+                            except:
+                                pass
+                        
+                        elif key == 'video_refresh_rate':
+                            # Display refresh rate
+                            try:
+                                settings['refresh_rate'] = float(value)
+                            except:
+                                pass
+                        
+                        elif key == 'fastforward_ratio':
+                            # Fast forward speed multiplier
+                            try:
+                                settings['ff_ratio'] = float(value)
+                            except:
+                                pass
+        
+        except Exception as e:
+            print(f"[MgbaEmulator] Error parsing RetroArch config: {e}")
+        
+        return settings
 
 
     def _create_callbacks(self):
