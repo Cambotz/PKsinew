@@ -52,6 +52,36 @@ class HandheldProvider(EmulatorProvider):
 
     # ------------------------------------------------
 
+    def _find_roms_base(self, candidate_paths):
+        """
+        Find the actual ROMs base directory from a list of candidates.
+        Returns the first path that exists and contains at least one system directory.
+        
+        Args:
+            candidate_paths: List of potential ROM base directories to check
+            
+        Returns:
+            str: The validated ROMs base path, or None if not found
+        """
+        common_systems = ["gba", "nds", "gb", "gbc", "n64", "nes", "snes", "psx"]
+        
+        for base_path in candidate_paths:
+            if not os.path.exists(base_path):
+                continue
+                
+            # Check if this directory contains any common system folders
+            try:
+                entries = os.listdir(base_path)
+                if any(system in entries for system in common_systems):
+                    print(f"[HandheldProvider] Found ROMs at: {base_path}")
+                    return base_path
+            except (OSError, PermissionError):
+                continue
+                
+        return None
+
+    # ------------------------------------------------
+
     def _get_system_from_rom_path(self, rom_path):
         """
         Extract the system identifier from a ROM path.
@@ -74,28 +104,47 @@ class HandheldProvider(EmulatorProvider):
             return False
 
         # ArkOS
-        if os.path.exists("/usr/bin/emulationstation") and os.path.exists("/roms"):
-            self.strategy = "arkos"
-            self.roms_base = "/roms"
-            self.roms_dir = "/roms/gba"  # Default to GBA for now
-            self.saves_dir = self.roms_dir
-            print(f"[HandheldProvider] Detected ArkOS")
-            return True
+        if os.path.exists("/usr/bin/emulationstation"):
+            # Check multiple possible ROM locations (internal + 2nd SD)
+            arkos_candidates = [
+                "/roms",           # Internal/primary SD
+                "/roms2",          # Secondary SD (common mount point)
+                "/mnt/sdcard/roms" # Alternative secondary SD mount
+            ]
+            self.roms_base = self._find_roms_base(arkos_candidates)
+            if self.roms_base:
+                self.strategy = "arkos"
+                self.roms_dir = os.path.join(self.roms_base, "gba")  # Default to GBA
+                self.saves_dir = self.roms_dir
+                print(f"[HandheldProvider] Detected ArkOS")
+                return True
 
         # AmberELEC
-        if os.path.exists("/storage/roms"):
+        amberelec_candidates = [
+            "/storage/roms",      # Internal storage
+            "/storage/roms2",     # Secondary SD
+            "/roms",              # Alternative mount
+            "/roms2"              # Alternative secondary mount
+        ]
+        self.roms_base = self._find_roms_base(amberelec_candidates)
+        if self.roms_base:
             self.strategy = "amberelec"
-            self.roms_base = "/storage/roms"
-            self.roms_dir = "/storage/roms/gba"  # Default to GBA for now
+            self.roms_dir = os.path.join(self.roms_base, "gba")  # Default to GBA
             self.saves_dir = self.roms_dir
             print(f"[HandheldProvider] Detected AmberELEC")
             return True
 
         # muOS
-        if os.path.exists("/mnt/sdcard/roms"):
+        muos_candidates = [
+            "/mnt/sdcard/roms",   # Primary SD
+            "/mnt/mmc/roms",      # Secondary SD (common muOS mount)
+            "/mnt/sdcard2/roms",  # Alternative secondary mount
+            "/run/muos/storage/rom" # Alternative muOS path
+        ]
+        self.roms_base = self._find_roms_base(muos_candidates)
+        if self.roms_base:
             self.strategy = "muos"
-            self.roms_base = "/mnt/sdcard/roms"
-            self.roms_dir = "/mnt/sdcard/roms/gba"  # Default to GBA for now
+            self.roms_dir = os.path.join(self.roms_base, "gba")  # Default to GBA
             self.saves_dir = self.roms_dir
             print(f"[HandheldProvider] Detected muOS")
             return True
