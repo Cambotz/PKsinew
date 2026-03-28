@@ -115,9 +115,6 @@ class RetroPieProvider(EmulatorProvider):
             self.settings["emulator_cache"] = {}
         self.cache = self.settings["emulator_cache"]
         
-        # Track save paths for sync-back after emulator exits
-        self._last_sav_path = None
-        self._last_srm_path = None
 
     def probe(self, distro_id):
         """
@@ -300,59 +297,6 @@ class RetroPieProvider(EmulatorProvider):
         # Log the save path if one was provided
         if sav_path:
             print(f"[RetroPieProvider] Save file detected: {sav_path}")
-            
-            # RetroArch mGBA core uses .srm extension
-            # Sync .sav and .srm bidirectionally - newer file wins
-            if sav_path.endswith('.sav'):
-                rom_base = os.path.splitext(os.path.basename(rom_path))[0]
-                srm_path = os.path.join(self.saves_dir, f"{rom_base}.srm")
-                
-                # Track paths for sync-back on exit
-                self._last_sav_path = sav_path
-                self._last_srm_path = srm_path
-                
-                print(f"[RetroPieProvider] Syncing save files:")
-                print(f"  .sav: {sav_path}")
-                print(f"  .srm: {srm_path}")
-                
-                try:
-                    import shutil
-                    
-                    sav_exists = os.path.exists(sav_path)
-                    srm_exists = os.path.exists(srm_path) and not os.path.islink(srm_path)
-                    
-                    if sav_exists and srm_exists:
-                        # Both exist - compare timestamps, newer wins
-                        sav_mtime = os.path.getmtime(sav_path)
-                        srm_mtime = os.path.getmtime(srm_path)
-                        
-                        if srm_mtime > sav_mtime:
-                            # .srm is newer - copy to .sav
-                            shutil.copy2(srm_path, sav_path)
-                            print(f"[RetroPieProvider] ✓ .srm is newer, synced to .sav")
-                        elif sav_mtime > srm_mtime:
-                            # .sav is newer - copy to .srm
-                            shutil.copy2(sav_path, srm_path)
-                            print(f"[RetroPieProvider] ✓ .sav is newer, synced to .srm")
-                        else:
-                            print(f"[RetroPieProvider] Files already in sync")
-                    
-                    elif sav_exists and not srm_exists:
-                        # Only .sav exists - copy to .srm
-                        shutil.copy2(sav_path, srm_path)
-                        print(f"[RetroPieProvider] ✓ Created .srm from .sav")
-                    
-                    elif srm_exists and not sav_exists:
-                        # Only .srm exists - copy to .sav
-                        shutil.copy2(srm_path, sav_path)
-                        print(f"[RetroPieProvider] ✓ Created .sav from .srm")
-                    
-                    else:
-                        print(f"[RetroPieProvider] No save files exist yet")
-                    
-                        
-                except Exception as e:
-                    print(f"[RetroPieProvider] Failed to sync saves: {e}")
         else:
             print(f"[RetroPieProvider] No save file - will start new game")
         
@@ -414,40 +358,8 @@ class RetroPieProvider(EmulatorProvider):
             save_sinew_settings(self.settings)
 
     def on_exit(self):
-        """
-        Called after the emulator exits.
-        - Clean up temporary config file
-        - Sync .srm file back to .sav if it was modified
-        """
-        # Clean up override config
-        override_config = "/dev/shm/retroarch_sinew_override.cfg"
-        try:
-            if os.path.exists(override_config):
-                os.remove(override_config)
-        except Exception:
-            pass
-        
-        # Sync save file back
-        if self._last_sav_path and self._last_srm_path:
-            try:
-                # Check if .srm exists and was modified
-                if os.path.exists(self._last_srm_path):
-                    # If it's a symlink, the .sav is already updated
-                    if os.path.islink(self._last_srm_path):
-                        print(f"[RetroPieProvider] Save synced via symlink (no copy needed)")
-                    else:
-                        # Copy .srm back to .sav
-                        import shutil
-                        shutil.copy2(self._last_srm_path, self._last_sav_path)
-                        print(f"[RetroPieProvider] ✓ Synced .srm → .sav: {self._last_sav_path}")
-                else:
-                    print(f"[RetroPieProvider] No .srm file found to sync back")
-            except Exception as e:
-                print(f"[RetroPieProvider] Failed to sync save back: {e}")
-            finally:
-                # Clear tracked paths
-                self._last_sav_path = None
-                self._last_srm_path = None
+        """Called after emulator exits. Override for cleanup tasks."""
+        pass
 
     def terminate(self, process):
         """Terminate the emulator process."""

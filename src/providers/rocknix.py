@@ -77,9 +77,6 @@ class RocknixProvider(EmulatorProvider):
         self.cache = self.settings["emulator_cache"]
         print(f"[RocknixProvider] Cache loaded: {self.cache}")
         
-        # Track save paths for sync-back after emulator exits
-        self._last_sav_path = None
-        self._last_srm_path = None
 
     def probe(self, distro_id):
         is_rocknix = distro_id in self.claimed_distros
@@ -186,58 +183,6 @@ class RocknixProvider(EmulatorProvider):
         system = self._get_system_from_rom_path(rom_path)
         print(f"[RocknixProvider] Detected system: {system}")
 
-        # RetroArch mGBA core uses .srm extension
-        # Sync .sav and .srm bidirectionally - newer file wins
-        if sav_path and sav_path.endswith('.sav'):
-            rom_base = os.path.splitext(os.path.basename(rom_path))[0]
-            srm_path = os.path.join(os.path.dirname(sav_path), f"{rom_base}.srm")
-            
-            # Track paths for sync-back on exit
-            self._last_sav_path = sav_path
-            self._last_srm_path = srm_path
-            
-            print(f"[RocknixProvider] Syncing save files:")
-            print(f"  .sav: {sav_path}")
-            print(f"  .srm: {srm_path}")
-            
-            try:
-                import shutil
-                
-                sav_exists = os.path.exists(sav_path)
-                srm_exists = os.path.exists(srm_path) and not os.path.islink(srm_path)
-                
-                if sav_exists and srm_exists:
-                    # Both exist - compare timestamps, newer wins
-                    sav_mtime = os.path.getmtime(sav_path)
-                    srm_mtime = os.path.getmtime(srm_path)
-                    
-                    if srm_mtime > sav_mtime:
-                        # .srm is newer - copy to .sav
-                        shutil.copy2(srm_path, sav_path)
-                        print(f"[RocknixProvider] ✓ .srm is newer, synced to .sav")
-                    elif sav_mtime > srm_mtime:
-                        # .sav is newer - copy to .srm
-                        shutil.copy2(sav_path, srm_path)
-                        print(f"[RocknixProvider] ✓ .sav is newer, synced to .srm")
-                    else:
-                        print(f"[RocknixProvider] Files already in sync")
-                
-                elif sav_exists and not srm_exists:
-                    # Only .sav exists - copy to .srm
-                    shutil.copy2(sav_path, srm_path)
-                    print(f"[RocknixProvider] ✓ Created .srm from .sav")
-                
-                elif srm_exists and not sav_exists:
-                    # Only .srm exists - copy to .sav
-                    shutil.copy2(srm_path, sav_path)
-                    print(f"[RocknixProvider] ✓ Created .sav from .srm")
-                
-                else:
-                    print(f"[RocknixProvider] No save files exist yet")
-                
-                    
-            except Exception as e:
-                print(f"[RocknixProvider] Failed to sync saves: {e}")
 
         # Controller GUID — read directly from the joystick pygame already has open.
         guid = self.cache.get("p1_guid")
@@ -309,30 +254,8 @@ class RocknixProvider(EmulatorProvider):
             save_sinew_settings(self.settings)
 
     def on_exit(self):
-        """
-        Called after emulator exits.
-        Sync .srm file back to .sav if it was modified.
-        """
-        if self._last_sav_path and self._last_srm_path:
-            try:
-                # Check if .srm exists and was modified
-                if os.path.exists(self._last_srm_path):
-                    # If it's a symlink, the .sav is already updated
-                    if os.path.islink(self._last_srm_path):
-                        print(f"[RocknixProvider] Save synced via symlink (no copy needed)")
-                    else:
-                        # Copy .srm back to .sav
-                        import shutil
-                        shutil.copy2(self._last_srm_path, self._last_sav_path)
-                        print(f"[RocknixProvider] ✓ Synced .srm → .sav: {self._last_sav_path}")
-                else:
-                    print(f"[RocknixProvider] No .srm file found to sync back")
-            except Exception as e:
-                print(f"[RocknixProvider] Failed to sync save back: {e}")
-            finally:
-                # Clear tracked paths
-                self._last_sav_path = None
-                self._last_srm_path = None
+        """Called after emulator exits. Override for cleanup tasks."""
+        pass
 
     def terminate(self, process):
         if process:

@@ -41,6 +41,60 @@ from game_detection import (
 from save_data_manager import get_manager
 
 
+# Supported save file extensions
+SAVE_EXTENSIONS = ['.sav', '.srm', '.sram', '.sa1', '.sa2', '.sa3', '.dsv']
+
+
+def find_save_file(rom_base, save_dir):
+    """
+    Find the most recent save file for this ROM across all supported formats.
+    If multiple saves exist, the newest (by modification time) is returned.
+    If no save exists, returns default .sav path.
+    
+    Args:
+        rom_base: ROM filename without extension (e.g., "Pokemon_Emerald")
+        save_dir: Directory to search for saves
+    
+    Returns:
+        Absolute path to save file (existing or new .sav)
+    """
+    if not save_dir or not os.path.exists(save_dir):
+        # Fallback to internal saves dir
+        try:
+            from config import SAVES_DIR
+            save_dir = SAVES_DIR
+        except ImportError:
+            return None
+    
+    candidates = []
+    
+    # Find all existing save files
+    for ext in SAVE_EXTENSIONS:
+        path = os.path.join(save_dir, f"{rom_base}{ext}")
+        if os.path.exists(path):
+            mtime = os.path.getmtime(path)
+            candidates.append((mtime, path))
+    
+    if candidates:
+        # Sort by modification time (newest first)
+        candidates.sort(reverse=True)
+        
+        # Log all candidates
+        if len(candidates) > 1:
+            print(f"[Sinew] Found {len(candidates)} save files for {rom_base}:")
+            for mtime, path in candidates:
+                print(f"  - {os.path.basename(path)} (modified: {mtime})")
+        
+        newest = candidates[0][1]
+        print(f"[Sinew] Using newest save: {newest}")
+        return newest
+    
+    # No save found - return default .sav path (will be created on first save)
+    default_path = os.path.join(save_dir, f"{rom_base}.sav")
+    print(f"[Sinew] No save found, will create: {default_path}")
+    return default_path
+
+
 class EmulatorSessionMixin:
     """
     Mixin providing game session lifecycle management for GameScreen.
@@ -100,12 +154,16 @@ class EmulatorSessionMixin:
                         if self.emulator_manager else None)
             provider_saves = getattr(provider, "saves_dir", None) if provider else None
             use_ext = self.settings.get("use_emulator_provider", False)
+            
+            # Determine save directory
             if use_ext and provider_saves:
-                sav_path = os.path.join(provider_saves, f"{rom_base}.srm")
+                save_dir = provider_saves
             else:
-                from config import SAVES_DIR as _SD
-                sav_path = os.path.join(_SD, f"{rom_base}.sav")
-            print(f"[Sinew] Derived save path: {sav_path}")
+                from config import SAVES_DIR
+                save_dir = SAVES_DIR
+            
+            # Find existing save or default to .sav
+            sav_path = find_save_file(rom_base, save_dir)
 
         if not rom_path or not os.path.exists(rom_path):
             if self.games[gname].get("availability") == GAME_SAVE_ONLY:
