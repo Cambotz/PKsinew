@@ -28,11 +28,19 @@ class TemplateProvider(EmulatorProvider):
     
     YOU MUST implement this two-way sync in your provider:
     
-    1. In get_command(): Create .sav → .srm (symlink or copy)
-    2. In on_exit(): Copy .srm → .sav (if not a symlink)
+    1. In get_command(): Sync newer → older (bidirectional)
+       - Compare timestamps of .sav and .srm
+       - Copy newer file to older file
+       - Keep BOTH files (do NOT delete or create symlinks!)
+    
+    2. In on_exit(): Always copy .srm → .sav
+       - RetroArch saves to .srm during gameplay
+       - Unconditionally sync it back to .sav on exit
     
     See the example code in get_command() and on_exit() below.
     Failure to implement this will cause saves to NOT persist!
+    
+    IMPORTANT: Do NOT use symlinks or delete files - just copy between them.
     """
 
     active = False
@@ -110,7 +118,7 @@ class TemplateProvider(EmulatorProvider):
         """
         
         # IMPORTANT: RetroArch-based emulators use .srm instead of .sav
-        # If your emulator uses RetroArch, you MUST create a .srm symlink/copy:
+        # You MUST sync these files bidirectionally:
         #
         # if sav_path and sav_path.endswith('.sav'):
         #     rom_base = os.path.splitext(os.path.basename(rom_path))[0]
@@ -121,22 +129,41 @@ class TemplateProvider(EmulatorProvider):
         #     self._last_srm_path = srm_path
         #     
         #     try:
-        #         # Remove old file/symlink if it exists
-        #         if os.path.islink(srm_path):
-        #             os.remove(srm_path)
-        #         elif os.path.exists(srm_path):
-        #             backup_path = f"{srm_path}.backup"
-        #             os.rename(srm_path, backup_path)
+        #         import shutil
         #         
-        #         # Try symlink first (preferred - auto-syncs)
-        #         try:
-        #             os.symlink(sav_path, srm_path)
-        #         except (OSError, PermissionError):
-        #             # If symlink fails, copy the file instead
-        #             import shutil
+        #         sav_exists = os.path.exists(sav_path)
+        #         srm_exists = os.path.exists(srm_path) and not os.path.islink(srm_path)
+        #         
+        #         if sav_exists and srm_exists:
+        #             # Both exist - compare timestamps, newer wins
+        #             sav_mtime = os.path.getmtime(sav_path)
+        #             srm_mtime = os.path.getmtime(srm_path)
+        #             
+        #             if srm_mtime > sav_mtime:
+        #                 # .srm is newer - copy to .sav
+        #                 shutil.copy2(srm_path, sav_path)
+        #                 print(f"[TemplateProvider] ✓ .srm is newer, synced to .sav")
+        #             elif sav_mtime > srm_mtime:
+        #                 # .sav is newer - copy to .srm
+        #                 shutil.copy2(sav_path, srm_path)
+        #                 print(f"[TemplateProvider] ✓ .sav is newer, synced to .srm")
+        #         
+        #         elif sav_exists and not srm_exists:
+        #             # Only .sav exists - copy to .srm
         #             shutil.copy2(sav_path, srm_path)
+        #             print(f"[TemplateProvider] ✓ Created .srm from .sav")
+        #         
+        #         elif srm_exists and not sav_exists:
+        #             # Only .srm exists - copy to .sav
+        #             shutil.copy2(srm_path, sav_path)
+        #             print(f"[TemplateProvider] ✓ Created .sav from .srm")
+        #         
+        #         # DO NOT create symlinks or delete either file!
+        #         # Keep both files separate - RetroArch writes to .srm,
+        #         # on_exit() will sync .srm back to .sav
+        #         
         #     except Exception as e:
-        #         print(f"[TemplateProvider] Failed to create .srm: {e}")
+        #         print(f"[TemplateProvider] Failed to sync save files: {e}")
         
         return None
 
@@ -150,21 +177,17 @@ class TemplateProvider(EmulatorProvider):
         """
         Called after the emulator exits, either naturally or via terminate().
         
-        IMPORTANT: If using RetroArch, sync .srm back to .sav here!
+        IMPORTANT: If using RetroArch, always sync .srm back to .sav here!
         This ensures saves made in the emulator persist in PKsinew.
         """
         # Sync save file back (for RetroArch-based emulators)
         if self._last_sav_path and self._last_srm_path:
             try:
                 if os.path.exists(self._last_srm_path):
-                    # If it's a symlink, the .sav is already updated
-                    if os.path.islink(self._last_srm_path):
-                        print(f"[TemplateProvider] Save synced via symlink")
-                    else:
-                        # Copy .srm back to .sav
-                        import shutil
-                        shutil.copy2(self._last_srm_path, self._last_sav_path)
-                        print(f"[TemplateProvider] ✓ Synced .srm → .sav")
+                    # Always copy .srm back to .sav (no symlink check needed)
+                    import shutil
+                    shutil.copy2(self._last_srm_path, self._last_sav_path)
+                    print(f"[TemplateProvider] ✓ Synced .srm → .sav")
             except Exception as e:
                 print(f"[TemplateProvider] Failed to sync save: {e}")
             finally:

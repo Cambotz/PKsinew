@@ -301,13 +301,6 @@ class HandheldProvider(EmulatorProvider):
                     else:
                         print(f"[HandheldProvider] No save files exist yet")
                     
-                    # Now create symlink for seamless syncing during gameplay
-                    if os.path.exists(srm_path) and not os.path.islink(srm_path):
-                        os.remove(srm_path)
-                    
-                    if not os.path.exists(srm_path):
-                        os.symlink(sav_path, srm_path)
-                        print(f"[HandheldProvider] ✓ Created symlink .srm → .sav")
                         
                 except Exception as e:
                     print(f"[HandheldProvider] Failed to sync saves: {e}")
@@ -421,13 +414,6 @@ class HandheldProvider(EmulatorProvider):
                     else:
                         print(f"[HandheldProvider] No save files exist yet")
                     
-                    # Now create symlink for seamless syncing during gameplay
-                    if os.path.exists(srm_path) and not os.path.islink(srm_path):
-                        os.remove(srm_path)
-                    
-                    if not os.path.exists(srm_path):
-                        os.symlink(sav_path, srm_path)
-                        print(f"[HandheldProvider] ✓ Created symlink .srm → .sav")
                         
                 except Exception as e:
                     print(f"[HandheldProvider] Failed to sync saves: {e}")
@@ -505,13 +491,6 @@ class HandheldProvider(EmulatorProvider):
                     else:
                         print(f"[HandheldProvider] No save files exist yet")
                     
-                    # Now create symlink for seamless syncing during gameplay
-                    if os.path.exists(srm_path) and not os.path.islink(srm_path):
-                        os.remove(srm_path)
-                    
-                    if not os.path.exists(srm_path):
-                        os.symlink(sav_path, srm_path)
-                        print(f"[HandheldProvider] ✓ Created symlink .srm → .sav")
                         
                 except Exception as e:
                     print(f"[HandheldProvider] Failed to sync saves: {e}")
