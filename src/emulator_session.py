@@ -239,11 +239,11 @@ class EmulatorSessionMixin:
 
         gname = self.game_names[self.current_game]
         rom_path = self.games[gname].get("rom")
-        sav_path = self.games[gname].get("sav")
-
-        # If no save was detected, derive an expected path so the external
-        # emulator writes to the right place and Sinew can find it on return.
-        if not sav_path and rom_path:
+        
+        # CRITICAL: Always use find_save_file() for universal format detection
+        # The game cache may have stale .sav paths that don't reflect
+        # the newest save (could be .srm from RetroArch, etc.)
+        if rom_path:
             rom_base = os.path.splitext(os.path.basename(rom_path))[0]
             provider = (self.emulator_manager.active_provider
                         if self.emulator_manager else None)
@@ -257,8 +257,10 @@ class EmulatorSessionMixin:
                 from config import SAVES_DIR
                 save_dir = SAVES_DIR
             
-            # Find existing save or default to .sav
+            # Always detect newest save across all formats
             sav_path = find_save_file(rom_base, save_dir)
+        else:
+            sav_path = None
 
         if not rom_path or not os.path.exists(rom_path):
             if self.games[gname].get("availability") == GAME_SAVE_ONLY:
@@ -977,11 +979,27 @@ class EmulatorSessionMixin:
             and 0 <= self.current_game < len(self.game_names)
         ):
             gname = self.game_names[self.current_game]
-            sav_path = self.games[gname].get("sav")
-            if sav_path and os.path.exists(sav_path):
-                manager = get_manager()
-                manager.load_save(sav_path, game_hint=gname)
-                print(f"[GameScreen] Loaded save from new location: {sav_path}")
+            
+            # Use find_save_file to get the newest save across all formats
+            rom_path = self.games[gname].get("rom")
+            if rom_path:
+                rom_base = os.path.splitext(os.path.basename(rom_path))[0]
+                provider = self.emulator_manager.active_provider if self.emulator_manager else None
+                provider_saves = getattr(provider, "saves_dir", None) if provider else None
+                use_ext = self.settings.get("use_emulator_provider", False)
+                
+                if use_ext and provider_saves:
+                    save_dir = provider_saves
+                else:
+                    from config import SAVES_DIR
+                    save_dir = SAVES_DIR
+                
+                sav_path = find_save_file(rom_base, save_dir)
+                
+                if sav_path and os.path.exists(sav_path):
+                    manager = get_manager()
+                    manager.load_save(sav_path, game_hint=gname)
+                    print(f"[GameScreen] Loaded save from new location: {sav_path}")
 
         if screen:
             self._draw_loading_screen(screen, "Done!", 3, 3)
