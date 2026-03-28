@@ -84,6 +84,43 @@ class HandheldProvider(EmulatorProvider):
 
     # ------------------------------------------------
 
+    def _find_retroarch(self):
+        """
+        Find the RetroArch binary on the system.
+        
+        Returns:
+            str: Path to retroarch binary, or None if not found
+        """
+        retroarch_paths = [
+            "/usr/local/bin/retroarch",
+            "/usr/bin/retroarch",
+            "/opt/retroarch/bin/retroarch",
+            "/usr/local/bin/retroarch32",
+            "/home/ark/retroarch",
+            "/opt/system/Tools/retroarch/retroarch",
+        ]
+        
+        for path in retroarch_paths:
+            if os.path.exists(path) and os.access(path, os.X_OK):
+                return path
+        
+        # Try which command
+        try:
+            result = subprocess.run(
+                ["which", "retroarch"],
+                capture_output=True,
+                text=True,
+                timeout=1
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                return result.stdout.strip()
+        except:
+            pass
+        
+        return None
+
+    # ------------------------------------------------
+
     def _get_system_from_rom_path(self, rom_path):
         """
         Extract the system identifier from a ROM path.
@@ -138,7 +175,15 @@ class HandheldProvider(EmulatorProvider):
                 self.strategy = "arkos"
                 self.roms_dir = os.path.join(self.roms_base, "gba")  # Default to GBA
                 self.saves_dir = self.roms_dir
+                
+                # Find RetroArch binary
+                self.retroarch_path = self._find_retroarch()
+                if not self.retroarch_path:
+                    print("[HandheldProvider] WARNING: RetroArch not found - external provider disabled")
+                    return False
+                    
                 print(f"[HandheldProvider] Detected ArkOS")
+                print(f"[HandheldProvider] RetroArch: {self.retroarch_path}")
                 return True
 
         # AmberELEC
@@ -216,7 +261,7 @@ class HandheldProvider(EmulatorProvider):
             cmd = (
                 f"HOME=/home/ark "
                 f"SDL_VIDEODRIVER=kmsdrm "
-                f"/usr/bin/retroarch "
+                f"{self.retroarch_path} "
                 f"{config_append}"
                 f"-L /home/ark/.config/retroarch/cores/{core_name}_libretro.so "
                 f"{shlex.quote(rom_path)}"
