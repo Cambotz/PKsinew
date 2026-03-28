@@ -231,6 +231,7 @@ class HandheldProvider(EmulatorProvider):
         system = self._get_system_from_rom_path(rom_path)
         print(f"[HandheldProvider] System detected: {system}")
         print(f"[HandheldProvider] ROM path: {rom_path}")
+        print(f"[HandheldProvider] Save path: {sav_path}")
 
         # ArkOS / dARKos - call retroarch directly
         if self.strategy == "arkos":
@@ -246,6 +247,30 @@ class HandheldProvider(EmulatorProvider):
                 "psx": "pcsx_rearmed"
             }
             core_name = core_map.get(system, "mgba")
+            
+            # RetroArch mGBA core uses .srm extension
+            # Create a .srm symlink in the save directory if the save is .sav
+            if sav_path and sav_path.endswith('.sav'):
+                rom_base = os.path.splitext(os.path.basename(rom_path))[0]
+                srm_path = os.path.join(os.path.dirname(sav_path), f"{rom_base}.srm")
+                
+                print(f"[HandheldProvider] Creating .srm symlink:")
+                print(f"  Location: {srm_path}")
+                print(f"  Target: {sav_path}")
+                
+                try:
+                    # Remove old symlink if it exists
+                    if os.path.islink(srm_path):
+                        os.remove(srm_path)
+                    elif os.path.exists(srm_path):
+                        print(f"[HandheldProvider] Warning: {srm_path} exists and is not a symlink")
+                    
+                    if not os.path.exists(srm_path):
+                        # Create symlink
+                        os.symlink(sav_path, srm_path)
+                        print(f"[HandheldProvider] ✓ Symlink created")
+                except Exception as e:
+                    print(f"[HandheldProvider] Failed to create symlink: {e}")
             
             # Check for core override config
             config_dir = "/home/ark/.config/retroarch/config"
