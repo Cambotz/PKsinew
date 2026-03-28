@@ -259,16 +259,19 @@ class HandheldProvider(EmulatorProvider):
                 print(f"  Target: {sav_path}")
                 
                 try:
-                    # Remove old symlink if it exists
+                    # Remove old file/symlink if it exists
                     if os.path.islink(srm_path):
                         os.remove(srm_path)
+                        print(f"[HandheldProvider] Removed old symlink")
                     elif os.path.exists(srm_path):
-                        print(f"[HandheldProvider] Warning: {srm_path} exists and is not a symlink")
+                        # If it's a real file, back it up before replacing
+                        backup_path = f"{srm_path}.backup"
+                        os.rename(srm_path, backup_path)
+                        print(f"[HandheldProvider] Backed up existing .srm to {backup_path}")
                     
-                    if not os.path.exists(srm_path):
-                        # Create symlink
-                        os.symlink(sav_path, srm_path)
-                        print(f"[HandheldProvider] ✓ Symlink created")
+                    # Create symlink
+                    os.symlink(sav_path, srm_path)
+                    print(f"[HandheldProvider] ✓ Symlink created")
                 except Exception as e:
                     print(f"[HandheldProvider] Failed to create symlink: {e}")
             
@@ -276,20 +279,43 @@ class HandheldProvider(EmulatorProvider):
             config_dir = "/home/ark/.config/retroarch/config"
             core_override = os.path.join(config_dir, f"{core_name}", f"{core_name}.cfg")
             
+            # Create a minimal override config for KMS/DRM operation
+            override_config = f"/tmp/retroarch_sinew_{core_name}.cfg"
+            try:
+                with open(override_config, "w") as f:
+                    # Video driver must be set
+                    f.write('video_driver = "kmsdrm"\n')
+                    # Audio driver
+                    f.write('audio_driver = "sdl2"\n')
+                    # VSync for frame pacing
+                    f.write('video_vsync = "true"\n')
+                    # Don't show menu on start
+                    f.write('menu_driver = "null"\n')
+                print(f"[HandheldProvider] Created override config: {override_config}")
+            except Exception as e:
+                print(f"[HandheldProvider] Failed to create override: {e}")
+                override_config = None
+            
             config_append = ""
+            if override_config:
+                config_append = f"--appendconfig {shlex.quote(override_config)} "
+            
             if os.path.exists(core_override):
-                config_append = f"--appendconfig {shlex.quote(core_override)} "
+                config_append += f"--appendconfig {shlex.quote(core_override)} "
                 print(f"[HandheldProvider] Using core override: {core_override}")
             
             # Full command with environment setup for KMS/DRM
             # Set SDL to use kmsdrm video driver (critical for handheld without X11)
+            # Add verbose flag and redirect stderr to see what's happening
             cmd = (
                 f"HOME=/home/ark "
                 f"SDL_VIDEODRIVER=kmsdrm "
                 f"{self.retroarch_path} "
+                f"--verbose "
                 f"{config_append}"
                 f"-L /home/ark/.config/retroarch/cores/{core_name}_libretro.so "
-                f"{shlex.quote(rom_path)}"
+                f"{shlex.quote(rom_path)} "
+                f"2>&1 | head -20"  # Capture first 20 lines of output for debugging
             )
             print(f"[HandheldProvider] ArkOS command: {cmd}")
             return ["sh", "-c", cmd]

@@ -489,11 +489,11 @@ class _MgbaEmulator:
         self._frame_meta = {"width": 0, "height": 0, "pitch": 0}
         self._frame_ready = False
 
-        # Frameskip for low-powered devices (e.g., ArkOS handhelds)
-        # 33% threshold means: skip 1 out of every 3 frames (render 2, skip 1)
-        self._frameskip_enabled = self._detect_low_power_device()
+        # Frameskip for low-powered devices
+        # Start disabled - will be enabled if found in RetroArch config or detected as low-power
+        self._frameskip_enabled = False
         self._frameskip_counter = 0
-        self._frameskip_threshold = 0.33  # Skip 33% of frames
+        self._frameskip_threshold = 0.0  # Default: no frameskip
         
         # Try to load RetroArch settings if available
         self._retroarch_settings = self._load_retroarch_settings()
@@ -506,6 +506,12 @@ class _MgbaEmulator:
                     self._frameskip_enabled = True
                     self._frameskip_threshold = retroarch_frameskip / 100.0
                     print(f"[MgbaEmulator] Applied RetroArch frameskip: {retroarch_frameskip}%")
+        
+        # If no RetroArch frameskip found, check if we're on a low-power device
+        # and suggest enabling it (but don't force it)
+        if not self._frameskip_enabled:
+            if self._detect_low_power_device():
+                print(f"[MgbaEmulator] Low-power device detected - frameskip available in settings if needed")
         
         if self._frameskip_enabled:
             print(f"[MgbaEmulator] Frameskip enabled: {self._frameskip_threshold*100:.0f}% threshold")
