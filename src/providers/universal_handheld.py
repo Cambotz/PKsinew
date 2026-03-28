@@ -314,16 +314,13 @@ class HandheldProvider(EmulatorProvider):
             
             # Full command with environment setup for KMS/DRM
             # Set SDL to use kmsdrm video driver (critical for handheld without X11)
-            # Add verbose flag and redirect stderr to see what's happening
             cmd = (
                 f"HOME=/home/ark "
                 f"SDL_VIDEODRIVER=kmsdrm "
                 f"{self.retroarch_path} "
-                f"--verbose "
                 f"{config_append}"
                 f"-L /home/ark/.config/retroarch/cores/{core_name}_libretro.so "
-                f"{shlex.quote(rom_path)} "
-                f"2>&1 | head -20"  # Capture first 20 lines of output for debugging
+                f"{shlex.quote(rom_path)}"
             )
             print(f"[HandheldProvider] ArkOS command: {cmd}")
             return ["sh", "-c", cmd]
