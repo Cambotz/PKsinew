@@ -107,8 +107,8 @@ class HandheldProvider(EmulatorProvider):
         if os.path.exists("/usr/bin/emulationstation"):
             # Check multiple possible ROM locations (internal + 2nd SD)
             arkos_candidates = [
+                "/roms2",          # Secondary SD (primary check)
                 "/roms",           # Internal/primary SD
-                "/roms2",          # Secondary SD (common mount point)
                 "/mnt/sdcard/roms" # Alternative secondary SD mount
             ]
             self.roms_base = self._find_roms_base(arkos_candidates)
@@ -121,10 +121,10 @@ class HandheldProvider(EmulatorProvider):
 
         # AmberELEC
         amberelec_candidates = [
+            "/roms2",             # Secondary SD (primary check)
+            "/storage/roms2",     # Secondary SD alternative
             "/storage/roms",      # Internal storage
-            "/storage/roms2",     # Secondary SD
-            "/roms",              # Alternative mount
-            "/roms2"              # Alternative secondary mount
+            "/roms"               # Alternative mount
         ]
         self.roms_base = self._find_roms_base(amberelec_candidates)
         if self.roms_base:
@@ -136,10 +136,11 @@ class HandheldProvider(EmulatorProvider):
 
         # muOS
         muos_candidates = [
-            "/mnt/sdcard/roms",   # Primary SD
-            "/mnt/mmc/roms",      # Secondary SD (common muOS mount)
+            "/mnt/mmc/roms",      # Secondary SD (common muOS mount for 2nd card)
             "/mnt/sdcard2/roms",  # Alternative secondary mount
-            "/run/muos/storage/rom" # Alternative muOS path
+            "/mnt/sdcard/roms",   # Primary SD
+            "/run/muos/storage/rom", # Alternative muOS path
+            "/roms2"              # Generic secondary mount
         ]
         self.roms_base = self._find_roms_base(muos_candidates)
         if self.roms_base:
