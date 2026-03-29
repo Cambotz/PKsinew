@@ -520,6 +520,12 @@ class EmulatorSessionMixin:
             manager = get_manager()
             manager.load_save(sav_path, game_hint=gname)
             print(f"[Sinew] Reloaded save from: {sav_path}")
+            
+            # Refresh any open modals that display save data
+            if hasattr(self, 'modal_instance') and self.modal_instance:
+                if hasattr(self.modal_instance, 'refresh_data'):
+                    self.modal_instance.refresh_data()
+                    print("[Sinew] Refreshed modal data")
 
     # ------------------------------------------------------------------
     # Per-frame update (integrated emulator only)
