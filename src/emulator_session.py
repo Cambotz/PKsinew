@@ -104,20 +104,10 @@ def find_save_file(rom_base, save_dir):
             return (mtime, priority)
         
         candidates.sort(key=sort_key, reverse=True)
-        
-        # Log all candidates when multiple exist
-        if len(candidates) > 1:
-            print(f"[Sinew] Found {len(candidates)} save file(s) for {rom_base}:")
-            for mtime, path in candidates:
-                print(f"  - {os.path.basename(path)} (mtime={mtime})")
-        
-        selected = candidates[0][1]
-        print(f"[Sinew] Using save: {selected}")
-        return selected
+        return candidates[0][1]
     
     # No save found - return default .sav path (will be created on first save)
     default_path = os.path.join(save_dir, f"{rom_base}.sav")
-    print(f"[Sinew] No save found, will create: {default_path}")
     return default_path
 
 
@@ -520,11 +510,16 @@ class EmulatorSessionMixin:
         sav_path = find_save_file(rom_base, save_dir)
         
         if sav_path and os.path.exists(sav_path):
+            # CRITICAL: Invalidate cache before loading
+            # The SaveDataManager caches parsers by filepath, so if the file
+            # has been modified on disk (e.g., by external emulator), we need
+            # to force a fresh parse to get the latest data
+            from save_data_manager import invalidate_save_cache
+            invalidate_save_cache(sav_path)
+            
             manager = get_manager()
             manager.load_save(sav_path, game_hint=gname)
             print(f"[Sinew] Reloaded save from: {sav_path}")
-        else:
-            print(f"[Sinew] No save file found to reload")
 
     # ------------------------------------------------------------------
     # Per-frame update (integrated emulator only)
