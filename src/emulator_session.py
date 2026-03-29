@@ -528,7 +528,11 @@ class EmulatorSessionMixin:
             # Refresh any open modals that display save data
             if hasattr(self, 'modal_instance') and self.modal_instance:
                 if hasattr(self.modal_instance, 'refresh_data'):
+                    # Set flag to skip the fresh parse in refresh_data
+                    # since we just loaded the save data into the manager
+                    self.modal_instance._skip_reload = True
                     self.modal_instance.refresh_data()
+                    self.modal_instance._skip_reload = False
                     print("[Sinew] Refreshed modal data")
 
     # ------------------------------------------------------------------
