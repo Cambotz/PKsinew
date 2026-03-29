@@ -485,6 +485,47 @@ class EmulatorSessionMixin:
         self._start_menu_music()
         print("[Sinew] Returned from game")
 
+    def _force_reload_current_save(self):
+        """
+        Force SaveDataManager to reload the current game's save file from disk.
+        
+        Called after returning from an emulator session to ensure the UI
+        reflects any progress made in the game (new Pokemon, badges, etc.).
+        
+        Uses find_save_file() to get the newest save across all formats.
+        """
+        if not self.game_names or self.current_game < 0 or self.current_game >= len(self.game_names):
+            return
+        
+        gname = self.game_names[self.current_game]
+        rom_path = self.games.get(gname, {}).get("rom")
+        
+        if not rom_path:
+            return
+        
+        # Use find_save_file to get the newest save (same logic as _launch_game)
+        rom_base = os.path.splitext(os.path.basename(rom_path))[0]
+        provider = self.emulator_manager.active_provider if self.emulator_manager else None
+        provider_saves = getattr(provider, "saves_dir", None) if provider else None
+        use_ext = self.settings.get("use_emulator_provider", False)
+        
+        # Determine save directory
+        if use_ext and provider_saves:
+            save_dir = provider_saves
+        else:
+            from config import SAVES_DIR
+            save_dir = SAVES_DIR
+        
+        # Find newest save across all formats
+        sav_path = find_save_file(rom_base, save_dir)
+        
+        if sav_path and os.path.exists(sav_path):
+            manager = get_manager()
+            manager.load_save(sav_path, game_hint=gname)
+            print(f"[Sinew] Reloaded save from: {sav_path}")
+        else:
+            print(f"[Sinew] No save file found to reload")
+
     # ------------------------------------------------------------------
     # Per-frame update (integrated emulator only)
     # ------------------------------------------------------------------
