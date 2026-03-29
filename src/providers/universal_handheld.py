@@ -175,7 +175,18 @@ class HandheldProvider(EmulatorProvider):
             if self.roms_base:
                 self.strategy = "arkos"
                 self.roms_dir = os.path.join(self.roms_base, "gba")  # Default to GBA
-                self.saves_dir = self.roms_dir
+                
+                # ArkOS typically uses a 'saves' subdirectory
+                saves_subdir = os.path.join(self.roms_dir, "saves")
+                if os.path.exists(saves_subdir):
+                    self.saves_dir = saves_subdir
+                    print(f"[HandheldProvider] Using saves subdirectory: {saves_subdir}")
+                else:
+                    self.saves_dir = self.roms_dir
+                    print(f"[HandheldProvider] Using ROM directory for saves: {self.roms_dir}")
+                
+                print(f"[HandheldProvider] ⚠️ SAVE DIRECTORY SET TO: {self.saves_dir}")
+                print(f"[HandheldProvider] ⚠️ PKsinew will look for saves here!")
                 
                 # Find RetroArch binary
                 self.retroarch_path = self._find_retroarch()
@@ -198,7 +209,16 @@ class HandheldProvider(EmulatorProvider):
         if self.roms_base:
             self.strategy = "amberelec"
             self.roms_dir = os.path.join(self.roms_base, "gba")  # Default to GBA
-            self.saves_dir = self.roms_dir
+            
+            # Check for saves subdirectory
+            saves_subdir = os.path.join(self.roms_dir, "saves")
+            if os.path.exists(saves_subdir):
+                self.saves_dir = saves_subdir
+                print(f"[HandheldProvider] Using saves subdirectory: {saves_subdir}")
+            else:
+                self.saves_dir = self.roms_dir
+                print(f"[HandheldProvider] Using ROM directory for saves: {self.roms_dir}")
+            
             print(f"[HandheldProvider] Detected AmberELEC")
             return True
 
@@ -214,7 +234,16 @@ class HandheldProvider(EmulatorProvider):
         if self.roms_base:
             self.strategy = "muos"
             self.roms_dir = os.path.join(self.roms_base, "gba")  # Default to GBA
-            self.saves_dir = self.roms_dir
+            
+            # Check for saves subdirectory
+            saves_subdir = os.path.join(self.roms_dir, "saves")
+            if os.path.exists(saves_subdir):
+                self.saves_dir = saves_subdir
+                print(f"[HandheldProvider] Using saves subdirectory: {saves_subdir}")
+            else:
+                self.saves_dir = self.roms_dir
+                print(f"[HandheldProvider] Using ROM directory for saves: {self.roms_dir}")
+            
             print(f"[HandheldProvider] Detected muOS")
             return True
 

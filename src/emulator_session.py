@@ -243,12 +243,16 @@ class EmulatorSessionMixin:
             # Determine save directory
             if use_ext and provider_saves:
                 save_dir = provider_saves
+                print(f"[Launch] Using provider saves_dir: {save_dir}")
             else:
                 from config import SAVES_DIR
                 save_dir = SAVES_DIR
+                print(f"[Launch] Using internal SAVES_DIR: {save_dir}")
             
             # Always detect newest save across all formats
+            print(f"[Launch] Looking for saves with rom_base='{rom_base}' in save_dir='{save_dir}'")
             sav_path = find_save_file(rom_base, save_dir)
+            print(f"[Launch] find_save_file() returned: {sav_path}")
         else:
             sav_path = None
 
